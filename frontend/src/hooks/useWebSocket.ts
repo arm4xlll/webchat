@@ -5,7 +5,7 @@ import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { getConversations, getMessagesAfter } from '../api/conversations';
-import type { Attachment, Message, MessageEvent, PresenceEvent, ReadReceiptEvent, TypingEvent } from '../types';
+import type { Attachment, Message, MessageEvent, PresenceEvent, ReadReceiptEvent, TypingEvent, User } from '../types';
 
 export function useWebSocket() {
   const stompClientRef = useRef<Client | null>(null);
@@ -13,7 +13,7 @@ export function useWebSocket() {
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const { addMessage, updateMessage, addConversation, setTyping, clearAllTyping, setLastReadAt, setPresence, conversations } = useChatStore();
+  const { addMessage, updateMessage, addConversation, updateConversationMember, setTyping, clearAllTyping, setLastReadAt, setPresence, conversations } = useChatStore();
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
     if (subscribedConvsRef.current.has(convId)) return;
@@ -65,9 +65,18 @@ export function useWebSocket() {
       }
     });
 
-    subscriptionsRef.current.push(s1, s2, s3, s4, s5);
+    const s6 = client.subscribe(`/topic/conversation.${convId}.member_updated`, (frame: IMessage) => {
+      try {
+        const member = JSON.parse(frame.body) as User;
+        updateConversationMember(member);
+      } catch (e) {
+        console.error('[WS] Failed to parse member update', e);
+      }
+    });
+
+    subscriptionsRef.current.push(s1, s2, s3, s4, s5, s6);
     console.log('[WS] Subscribed to conversation', convId);
-  }, [addMessage, updateMessage, setTyping, setLastReadAt, setPresence]);
+  }, [addMessage, updateMessage, updateConversationMember, setTyping, setLastReadAt, setPresence]);
 
   useEffect(() => {
     if (!accessToken) return;

@@ -16,7 +16,6 @@ export const updateProfile = (name: string, bio: string) =>
 export const uploadAvatar = (file: File) => {
   const form = new FormData();
   form.append('file', file);
-  return api.post<User>('/users/me/avatar', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => r.data);
+  // No explicit Content-Type — browser sets it automatically with the multipart boundary
+  return api.post<User>('/users/me/avatar', form).then(r => r.data);
 };

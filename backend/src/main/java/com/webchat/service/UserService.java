@@ -3,10 +3,12 @@ package com.webchat.service;
 import com.webchat.dto.request.UpdateProfileRequest;
 import com.webchat.dto.response.UserResponse;
 import com.webchat.model.User;
+import com.webchat.repository.ConversationMemberRepository;
 import com.webchat.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +30,8 @@ public class UserService {
     private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
 
     private final UserRepository userRepository;
+    private final ConversationMemberRepository memberRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -62,7 +66,9 @@ public class UserService {
         User user = getEntityById(userId);
         user.setName(req.name());
         user.setBio(req.bio());
-        return UserResponse.from(user);
+        UserResponse response = UserResponse.from(user);
+        publishProfileUpdate(userId, response);
+        return response;
     }
 
     @Transactional
@@ -82,7 +88,16 @@ public class UserService {
 
         User user = getEntityById(userId);
         user.setAvatarUrl("/uploads/avatars/" + userId + "." + extension);
-        return UserResponse.from(user);
+        UserResponse response = UserResponse.from(user);
+        publishProfileUpdate(userId, response);
+        return response;
+    }
+
+    private void publishProfileUpdate(UUID userId, UserResponse updated) {
+        List<UUID> convIds = memberRepository.findConversationIdsByUserId(userId);
+        convIds.forEach(convId ->
+                messagingTemplate.convertAndSend("/topic/conversation." + convId + ".member_updated", updated));
+        log.debug("Profile update broadcast for user={} to {} conversations", userId, convIds.size());
     }
 
     private String getExtension(String filename, String contentType) {

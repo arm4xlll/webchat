@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -61,7 +62,8 @@ public class ConversationService {
                             conv.getId(),
                             conv.getType(),
                             List.of(UserResponse.from(currentUser), UserResponse.from(targetUser)),
-                            conv.getCreatedAt()
+                            conv.getCreatedAt(),
+                            Map.of()
                     );
 
                     // Уведомляем второго участника — у него появится чат без обновления страницы

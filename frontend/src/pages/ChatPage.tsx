@@ -25,6 +25,14 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // При переподключении WS ретраим read receipt для открытого чата
+  useEffect(() => {
+    if (wsStatus === 'connected' && activeConversationId) {
+      sendReadReceipt(activeConversationId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsStatus, activeConversationId]);
+
   const activeConversation = conversations.find(c => c.id === activeConversationId);
 
   const handleLogout = async () => {

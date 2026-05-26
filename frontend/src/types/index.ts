@@ -20,6 +20,7 @@ export interface Conversation {
   type: string;
   members: User[];
   createdAt: string;
+  lastReadAt?: Record<string, string>;
 }
 
 export interface Message {

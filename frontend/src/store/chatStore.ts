@@ -15,6 +15,7 @@ interface ChatState {
 
   setConversations: (convs: Conversation[]) => void;
   addConversation: (conv: Conversation) => void;
+  updateConversationMember: (member: User) => void;
   setActiveConversation: (id: string | null) => void;
   setMessages: (convId: string, msgs: Message[]) => void;
   addMessage: (msg: Message) => void;
@@ -35,13 +36,32 @@ export const useChatStore = create<ChatState>((set) => ({
   lastReadAt: {},
   presenceStatus: {},
 
-  setConversations: (convs) => set({ conversations: convs }),
+  setConversations: (convs) => set((state) => {
+    const merged = { ...state.lastReadAt };
+    convs.forEach(conv => {
+      if (conv.lastReadAt) {
+        merged[conv.id] = { ...(merged[conv.id] ?? {}), ...conv.lastReadAt };
+      }
+    });
+    return { conversations: convs, lastReadAt: merged };
+  }),
 
   addConversation: (conv) => set((state) => {
     const exists = state.conversations.some(c => c.id === conv.id);
     if (exists) return state;
-    return { conversations: [conv, ...state.conversations] };
+    const merged = { ...state.lastReadAt };
+    if (conv.lastReadAt) {
+      merged[conv.id] = { ...(merged[conv.id] ?? {}), ...conv.lastReadAt };
+    }
+    return { conversations: [conv, ...state.conversations], lastReadAt: merged };
   }),
+
+  updateConversationMember: (member) => set((state) => ({
+    conversations: state.conversations.map(conv => ({
+      ...conv,
+      members: conv.members.map(m => m.id === member.id ? { ...m, ...member } : m),
+    })),
+  })),
 
   setActiveConversation: (id) => set({ activeConversationId: id }),
 
