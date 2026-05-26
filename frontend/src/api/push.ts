@@ -1,4 +1,4 @@
-import api from './index';
+import api from './client';
 
 export const getPublicKey = async () => {
   const { data } = await api.get<{ publicKey: string }>('/push/public-key');
