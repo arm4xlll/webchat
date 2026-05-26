@@ -70,9 +70,6 @@ jobs:
             sudo ln -sf /etc/nginx/sites-available/webchat /etc/nginx/sites-enabled/webchat
             sudo nginx -t && sudo systemctl reload nginx
 
-            # Убедимся что dotenv установлен (нужен для ecosystem.config.js)
-            npm list -g dotenv &>/dev/null || npm install -g dotenv
-
             # Рестарт PM2
             cd /opt/webchat
             pm2 startOrRestart ecosystem.config.js --env production
