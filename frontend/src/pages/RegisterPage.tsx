@@ -21,8 +21,9 @@ export default function RegisterPage() {
       const data = await register(name, username, password);
       setAuth({ id: data.userId, name: data.name, username: data.username }, data.accessToken);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.detail ?? 'Ошибка регистрации');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setError(e.response?.data?.detail ?? 'Ошибка регистрации');
     } finally {
       setLoading(false);
     }

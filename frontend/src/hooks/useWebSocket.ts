@@ -4,7 +4,7 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
-import type { Attachment, Message, ReadReceiptEvent, TypingEvent } from '../types';
+import type { Attachment, Message, MessageEvent, ReadReceiptEvent, TypingEvent } from '../types';
 
 export function useWebSocket() {
   const stompClientRef = useRef<Client | null>(null);
@@ -12,7 +12,7 @@ export function useWebSocket() {
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const { addMessage, addConversation, setTyping, setLastReadAt, conversations } = useChatStore();
+  const { addMessage, updateMessage, addConversation, setTyping, setLastReadAt, conversations } = useChatStore();
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
     if (subscribedConvsRef.current.has(convId)) return;
@@ -44,9 +44,20 @@ export function useWebSocket() {
       }
     });
 
-    subscriptionsRef.current.push(s1, s2, s3);
+    const s4 = client.subscribe(`/topic/conversation.${convId}.event`, (frame: IMessage) => {
+      try {
+        const ev: MessageEvent = JSON.parse(frame.body);
+        if (ev.type === 'EDITED' || ev.type === 'DELETED') {
+          updateMessage(ev.message);
+        }
+      } catch (e) {
+        console.error('[WS] Failed to parse message event', e);
+      }
+    });
+
+    subscriptionsRef.current.push(s1, s2, s3, s4);
     console.log('[WS] Subscribed to conversation', convId);
-  }, [addMessage, setTyping, setLastReadAt]);
+  }, [addMessage, updateMessage, setTyping, setLastReadAt]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -67,7 +78,6 @@ export function useWebSocket() {
           subscribeToConversation(client, c.id);
         });
 
-        // Подписка на новые входящие чаты (когда другой юзер начинает разговор первым)
         const newConvSub = client.subscribe('/user/queue/conversations', (frame: IMessage) => {
           try {
             const conv = JSON.parse(frame.body);
@@ -108,14 +118,19 @@ export function useWebSocket() {
     };
   }, [accessToken]);
 
-  // Subscribe to new conversations when the list updates
   useEffect(() => {
     const client = stompClientRef.current;
     if (!client?.connected) return;
     conversations.forEach(c => subscribeToConversation(client, c.id));
-  }, [conversations, subscribeToConversation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations]);
 
-  const sendMessage = useCallback((conversationId: string, content: string, attachment?: Attachment) => {
+  const sendMessage = useCallback((
+    conversationId: string,
+    content: string,
+    attachment?: Attachment,
+    replyToId?: string
+  ) => {
     const client = stompClientRef.current;
     if (!client?.connected) {
       console.warn('[WS] Not connected');
@@ -123,7 +138,7 @@ export function useWebSocket() {
     }
     client.publish({
       destination: '/app/chat.send',
-      body: JSON.stringify({ conversationId, content, ...attachment }),
+      body: JSON.stringify({ conversationId, content, ...attachment, replyToId }),
     });
   }, []);
 
@@ -145,5 +160,23 @@ export function useWebSocket() {
     });
   }, []);
 
-  return { sendMessage, sendTyping, sendReadReceipt, wsStatus };
+  const editMessage = useCallback((conversationId: string, messageId: string, newContent: string) => {
+    const client = stompClientRef.current;
+    if (!client?.connected) return;
+    client.publish({
+      destination: '/app/chat.edit',
+      body: JSON.stringify({ conversationId, messageId, newContent }),
+    });
+  }, []);
+
+  const deleteMessage = useCallback((conversationId: string, messageId: string, forEveryone: boolean) => {
+    const client = stompClientRef.current;
+    if (!client?.connected) return;
+    client.publish({
+      destination: '/app/chat.delete',
+      body: JSON.stringify({ conversationId, messageId, forEveryone }),
+    });
+  }, []);
+
+  return { sendMessage, sendTyping, sendReadReceipt, editMessage, deleteMessage, wsStatus };
 }

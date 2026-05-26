@@ -11,5 +11,6 @@ public record SendMessageRequest(
         String fileUrl,
         String fileName,
         String fileType,
-        Long fileSize
+        Long fileSize,
+        UUID replyToId
 ) {}

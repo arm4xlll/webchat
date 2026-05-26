@@ -1,6 +1,7 @@
 package com.webchat.controller;
 
 import com.webchat.dto.request.CreateConversationRequest;
+import com.webchat.dto.request.EditMessageRequest;
 import com.webchat.dto.response.ConversationResponse;
 import com.webchat.dto.response.MessageResponse;
 import com.webchat.security.UserPrincipal;
@@ -55,5 +56,24 @@ public class ConversationController {
             @RequestParam Instant after,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(messageService.getAfter(id, principal.getUserId(), after));
+    }
+
+    @PatchMapping("/{convId}/messages/{msgId}")
+    public ResponseEntity<MessageResponse> editMessage(
+            @PathVariable UUID convId,
+            @PathVariable UUID msgId,
+            @Valid @RequestBody EditMessageRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(messageService.editMessage(principal.getUserId(), msgId, request.content()));
+    }
+
+    @DeleteMapping("/{convId}/messages/{msgId}")
+    public ResponseEntity<Void> deleteMessage(
+            @PathVariable UUID convId,
+            @PathVariable UUID msgId,
+            @RequestParam(defaultValue = "false") boolean forEveryone,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        messageService.deleteMessage(principal.getUserId(), msgId, forEveryone);
+        return ResponseEntity.noContent().build();
     }
 }

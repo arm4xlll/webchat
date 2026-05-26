@@ -1,16 +1,17 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import { getMessages } from '../../api/conversations';
-import type { Attachment, Conversation } from '../../types';
+import type { Attachment, Conversation, Message } from '../../types';
 import MessageList from './MessageList';
-import TypingIndicator from './TypingIndicator';
 import MessageInput from './MessageInput';
 import { ArrowLeft } from 'lucide-react';
 
 interface Props {
   conversation: Conversation;
-  onSend: (content: string, attachment?: Attachment) => void;
+  onSend: (content: string, attachment?: Attachment, replyToId?: string) => void;
+  onEditMessage: (messageId: string, newContent: string) => void;
+  onDeleteMessage: (messageId: string, forEveryone: boolean) => void;
   onTyping: (typing: boolean) => void;
   onRead: () => void;
   onBack?: () => void;
@@ -20,19 +21,27 @@ function getOtherMember(conv: Conversation, myId: string) {
   return conv.members.find(m => m.id !== myId) ?? conv.members[0];
 }
 
-export default function ChatWindow({ conversation, onSend, onTyping, onRead, onBack }: Props) {
+const EMPTY_TYPING: never[] = [];
+
+export default function ChatWindow({ conversation, onSend, onEditMessage, onDeleteMessage, onTyping, onRead, onBack }: Props) {
   const user = useAuthStore(s => s.user);
   const { setMessages, messages } = useChatStore();
+  const typingUsers = useChatStore(s => s.typingUsers[conversation.id] ?? EMPTY_TYPING);
   const other = user ? getOtherMember(conversation, user.id) : null;
+
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
   useEffect(() => {
     if (messages[conversation.id] !== undefined) return;
     getMessages(conversation.id).then(msgs => setMessages(conversation.id, msgs));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
 
   // Read receipt при открытии чата и при каждом новом сообщении пока чат открыт
   useEffect(() => {
     onRead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id, messages[conversation.id]?.length]);
 
   return (
@@ -52,14 +61,54 @@ export default function ChatWindow({ conversation, onSend, onTyping, onRead, onB
         </div>
         <div>
           <div className="font-medium text-[15px] text-tg-text leading-none mb-1">{other?.name ?? 'Чат'}</div>
-          <div className="text-xs text-tg-text-secondary">@{other?.username ?? ''}</div>
+          {typingUsers.length > 0 ? (
+            <div className="flex items-center gap-1.5 h-3.5 text-[13px] text-tg-primary animate-slide-in">
+              <span className="flex items-center gap-0.5">
+                {[0, 1, 2].map(i => (
+                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-tg-primary inline-block" style={{
+                    animation: 'bounce 1.2s infinite',
+                    animationDelay: `${i * 0.2}s`
+                  }} />
+                ))}
+              </span>
+              <span>{typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'печатает...' : 'печатают...'}</span>
+              <style>{`
+                @keyframes bounce {
+                  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+                  40% { transform: translateY(-2px); opacity: 1; }
+                }
+              `}</style>
+            </div>
+          ) : (
+            <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">@{other?.username ?? ''}</div>
+          )}
         </div>
       </div>
 
-      <MessageList conversationId={conversation.id} conversation={conversation} />
-      <TypingIndicator conversationId={conversation.id} />
-      <MessageInput onSend={onSend} onTyping={onTyping} />
+      <MessageList
+        conversationId={conversation.id}
+        conversation={conversation}
+        onReply={(msg) => { setReplyingTo(msg); setEditingMessage(null); }}
+        onEdit={(msg) => { setEditingMessage(msg); setReplyingTo(null); }}
+        onDelete={(msg, all) => onDeleteMessage(msg.id, all)}
+      />
+      
+      <MessageInput
+        onSend={(content, attachment) => {
+          if (editingMessage) {
+            onEditMessage(editingMessage.id, content);
+            setEditingMessage(null);
+          } else {
+            onSend(content, attachment, replyingTo?.id);
+            setReplyingTo(null);
+          }
+        }}
+        onTyping={onTyping}
+        replyingTo={replyingTo}
+        editingMessage={editingMessage}
+        onCancelReply={() => setReplyingTo(null)}
+        onCancelEdit={() => setEditingMessage(null)}
+      />
     </div>
   );
 }
-

@@ -13,16 +13,17 @@ export default function ChatPage() {
   const user = useAuthStore(s => s.user);
   const doLogout = useAuthStore(s => s.logout);
   const { conversations, activeConversationId, setConversations, setActiveConversation } = useChatStore();
-  const { sendMessage, sendTyping, sendReadReceipt, wsStatus } = useWebSocket();
+  const { sendMessage, sendTyping, sendReadReceipt, editMessage, deleteMessage, wsStatus } = useWebSocket();
 
   useEffect(() => {
     getConversations().then(setConversations);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
 
   const handleLogout = async () => {
-    try { await logout(); } catch {}
+    try { await logout(); } catch (e) { console.error(e); }
     doLogout();
   };
 
@@ -76,7 +77,9 @@ export default function ChatPage() {
         {activeConversation ? (
           <ChatWindow
             conversation={activeConversation}
-            onSend={(content, attachment) => sendMessage(activeConversationId!, content, attachment)}
+            onSend={(content, attachment, replyToId) => sendMessage(activeConversationId!, content, attachment, replyToId)}
+            onEditMessage={(msgId, newContent) => editMessage(activeConversationId!, msgId, newContent)}
+            onDeleteMessage={(msgId, forEveryone) => deleteMessage(activeConversationId!, msgId, forEveryone)}
             onTyping={typing => sendTyping(activeConversationId!, typing)}
             onRead={() => sendReadReceipt(activeConversationId!)}
             onBack={() => setActiveConversation(null)}

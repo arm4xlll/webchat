@@ -1,17 +1,28 @@
-import { useState, useCallback, useRef } from 'react';
-import { Send, Paperclip, X, Loader2 } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Send, Paperclip, X, Loader2, CornerUpLeft, Pencil } from 'lucide-react';
 import { uploadFile } from '../../api/conversations';
-import type { Attachment } from '../../types';
+import type { Attachment, Message } from '../../types';
 
 interface Props {
   onSend: (content: string, attachment?: Attachment) => void;
   onTyping: (typing: boolean) => void;
+  replyingTo?: Message | null;
+  editingMessage?: Message | null;
+  onCancelReply: () => void;
+  onCancelEdit: () => void;
 }
 
 const ACCEPTED = 'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,video/ogg';
 const MAX_MB = 50;
 
-export default function MessageInput({ onSend, onTyping }: Props) {
+export default function MessageInput({
+  onSend,
+  onTyping,
+  replyingTo,
+  editingMessage,
+  onCancelReply,
+  onCancelEdit,
+}: Props) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -21,6 +32,25 @@ export default function MessageInput({ onSend, onTyping }: Props) {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Populate textarea when entering edit mode
+  useEffect(() => {
+    if (editingMessage) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setText(editingMessage.content);
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingMessage?.id]);
+
+  // Focus textarea on reply
+  useEffect(() => {
+    if (replyingTo) {
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyingTo?.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
@@ -71,10 +101,20 @@ export default function MessageInput({ onSend, onTyping }: Props) {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     isTypingRef.current = false;
     onTyping(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, file, onSend, onTyping]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === 'Escape') {
+      if (editingMessage) { onCancelEdit(); setText(''); }
+      else if (replyingTo) { onCancelReply(); }
+    }
+  };
+
+  const handleCancelEdit = () => {
+    onCancelEdit();
+    setText('');
   };
 
   const canSend = (text.trim().length > 0 || !!file) && !uploading;
@@ -82,6 +122,40 @@ export default function MessageInput({ onSend, onTyping }: Props) {
 
   return (
     <div className="bg-tg-sidebar-bg border-t border-tg-border safe-bottom">
+      {/* Reply bar */}
+      {replyingTo && !editingMessage && (
+        <div className="flex items-center gap-2 px-4 pt-2.5 pb-1">
+          <CornerUpLeft className="w-4 h-4 text-tg-primary shrink-0" />
+          <div className="flex-1 min-w-0 border-l-2 border-tg-primary pl-2">
+            <div className="text-xs font-medium text-tg-primary truncate">{replyingTo.senderName}</div>
+            <div className="text-xs text-tg-text-secondary truncate">{replyingTo.content || '[медиафайл]'}</div>
+          </div>
+          <button
+            onClick={onCancelReply}
+            className="p-1 text-tg-text-secondary hover:text-white transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Edit bar */}
+      {editingMessage && (
+        <div className="flex items-center gap-2 px-4 pt-2.5 pb-1">
+          <Pencil className="w-4 h-4 text-tg-primary shrink-0" />
+          <div className="flex-1 min-w-0 border-l-2 border-tg-primary pl-2">
+            <div className="text-xs font-medium text-tg-primary">Редактирование</div>
+            <div className="text-xs text-tg-text-secondary truncate">{editingMessage.content}</div>
+          </div>
+          <button
+            onClick={handleCancelEdit}
+            className="p-1 text-tg-text-secondary hover:text-white transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* File preview */}
       {preview && (
         <div className="px-4 pt-3 flex items-start gap-3">
@@ -129,19 +203,22 @@ export default function MessageInput({ onSend, onTyping }: Props) {
           onChange={handleFileChange}
           className="hidden"
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          title="Прикрепить файл"
-          className="p-2 text-tg-text-secondary hover:text-tg-primary hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
+        {!editingMessage && (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Прикрепить файл"
+            className="p-2 text-tg-text-secondary hover:text-tg-primary hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+        )}
 
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder="Напишите сообщение..."
+          placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
           rows={1}
           className="flex-1 bg-tg-input-bg rounded-2xl px-4 py-2.5 text-tg-text placeholder:text-tg-text-secondary text-[15px] resize-none outline-none max-h-28 overflow-y-auto transition-all duration-200 leading-[1.4] border border-tg-border focus:border-tg-primary"
         />
@@ -149,7 +226,7 @@ export default function MessageInput({ onSend, onTyping }: Props) {
         <button
           onClick={handleSend}
           disabled={!canSend}
-          title="Отправить (Enter)"
+          title={editingMessage ? 'Сохранить (Enter)' : 'Отправить (Enter)'}
           className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 ${
             canSend
               ? 'bg-tg-primary text-white hover:opacity-90 cursor-pointer'
@@ -158,7 +235,9 @@ export default function MessageInput({ onSend, onTyping }: Props) {
         >
           {uploading
             ? <Loader2 className="w-5 h-5 animate-spin" />
-            : <Send className="w-5 h-5" />
+            : editingMessage
+              ? <Pencil className="w-4 h-4" />
+              : <Send className="w-5 h-5" />
           }
         </button>
       </div>

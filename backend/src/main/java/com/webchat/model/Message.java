@@ -49,6 +49,17 @@ public class Message {
     @Builder.Default
     private boolean deleted = false;
 
+    @Column(name = "edited_at")
+    private Instant editedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_id")
+    private Message replyTo;
+
+    @Column(name = "deleted_for_sender", nullable = false)
+    @Builder.Default
+    private boolean deletedForSender = false;
+
     @PrePersist
     void prePersist() {
         createdAt = Instant.now();

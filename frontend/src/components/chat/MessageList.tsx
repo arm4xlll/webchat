@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Pencil, Trash2, CornerUpLeft } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Conversation, Message } from '../../types';
 import MessageStatus from './MessageStatus';
 import MediaViewer from './MediaViewer';
+import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 
 interface Props {
   conversationId: string;
   conversation: Conversation;
+  onReply: (msg: Message) => void;
+  onEdit: (msg: Message) => void;
+  onDelete: (msg: Message, forEveryone: boolean) => void;
 }
 
 const EMPTY_MESSAGES: never[] = [];
@@ -82,18 +87,78 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick }: MediaB
   );
 }
 
-export default function MessageList({ conversationId, conversation }: Props) {
+export default function MessageList({ conversationId, conversation, onReply, onEdit, onDelete }: Props) {
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
   const lastReadAt = useChatStore(s => s.lastReadAt[conversationId]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msg: Message } | null>(null);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const otherId = conversation.members.find(m => m.id !== user?.id)?.id;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const openContextMenu = useCallback((x: number, y: number, msg: Message) => {
+    setContextMenu({ x, y, msg });
+  }, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, msg: Message) => {
+    e.preventDefault();
+    openContextMenu(e.clientX, e.clientY, msg);
+  }, [openContextMenu]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent, msg: Message) => {
+    const touch = e.touches[0];
+    longPressRef.current = setTimeout(() => {
+      openContextMenu(touch.clientX, touch.clientY, msg);
+    }, 500);
+  }, [openContextMenu]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }, []);
+
+  const buildMenuItems = useCallback((msg: Message): ContextMenuItem[] => {
+    const isOwn = msg.senderId === user?.id;
+    const items: ContextMenuItem[] = [];
+
+    if (!msg.deleted) {
+      items.push({
+        icon: <CornerUpLeft className="w-4 h-4" />,
+        label: 'Ответить',
+        onClick: () => onReply(msg),
+      });
+    }
+
+    if (isOwn && !msg.deleted) {
+      items.push({
+        icon: <Pencil className="w-4 h-4" />,
+        label: 'Редактировать',
+        onClick: () => onEdit(msg),
+      });
+      items.push({
+        icon: <Trash2 className="w-4 h-4" />,
+        label: 'Удалить у себя',
+        onClick: () => onDelete(msg, false),
+        danger: true,
+      });
+      items.push({
+        icon: <Trash2 className="w-4 h-4" />,
+        label: 'Удалить у всех',
+        onClick: () => onDelete(msg, true),
+        danger: true,
+      });
+    }
+
+    return items;
+  }, [user?.id, onReply, onEdit, onDelete]);
 
   return (
     <>
@@ -113,7 +178,7 @@ export default function MessageList({ conversationId, conversation }: Props) {
           const isFirst = !prevMsg || prevMsg.senderId !== msg.senderId;
           const isLast  = !nextMsg || nextMsg.senderId !== msg.senderId;
           const showName = !isOwn && isFirst;
-          const hasMedia = isImage(msg.fileType) || isVideo(msg.fileType);
+          const hasMedia = !msg.deleted && (isImage(msg.fileType) || isVideo(msg.fileType));
 
           const bubbleShape = isOwn
             ? isFirst && isLast ? 'rounded-l-2xl rounded-tr-2xl rounded-br-[5px]'
@@ -127,6 +192,11 @@ export default function MessageList({ conversationId, conversation }: Props) {
 
           const timeNode = (
             <>
+              {msg.editedAt && !msg.deleted && (
+                <span className={`text-[10px] italic ${isOwn ? 'text-[rgba(255,255,255,0.5)]' : 'text-tg-text-secondary'}`}>
+                  изм.
+                </span>
+              )}
               <span className={`text-[11px] ${hasMedia ? 'text-white/90' : isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
                 {formatTime(msg.createdAt)}
               </span>
@@ -143,6 +213,10 @@ export default function MessageList({ conversationId, conversation }: Props) {
             <div
               key={msg.id}
               className={`flex w-full select-text animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
+              onContextMenu={(e) => handleContextMenu(e, msg)}
+              onTouchStart={(e) => handleTouchStart(e, msg)}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchEnd}
             >
               <div className={`max-w-[75%] md:max-w-[65%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                 {showName && (
@@ -151,21 +225,52 @@ export default function MessageList({ conversationId, conversation }: Props) {
                   </span>
                 )}
 
-                {hasMedia ? (
-                  <MediaBubble
-                    msg={msg}
-                    isOwn={isOwn}
-                    bubbleShape={bubbleShape}
-                    timeNode={timeNode}
-                    onImageClick={(src, alt) => setLightbox({ src, alt })}
-                  />
-                ) : (
-                  <div className={`relative px-4 py-2 text-[15px] leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out text-white' : 'bg-tg-msg-in text-tg-text'}`}>
+                {msg.deleted ? (
+                  <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
                     <div className="flex flex-wrap items-end gap-2">
-                      <span className="whitespace-pre-wrap max-w-full break-words">{msg.content}</span>
-                      <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
+                      <span className={`${isOwn ? 'text-[rgba(255,255,255,0.5)]' : 'text-tg-text-secondary'}`}>
+                        Сообщение удалено
+                      </span>
+                      <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${isOwn ? 'text-[rgba(255,255,255,0.45)]' : 'text-tg-text-secondary'}`}>
                         {timeNode}
                       </span>
+                    </div>
+                  </div>
+                ) : hasMedia ? (
+                  <div className="flex flex-col w-full">
+                    {msg.replyToId && (
+                      <ReplyQuote
+                        senderName={msg.replyToSenderName ?? ''}
+                        content={msg.replyToContent ?? null}
+                        isOwn={isOwn}
+                        attached
+                      />
+                    )}
+                    <MediaBubble
+                      msg={msg}
+                      isOwn={isOwn}
+                      bubbleShape={msg.replyToId ? (isOwn ? 'rounded-l-2xl rounded-r-[5px]' : 'rounded-r-2xl rounded-l-[5px]') : bubbleShape}
+                      timeNode={timeNode}
+                      onImageClick={(src, alt) => setLightbox({ src, alt })}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col w-full">
+                    {msg.replyToId && (
+                      <ReplyQuote
+                        senderName={msg.replyToSenderName ?? ''}
+                        content={msg.replyToContent ?? null}
+                        isOwn={isOwn}
+                        attached
+                      />
+                    )}
+                    <div className={`relative px-4 py-2 text-[15px] leading-relaxed break-words shadow-sm ${msg.replyToId ? (isOwn ? 'rounded-l-2xl rounded-r-[5px]' : 'rounded-r-2xl rounded-l-[5px]') : bubbleShape} ${isOwn ? 'bg-tg-msg-out text-white' : 'bg-tg-msg-in text-tg-text'}`}>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <span className="whitespace-pre-wrap max-w-full break-words">{msg.content}</span>
+                        <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
+                          {timeNode}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -176,6 +281,15 @@ export default function MessageList({ conversationId, conversation }: Props) {
         <div ref={bottomRef} />
       </div>
 
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={buildMenuItems(contextMenu.msg)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
       {lightbox && (
         <MediaViewer
           src={lightbox.src}
@@ -184,5 +298,31 @@ export default function MessageList({ conversationId, conversation }: Props) {
         />
       )}
     </>
+  );
+}
+
+interface ReplyQuoteProps {
+  senderName: string;
+  content: string | null;
+  isOwn: boolean;
+  attached?: boolean;
+}
+
+function ReplyQuote({ senderName, content, isOwn, attached }: ReplyQuoteProps) {
+  return (
+    <div className={`
+      px-3 pt-2 pb-1 text-[13px] border-l-2 border-tg-primary
+      ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}
+      ${attached
+        ? isOwn
+          ? 'rounded-l-2xl rounded-tr-2xl rounded-br-none'
+          : 'rounded-r-2xl rounded-tl-2xl rounded-bl-none'
+        : 'rounded-xl'}
+    `}>
+      <div className="font-medium text-tg-primary truncate">{senderName}</div>
+      <div className={`truncate mt-0.5 ${isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
+        {content ?? 'Сообщение удалено'}
+      </div>
+    </div>
   );
 }

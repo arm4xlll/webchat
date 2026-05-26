@@ -1,6 +1,7 @@
 package com.webchat.service;
 
 import com.webchat.dto.request.SendMessageRequest;
+import com.webchat.dto.response.MessageEventResponse;
 import com.webchat.dto.response.MessageResponse;
 import com.webchat.model.Conversation;
 import com.webchat.model.Message;
@@ -44,6 +45,12 @@ public class MessageService {
         }
 
         User sender = userService.getEntityById(senderId);
+
+        Message replyTo = null;
+        if (req.replyToId() != null) {
+            replyTo = messageRepository.findById(req.replyToId()).orElse(null);
+        }
+
         Message message = Message.builder()
                 .conversation(conv)
                 .sender(sender)
@@ -52,6 +59,7 @@ public class MessageService {
                 .fileName(req.fileName())
                 .fileType(req.fileType())
                 .fileSize(req.fileSize())
+                .replyTo(replyTo)
                 .build();
         messageRepository.save(message);
 
@@ -70,12 +78,11 @@ public class MessageService {
             throw new SecurityException("User is not a member of conversation " + conversationId);
         }
         List<MessageResponse> messages = messageRepository
-                .findByConversationId(conversationId, PageRequest.of(page, size))
+                .findByConversationId(conversationId, userId, PageRequest.of(page, size))
                 .stream()
                 .map(MessageResponse::from)
                 .toList();
 
-        // Return in chronological order (oldest first)
         List<MessageResponse> result = new java.util.ArrayList<>(messages);
         Collections.reverse(result);
         return result;
@@ -86,8 +93,64 @@ public class MessageService {
         if (!conversationService.isMember(conversationId, userId)) {
             throw new SecurityException("User is not a member of conversation " + conversationId);
         }
-        return messageRepository.findAfter(conversationId, after).stream()
+        return messageRepository.findAfter(conversationId, after, userId).stream()
                 .map(MessageResponse::from)
                 .toList();
+    }
+
+    @Transactional
+    public MessageResponse editMessage(UUID userId, UUID messageId, String newContent) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found: " + messageId));
+
+        if (!message.getSender().getId().equals(userId)) {
+            throw new SecurityException("Not the message sender");
+        }
+        if (message.isDeleted()) {
+            throw new IllegalArgumentException("Cannot edit deleted message");
+        }
+
+        message.setContent(newContent.trim());
+        message.setEditedAt(Instant.now());
+        messageRepository.save(message);
+
+        MessageResponse response = MessageResponse.from(message);
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + message.getConversation().getId() + ".event",
+                new MessageEventResponse("EDITED", response)
+        );
+        log.info("Message edited: msgId={} by userId={}", messageId, userId);
+        return response;
+    }
+
+    @Transactional
+    public void deleteMessage(UUID userId, UUID messageId, boolean forEveryone) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found: " + messageId));
+
+        if (!message.getSender().getId().equals(userId)) {
+            throw new SecurityException("Not the message sender");
+        }
+
+        if (forEveryone) {
+            message.setDeleted(true);
+            message.setContent("");
+            message.setFileUrl(null);
+            message.setFileName(null);
+            message.setFileType(null);
+            message.setFileSize(null);
+            messageRepository.save(message);
+
+            MessageResponse response = MessageResponse.from(message);
+            messagingTemplate.convertAndSend(
+                    "/topic/conversation." + message.getConversation().getId() + ".event",
+                    new MessageEventResponse("DELETED", response)
+            );
+            log.info("Message deleted for everyone: msgId={} by userId={}", messageId, userId);
+        } else {
+            message.setDeletedForSender(true);
+            messageRepository.save(message);
+            log.info("Message deleted for sender: msgId={} by userId={}", messageId, userId);
+        }
     }
 }

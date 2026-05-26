@@ -11,7 +11,6 @@ interface ChatState {
   activeConversationId: string | null;
   messages: Record<string, Message[]>;
   typingUsers: Record<string, TypingUser[]>;
-  // lastReadAt[convId][userId] = ISO timestamp — когда userId последний раз прочитал convId
   lastReadAt: Record<string, Record<string, string>>;
 
   setConversations: (convs: Conversation[]) => void;
@@ -19,6 +18,8 @@ interface ChatState {
   setActiveConversation: (id: string | null) => void;
   setMessages: (convId: string, msgs: Message[]) => void;
   addMessage: (msg: Message) => void;
+  updateMessage: (msg: Message) => void;
+  removeMessage: (convId: string, msgId: string) => void;
   setTyping: (convId: string, userId: string, username: string, typing: boolean) => void;
   setLastReadAt: (convId: string, userId: string, lastReadAt: string) => void;
 }
@@ -50,6 +51,26 @@ export const useChatStore = create<ChatState>((set) => ({
     if (exists) return state;
     return {
       messages: { ...state.messages, [msg.conversationId]: [...prev, msg] },
+    };
+  }),
+
+  updateMessage: (msg) => set((state) => {
+    const prev = state.messages[msg.conversationId] ?? [];
+    return {
+      messages: {
+        ...state.messages,
+        [msg.conversationId]: prev.map(m => m.id === msg.id ? msg : m),
+      },
+    };
+  }),
+
+  removeMessage: (convId, msgId) => set((state) => {
+    const prev = state.messages[convId] ?? [];
+    return {
+      messages: {
+        ...state.messages,
+        [convId]: prev.filter(m => m.id !== msgId),
+      },
     };
   }),
 

@@ -13,9 +13,24 @@ import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
-    @Query("SELECT m FROM Message m WHERE m.conversation.id = :convId AND m.deleted = false ORDER BY m.createdAt DESC")
-    Page<Message> findByConversationId(@Param("convId") UUID conversationId, Pageable pageable);
+    @Query("""
+            SELECT m FROM Message m
+            WHERE m.conversation.id = :convId
+            AND NOT (m.deletedForSender = true AND m.sender.id = :userId)
+            ORDER BY m.createdAt DESC
+            """)
+    Page<Message> findByConversationId(@Param("convId") UUID conversationId,
+                                       @Param("userId") UUID userId,
+                                       Pageable pageable);
 
-    @Query("SELECT m FROM Message m WHERE m.conversation.id = :convId AND m.createdAt > :after AND m.deleted = false ORDER BY m.createdAt ASC")
-    List<Message> findAfter(@Param("convId") UUID conversationId, @Param("after") Instant after);
+    @Query("""
+            SELECT m FROM Message m
+            WHERE m.conversation.id = :convId
+            AND m.createdAt > :after
+            AND NOT (m.deletedForSender = true AND m.sender.id = :userId)
+            ORDER BY m.createdAt ASC
+            """)
+    List<Message> findAfter(@Param("convId") UUID conversationId,
+                            @Param("after") Instant after,
+                            @Param("userId") UUID userId);
 }

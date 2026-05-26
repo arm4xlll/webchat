@@ -20,8 +20,9 @@ export default function LoginPage() {
       const data = await login(username, password);
       setAuth({ id: data.userId, name: data.name, username: data.username }, data.accessToken);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.detail ?? 'Неверный логин или пароль');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setError(e.response?.data?.detail ?? 'Неверный логин или пароль');
     } finally {
       setLoading(false);
     }

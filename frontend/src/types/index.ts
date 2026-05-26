@@ -30,6 +30,11 @@ export interface Message {
   fileType?: string;
   fileSize?: number;
   createdAt: string;
+  editedAt?: string;
+  deleted?: boolean;
+  replyToId?: string;
+  replyToContent?: string;
+  replyToSenderName?: string;
 }
 
 export interface Attachment {
@@ -50,4 +55,9 @@ export interface ReadReceiptEvent {
   conversationId: string;
   readerUserId: string;
   lastReadAt: string;
+}
+
+export interface MessageEvent {
+  type: 'EDITED' | 'DELETED';
+  message: Message;
 }
