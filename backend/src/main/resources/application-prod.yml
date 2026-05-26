@@ -24,7 +24,7 @@ spring:
       timeout: 2000ms
 
 server:
-  port: 8080
+  port: 7361
 
 app:
   jwt:
