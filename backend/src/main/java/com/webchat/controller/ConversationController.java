@@ -64,7 +64,7 @@ public class ConversationController {
             @PathVariable UUID msgId,
             @Valid @RequestBody EditMessageRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(messageService.editMessage(principal.getUserId(), msgId, request.content()));
+        return ResponseEntity.ok(messageService.editMessage(principal.getUserId(), msgId, request.newContent()));
     }
 
     @DeleteMapping("/{convId}/messages/{msgId}")

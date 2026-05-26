@@ -35,12 +35,18 @@ server:
 app:
   upload:
     dir: uploads
-  jwt:
-    secret: ${JWT_SECRET:change-me-in-production-min-32-chars}
-    access-token-expiration: 86400000      # 24 hours
-    refresh-token-expiration: 604800000   # 7 days
   cors:
     allowed-origins: "http://localhost:5173"
+
+jwt:
+  secret: "8f83b16db8816c148e6583d735071f0088dc577777bbda1a5b82877a5e848694a5309d4c"
+  access-token-expiration: 900000 # 15 minutes
+  refresh-token-expiration: 604800000 # 7 days
+
+vapid:
+  public-key: "BDBsueMyGpOoRpFbNZyukPcqyPVFtaq26O3KQCstlch62QsyTojbbHh-Qka76M20q_4EOxZdmY4yA5Izk9gRzCg"
+  private-key: "NmQH7rTYCVln5M-GWRukUWUgGlcoTgKs6BQXxvg7fhs"
+  subject: "mailto:admin@webchat.local"
 
 logging:
   level:
