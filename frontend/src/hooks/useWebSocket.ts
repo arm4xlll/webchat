@@ -63,7 +63,7 @@ export function useWebSocket() {
     if (!accessToken) return;
 
     const client = new Client({
-      webSocketFactory: () => new SockJS('/ws'),
+      webSocketFactory: () => new SockJS('/ws/sockjs'),
       connectHeaders: { Authorization: `Bearer ${accessToken}` },
       reconnectDelay: 3000,
       heartbeatIncoming: 4000,
