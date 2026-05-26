@@ -70,9 +70,10 @@ jobs:
             sudo ln -sf /etc/nginx/sites-available/webchat /etc/nginx/sites-enabled/webchat
             sudo nginx -t && sudo systemctl reload nginx
 
-            # Рестарт PM2
+            # Рестарт PM2 (env vars из .env попадают в процесс через окружение)
             cd /opt/webchat
-            pm2 startOrRestart ecosystem.config.js --env production
+            set -a; source /opt/webchat/.env; set +a
+            pm2 startOrRestart ecosystem.config.js
             pm2 save
 
             echo "✓ Deploy complete"

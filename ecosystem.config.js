@@ -10,7 +10,6 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '512M',
-      env_file: '/opt/webchat/.env',
       error_file: '/var/log/webchat/pm2-error.log',
       out_file:   '/var/log/webchat/pm2-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
