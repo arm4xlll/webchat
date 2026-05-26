@@ -61,9 +61,7 @@ export function useWebSocket() {
   useEffect(() => {
     if (!accessToken) return;
 
-    const brokerUrl = import.meta.env.DEV 
-      ? 'ws://localhost:8080/ws' 
-      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+    const brokerUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
     const client = new Client({
       brokerURL: brokerUrl,
