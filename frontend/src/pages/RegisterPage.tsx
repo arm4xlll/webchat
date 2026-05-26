@@ -54,7 +54,7 @@ export default function RegisterPage() {
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Иван Петров"
+                placeholder="Имя Фамилия"
                 required
                 minLength={2}
                 className="w-full pl-10 pr-4 py-3 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
@@ -75,7 +75,7 @@ export default function RegisterPage() {
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="ivan_petrov"
+                placeholder="username"
                 required
                 minLength={3}
                 pattern="^[a-zA-Z0-9_]+$"
