@@ -7,6 +7,14 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { ArrowLeft } from 'lucide-react';
 
+function formatLastSeen(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return 'только что';
+  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
+  return `${Math.floor(diff / 86400)} дн назад`;
+}
+
 interface Props {
   conversation: Conversation;
   onSend: (content: string, attachment?: Attachment, replyToId?: string) => void;
@@ -27,7 +35,9 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
   const user = useAuthStore(s => s.user);
   const { setMessages, messages } = useChatStore();
   const typingUsers = useChatStore(s => s.typingUsers[conversation.id] ?? EMPTY_TYPING);
+  const presenceStatus = useChatStore(s => s.presenceStatus);
   const other = user ? getOtherMember(conversation, user.id) : null;
+  const otherPresence = other ? presenceStatus[other.id] : undefined;
 
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -79,8 +89,17 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
                 }
               `}</style>
             </div>
+          ) : otherPresence?.online ? (
+            <div className="flex items-center gap-1 h-3.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+              <span className="text-[13px] text-green-400 leading-none">в сети</span>
+            </div>
+          ) : otherPresence?.lastSeenAt ? (
+            <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">
+              был(а) {formatLastSeen(otherPresence.lastSeenAt)}
+            </div>
           ) : (
-            <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">@{other?.username ?? ''}</div>
+            <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">не в сети</div>
           )}
         </div>
       </div>

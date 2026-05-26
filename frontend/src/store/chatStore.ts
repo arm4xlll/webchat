@@ -23,6 +23,8 @@ interface ChatState {
   setTyping: (convId: string, userId: string, username: string, typing: boolean) => void;
   clearAllTyping: () => void;
   setLastReadAt: (convId: string, userId: string, lastReadAt: string) => void;
+  presenceStatus: Record<string, { online: boolean; lastSeenAt?: string }>;
+  setPresence: (userId: string, online: boolean, lastSeenAt?: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -31,6 +33,7 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: {},
   typingUsers: {},
   lastReadAt: {},
+  presenceStatus: {},
 
   setConversations: (convs) => set({ conversations: convs }),
 
@@ -83,6 +86,13 @@ export const useChatStore = create<ChatState>((set) => ({
   }),
 
   clearAllTyping: () => set({ typingUsers: {} }),
+
+  setPresence: (userId, online, lastSeenAt) => set((state) => ({
+    presenceStatus: {
+      ...state.presenceStatus,
+      [userId]: { online, lastSeenAt: online ? undefined : (lastSeenAt ?? state.presenceStatus[userId]?.lastSeenAt) },
+    },
+  })),
 
   setLastReadAt: (convId, userId, lastReadAt) => set((state) => ({
     lastReadAt: {

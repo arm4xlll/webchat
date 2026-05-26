@@ -61,3 +61,9 @@ export interface MessageEvent {
   type: 'EDITED' | 'DELETED';
   message: Message;
 }
+
+export interface PresenceEvent {
+  userId: string;
+  online: boolean;
+  lastSeenAt?: string;
+}

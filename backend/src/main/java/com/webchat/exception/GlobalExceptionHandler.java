@@ -43,7 +43,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
     public ProblemDetail handleNotFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
-        log.warn("Resource not found: {}", ex.getResourcePath());
+        String path = ex.getResourcePath();
+        if (path != null && path.startsWith("ws/")) {
+            log.debug("WS probe not found (expected): {}", path);
+        } else {
+            log.warn("Resource not found: {}", path);
+        }
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Not found");
         return pd;
     }

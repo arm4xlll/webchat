@@ -5,7 +5,7 @@ import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { getConversations, getMessagesAfter } from '../api/conversations';
-import type { Attachment, Message, MessageEvent, ReadReceiptEvent, TypingEvent } from '../types';
+import type { Attachment, Message, MessageEvent, PresenceEvent, ReadReceiptEvent, TypingEvent } from '../types';
 
 export function useWebSocket() {
   const stompClientRef = useRef<Client | null>(null);
@@ -13,7 +13,7 @@ export function useWebSocket() {
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const { addMessage, updateMessage, addConversation, setTyping, clearAllTyping, setLastReadAt, conversations } = useChatStore();
+  const { addMessage, updateMessage, addConversation, setTyping, clearAllTyping, setLastReadAt, setPresence, conversations } = useChatStore();
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
     if (subscribedConvsRef.current.has(convId)) return;
@@ -56,9 +56,18 @@ export function useWebSocket() {
       }
     });
 
-    subscriptionsRef.current.push(s1, s2, s3, s4);
+    const s5 = client.subscribe(`/topic/conversation.${convId}.presence`, (frame: IMessage) => {
+      try {
+        const ev: PresenceEvent = JSON.parse(frame.body);
+        setPresence(ev.userId, ev.online, ev.lastSeenAt);
+      } catch (e) {
+        console.error('[WS] Failed to parse presence event', e);
+      }
+    });
+
+    subscriptionsRef.current.push(s1, s2, s3, s4, s5);
     console.log('[WS] Subscribed to conversation', convId);
-  }, [addMessage, updateMessage, setTyping, setLastReadAt]);
+  }, [addMessage, updateMessage, setTyping, setLastReadAt, setPresence]);
 
   useEffect(() => {
     if (!accessToken) return;
