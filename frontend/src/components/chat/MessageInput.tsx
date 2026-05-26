@@ -31,8 +31,19 @@ export default function MessageInput({
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+  const onTypingRef = useRef(onTyping);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { onTypingRef.current = onTyping; });
+
+  // Сбрасываем typing при размонтировании (смена чата / выход)
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (isTypingRef.current) { isTypingRef.current = false; onTypingRef.current(false); }
+    };
+  }, []);
 
   // Populate textarea when entering edit mode
   useEffect(() => {

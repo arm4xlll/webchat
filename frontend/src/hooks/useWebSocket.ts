@@ -4,6 +4,7 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
+import { getConversations, getMessagesAfter } from '../api/conversations';
 import type { Attachment, Message, MessageEvent, ReadReceiptEvent, TypingEvent } from '../types';
 
 export function useWebSocket() {
@@ -12,7 +13,7 @@ export function useWebSocket() {
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const { addMessage, updateMessage, addConversation, setTyping, setLastReadAt, conversations } = useChatStore();
+  const { addMessage, updateMessage, addConversation, setTyping, clearAllTyping, setLastReadAt, conversations } = useChatStore();
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
     if (subscribedConvsRef.current.has(convId)) return;
@@ -74,9 +75,9 @@ export function useWebSocket() {
         setWsStatus('connected');
         subscribedConvsRef.current.clear();
         subscriptionsRef.current = [];
-        useChatStore.getState().conversations.forEach(c => {
-          subscribeToConversation(client, c.id);
-        });
+
+        // Сбрасываем все typing-индикаторы — после обрыва их состояние неизвестно
+        clearAllTyping();
 
         const newConvSub = client.subscribe('/user/queue/conversations', (frame: IMessage) => {
           try {
@@ -88,6 +89,23 @@ export function useWebSocket() {
           }
         });
         subscriptionsRef.current.push(newConvSub);
+
+        // Перезапрашиваем список разговоров и догружаем пропущенные сообщения
+        getConversations().then(convs => {
+          useChatStore.getState().setConversations(convs);
+          convs.forEach(c => subscribeToConversation(client, c.id));
+
+          // Для каждого разговора с кешированными сообщениями — догружаем пропущенное
+          const cachedMessages = useChatStore.getState().messages;
+          convs.forEach(c => {
+            const msgs = cachedMessages[c.id];
+            if (!msgs || msgs.length === 0) return;
+            const lastAt = msgs[msgs.length - 1].createdAt;
+            getMessagesAfter(c.id, lastAt)
+              .then(newMsgs => newMsgs.forEach(m => useChatStore.getState().addMessage(m)))
+              .catch(console.error);
+          });
+        }).catch(console.error);
       },
 
       onDisconnect: () => {

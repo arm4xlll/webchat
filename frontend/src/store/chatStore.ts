@@ -21,6 +21,7 @@ interface ChatState {
   updateMessage: (msg: Message) => void;
   removeMessage: (convId: string, msgId: string) => void;
   setTyping: (convId: string, userId: string, username: string, typing: boolean) => void;
+  clearAllTyping: () => void;
   setLastReadAt: (convId: string, userId: string, lastReadAt: string) => void;
 }
 
@@ -80,6 +81,8 @@ export const useChatStore = create<ChatState>((set) => ({
     const updated = typing ? [...filtered, { userId, username }] : filtered;
     return { typingUsers: { ...state.typingUsers, [convId]: updated } };
   }),
+
+  clearAllTyping: () => set({ typingUsers: {} }),
 
   setLastReadAt: (convId, userId, lastReadAt) => set((state) => ({
     lastReadAt: {
