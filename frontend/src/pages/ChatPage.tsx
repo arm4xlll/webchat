@@ -7,11 +7,11 @@ import { logout } from '../api/auth';
 import UserSearch from '../components/sidebar/UserSearch';
 import ConversationList from '../components/sidebar/ConversationList';
 import ChatWindow from '../components/chat/ChatWindow';
-import { LogOut, MessageSquare, WifiOff, Loader2 } from 'lucide-react';
+import { LogOut, MessageSquare, WifiOff, Loader2, Bell } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function ChatPage() {
-  usePushNotifications();
+  const { showBanner, requestPermission } = usePushNotifications();
   const user = useAuthStore(s => s.user);
   const doLogout = useAuthStore(s => s.logout);
   const { conversations, activeConversationId, setConversations, setActiveConversation, updateMessage, removeMessage } = useChatStore();
@@ -31,6 +31,21 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-tg-bg text-tg-text overflow-hidden" style={{ height: '100dvh' }}>
+      {/* Баннер разрешения на уведомления */}
+      {showBanner && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 bg-tg-primary/15 text-sm shrink-0">
+          <div className="flex items-center gap-2 text-tg-text">
+            <Bell className="w-4 h-4 text-tg-primary shrink-0" />
+            <span>Включите уведомления, чтобы не пропускать сообщения</span>
+          </div>
+          <button
+            onClick={requestPermission}
+            className="shrink-0 px-3 py-1 rounded-full bg-tg-primary text-white text-xs font-medium hover:bg-tg-primary/80 transition-colors cursor-pointer"
+          >
+            Включить
+          </button>
+        </div>
+      )}
       {/* Индикатор соединения — показывается только когда нет связи */}
       {wsStatus !== 'connected' && (
         <div className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium select-none shrink-0 transition-all ${
