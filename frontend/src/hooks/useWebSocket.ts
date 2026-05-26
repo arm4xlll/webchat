@@ -11,7 +11,7 @@ export function useWebSocket() {
   const subscribedConvsRef = useRef<Set<string>>(new Set());
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const accessToken = useAuthStore(s => s.accessToken);
-  const { addMessage, setTyping, setLastReadAt, conversations } = useChatStore();
+  const { addMessage, addConversation, setTyping, setLastReadAt, conversations } = useChatStore();
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
     if (subscribedConvsRef.current.has(convId)) return;
@@ -64,6 +64,18 @@ export function useWebSocket() {
         useChatStore.getState().conversations.forEach(c => {
           subscribeToConversation(client, c.id);
         });
+
+        // Подписка на новые входящие чаты (когда другой юзер начинает разговор первым)
+        const newConvSub = client.subscribe('/user/queue/conversations', (frame: IMessage) => {
+          try {
+            const conv = JSON.parse(frame.body);
+            addConversation(conv);
+            subscribeToConversation(client, conv.id);
+          } catch (e) {
+            console.error('[WS] Failed to parse new conversation', e);
+          }
+        });
+        subscriptionsRef.current.push(newConvSub);
       },
 
       onDisconnect: () => {

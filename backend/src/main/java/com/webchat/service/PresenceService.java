@@ -3,6 +3,7 @@ package com.webchat.service;
 import com.webchat.dto.response.TypingResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -23,12 +24,14 @@ public class PresenceService {
     public void handleTyping(UUID conversationId, UUID userId, String username, boolean typing) {
         String key = "typing:" + conversationId + ":" + userId;
 
-        if (typing) {
-            redisTemplate.opsForValue().set(key, username, TYPING_TTL);
-            log.debug("Typing started: user={} conv={}", username, conversationId);
-        } else {
-            redisTemplate.delete(key);
-            log.debug("Typing stopped: user={} conv={}", username, conversationId);
+        try {
+            if (typing) {
+                redisTemplate.opsForValue().set(key, username, TYPING_TTL);
+            } else {
+                redisTemplate.delete(key);
+            }
+        } catch (RedisConnectionFailureException e) {
+            log.warn("Redis unavailable, typing state not persisted for user={}", username);
         }
 
         TypingResponse response = new TypingResponse(conversationId, userId, username, typing);

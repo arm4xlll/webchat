@@ -27,6 +27,7 @@
   #root {
     width: 100%;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     overflow: hidden;
   }
@@ -53,6 +54,14 @@
 @layer utilities {
   .animate-slide-in {
     animation: slideIn 0.25s ease-out forwards;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }
 

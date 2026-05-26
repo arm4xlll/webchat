@@ -44,7 +44,7 @@ export default function MessageInput({ onSend, onTyping }: Props) {
   const canSend = text.trim().length > 0;
 
   return (
-    <div className="px-4 py-3 bg-tg-sidebar-bg border-t border-tg-border flex items-center gap-3 select-none">
+    <div className="px-4 py-3 bg-tg-sidebar-bg border-t border-tg-border flex items-center gap-3 select-none safe-bottom">
       <textarea
         value={text}
         onChange={handleChange}

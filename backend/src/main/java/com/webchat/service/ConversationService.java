@@ -57,13 +57,21 @@ public class ConversationService {
                     log.info("Created direct conversation {} between {} and {}",
                             conv.getId(), currentUserId, targetUserId);
 
-                    // Строим DTO вручную, не через conv.getMembers() (которые ещё не подгружены)
-                    return new ConversationResponse(
+                    ConversationResponse response = new ConversationResponse(
                             conv.getId(),
                             conv.getType(),
                             List.of(UserResponse.from(currentUser), UserResponse.from(targetUser)),
                             conv.getCreatedAt()
                     );
+
+                    // Уведомляем второго участника — у него появится чат без обновления страницы
+                    messagingTemplate.convertAndSendToUser(
+                            targetUser.getUsername(),
+                            "/queue/conversations",
+                            response
+                    );
+
+                    return response;
                 });
     }
 
