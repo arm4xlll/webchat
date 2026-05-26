@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import type { Attachment, Message, MessageEvent, ReadReceiptEvent, TypingEvent } from '../types';
@@ -61,17 +62,15 @@ export function useWebSocket() {
   useEffect(() => {
     if (!accessToken) return;
 
-    const brokerUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-
     const client = new Client({
-      brokerURL: brokerUrl,
+      webSocketFactory: () => new SockJS('/ws'),
       connectHeaders: { Authorization: `Bearer ${accessToken}` },
       reconnectDelay: 3000,
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
 
       onConnect: () => {
-        console.log('[WS] Connected to', brokerUrl);
+        console.log('[WS] Connected');
         setWsStatus('connected');
         subscribedConvsRef.current.clear();
         subscriptionsRef.current = [];
@@ -162,23 +161,5 @@ export function useWebSocket() {
     });
   }, []);
 
-  const editMessage = useCallback((conversationId: string, messageId: string, newContent: string) => {
-    const client = stompClientRef.current;
-    if (!client?.connected) return;
-    client.publish({
-      destination: '/app/chat.edit',
-      body: JSON.stringify({ conversationId, messageId, newContent }),
-    });
-  }, []);
-
-  const deleteMessage = useCallback((conversationId: string, messageId: string, forEveryone: boolean) => {
-    const client = stompClientRef.current;
-    if (!client?.connected) return;
-    client.publish({
-      destination: '/app/chat.delete',
-      body: JSON.stringify({ conversationId, messageId, forEveryone }),
-    });
-  }, []);
-
-  return { sendMessage, sendTyping, sendReadReceipt, editMessage, deleteMessage, wsStatus };
+  return { sendMessage, sendTyping, sendReadReceipt, wsStatus };
 }

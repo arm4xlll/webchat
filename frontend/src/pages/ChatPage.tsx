@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { getConversations } from '../api/conversations';
+import { getConversations, editMessage as editMessageAPI, deleteMessage as deleteMessageAPI } from '../api/conversations';
 import { logout } from '../api/auth';
 import UserSearch from '../components/sidebar/UserSearch';
 import ConversationList from '../components/sidebar/ConversationList';
@@ -14,8 +14,8 @@ export default function ChatPage() {
   usePushNotifications();
   const user = useAuthStore(s => s.user);
   const doLogout = useAuthStore(s => s.logout);
-  const { conversations, activeConversationId, setConversations, setActiveConversation } = useChatStore();
-  const { sendMessage, sendTyping, sendReadReceipt, editMessage, deleteMessage, wsStatus } = useWebSocket();
+  const { conversations, activeConversationId, setConversations, setActiveConversation, updateMessage, removeMessage } = useChatStore();
+  const { sendMessage, sendTyping, sendReadReceipt, wsStatus } = useWebSocket();
 
   useEffect(() => {
     getConversations().then(setConversations);
@@ -80,8 +80,19 @@ export default function ChatPage() {
           <ChatWindow
             conversation={activeConversation}
             onSend={(content, attachment, replyToId) => sendMessage(activeConversationId!, content, attachment, replyToId)}
-            onEditMessage={(msgId, newContent) => editMessage(activeConversationId!, msgId, newContent)}
-            onDeleteMessage={(msgId, forEveryone) => deleteMessage(activeConversationId!, msgId, forEveryone)}
+            onEditMessage={async (msgId, newContent) => {
+              try {
+                const updated = await editMessageAPI(activeConversationId!, msgId, newContent);
+                updateMessage(updated);
+              } catch (e) { console.error('Edit failed', e); }
+            }}
+            onDeleteMessage={async (msgId, forEveryone) => {
+              try {
+                await deleteMessageAPI(activeConversationId!, msgId, forEveryone);
+                if (!forEveryone) removeMessage(activeConversationId!, msgId);
+                // forEveryone: broadcast via WS will update the store automatically
+              } catch (e) { console.error('Delete failed', e); }
+            }}
             onTyping={typing => sendTyping(activeConversationId!, typing)}
             onRead={() => sendReadReceipt(activeConversationId!)}
             onBack={() => setActiveConversation(null)}
