@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Pencil, Trash2, CornerUpLeft } from 'lucide-react';
+import { Pencil, Trash2, CornerUpLeft, CheckCheck } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Conversation, Message } from '../../types';
@@ -7,12 +7,21 @@ import MessageStatus from './MessageStatus';
 import MediaViewer from './MediaViewer';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 
+function formatReadTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const time = d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return time;
+  return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) + ' ' + time;
+}
+
 interface Props {
   conversationId: string;
   conversation: Conversation;
   onReply: (msg: Message) => void;
   onEdit: (msg: Message) => void;
   onDelete: (msg: Message, forEveryone: boolean) => void;
+  onRead: () => void;
 }
 
 const EMPTY_MESSAGES: never[] = [];
@@ -87,20 +96,28 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick }: MediaB
   );
 }
 
-export default function MessageList({ conversationId, conversation, onReply, onEdit, onDelete }: Props) {
+export default function MessageList({ conversationId, conversation, onReply, onEdit, onDelete, onRead }: Props) {
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
-  const lastReadAt = useChatStore(s => s.lastReadAt[conversationId]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msg: Message } | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const otherId = conversation.members.find(m => m.id !== user?.id)?.id;
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Send read receipt only when bottom of the list is actually visible
+  useEffect(() => {
+    const el = bottomRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) onRead();
+    }, { threshold: 0.1 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onRead]);
 
   const openContextMenu = useCallback((x: number, y: number, msg: Message) => {
     setContextMenu({ x, y, msg });
@@ -155,6 +172,15 @@ export default function MessageList({ conversationId, conversation, onReply, onE
         onClick: () => onDelete(msg, true),
         danger: true,
       });
+
+      if (msg.readAt) {
+        items.push({
+          icon: <CheckCheck className="w-4 h-4" />,
+          label: `Прочитано в ${formatReadTime(msg.readAt)}`,
+          onClick: () => {},
+          info: true,
+        });
+      }
     }
 
     return items;
@@ -201,10 +227,7 @@ export default function MessageList({ conversationId, conversation, onReply, onE
                 {formatTime(msg.createdAt)}
               </span>
               {isOwn && (
-                <MessageStatus
-                  messageCreatedAt={msg.createdAt}
-                  otherLastReadAt={otherId ? lastReadAt?.[otherId] : undefined}
-                />
+                <MessageStatus readAt={msg.readAt} />
               )}
             </>
           );

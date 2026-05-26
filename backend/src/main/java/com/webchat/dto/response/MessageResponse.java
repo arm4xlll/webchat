@@ -21,7 +21,8 @@ public record MessageResponse(
         boolean deleted,
         UUID replyToId,
         String replyToContent,
-        String replyToSenderName
+        String replyToSenderName,
+        Instant readAt
 ) {
     public static MessageResponse from(Message m) {
         UUID replyToId = null;
@@ -51,7 +52,8 @@ public record MessageResponse(
                 m.isDeleted(),
                 replyToId,
                 replyToContent,
-                replyToSenderName
+                replyToSenderName,
+                m.getReadAt()
         );
     }
 }

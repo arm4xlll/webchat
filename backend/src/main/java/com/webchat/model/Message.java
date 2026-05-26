@@ -60,6 +60,9 @@ public class Message {
     @Builder.Default
     private boolean deletedForSender = false;
 
+    @Column(name = "read_at")
+    private Instant readAt;
+
     @PrePersist
     void prePersist() {
         createdAt = Instant.now();

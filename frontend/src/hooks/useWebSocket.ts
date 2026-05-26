@@ -40,6 +40,8 @@ export function useWebSocket() {
       try {
         const ev: ReadReceiptEvent = JSON.parse(frame.body);
         setLastReadAt(ev.conversationId, ev.readerUserId, ev.lastReadAt);
+        // Mark messages as read in the local store (for sender's own messages)
+        useChatStore.getState().markMessagesReadAt(ev.conversationId, ev.readerUserId, ev.lastReadAt);
       } catch (e) {
         console.error('[WS] Failed to parse read receipt', e);
       }

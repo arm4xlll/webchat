@@ -40,6 +40,7 @@ export interface Message {
   replyToId?: string;
   replyToContent?: string;
   replyToSenderName?: string;
+  readAt?: string;
 }
 
 export interface Attachment {

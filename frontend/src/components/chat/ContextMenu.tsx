@@ -5,6 +5,7 @@ export interface ContextMenuItem {
   label: string;
   onClick: () => void;
   danger?: boolean;
+  info?: boolean;
 }
 
 interface Props {
@@ -48,19 +49,29 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
       className="bg-[#1e2d3d] border border-tg-border rounded-xl shadow-2xl py-1 min-w-[172px] overflow-hidden select-none"
     >
       {items.map((item, i) => (
-        <button
-          key={i}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={() => { item.onClick(); onClose(); }}
-          className={`w-full flex items-center gap-3 px-4 py-2.5 text-[14px] transition-colors cursor-pointer ${
-            item.danger
-              ? 'text-rose-400 hover:bg-rose-500/10'
-              : 'text-tg-text hover:bg-tg-hover'
-          }`}
-        >
-          <span className="shrink-0">{item.icon}</span>
-          {item.label}
-        </button>
+        item.info ? (
+          <div
+            key={i}
+            className="flex items-center gap-3 px-4 py-2 text-[13px] text-tg-text-secondary border-t border-tg-border/50 mt-1 pt-2 select-none"
+          >
+            <span className="shrink-0 opacity-60">{item.icon}</span>
+            {item.label}
+          </div>
+        ) : (
+          <button
+            key={i}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => { item.onClick(); onClose(); }}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-[14px] transition-colors cursor-pointer ${
+              item.danger
+                ? 'text-rose-400 hover:bg-rose-500/10'
+                : 'text-tg-text hover:bg-tg-hover'
+            }`}
+          >
+            <span className="shrink-0">{item.icon}</span>
+            {item.label}
+          </button>
+        )
       ))}
     </div>
   );

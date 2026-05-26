@@ -51,11 +51,6 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
 
-  // Read receipt при открытии чата и при каждом новом сообщении пока чат открыт
-  useEffect(() => {
-    onRead();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation.id, messages[conversation.id]?.length]);
 
   return (
     <div className="flex flex-col h-full bg-tg-bg relative overflow-hidden">
@@ -116,6 +111,7 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         onReply={(msg) => { setReplyingTo(msg); setEditingMessage(null); }}
         onEdit={(msg) => { setEditingMessage(msg); setReplyingTo(null); }}
         onDelete={(msg, all) => onDeleteMessage(msg.id, all)}
+        onRead={onRead}
       />
       
       <MessageInput

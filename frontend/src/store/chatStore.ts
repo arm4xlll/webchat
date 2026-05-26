@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Conversation, Message } from '../types';
+import type { Conversation, Message, User } from '../types';
 
 interface TypingUser {
   userId: string;
@@ -24,6 +24,7 @@ interface ChatState {
   setTyping: (convId: string, userId: string, username: string, typing: boolean) => void;
   clearAllTyping: () => void;
   setLastReadAt: (convId: string, userId: string, lastReadAt: string) => void;
+  markMessagesReadAt: (convId: string, readerUserId: string, readAt: string) => void;
   presenceStatus: Record<string, { online: boolean; lastSeenAt?: string }>;
   setPresence: (userId: string, online: boolean, lastSeenAt?: string) => void;
 }
@@ -120,4 +121,19 @@ export const useChatStore = create<ChatState>((set) => ({
       [convId]: { ...(state.lastReadAt[convId] ?? {}), [userId]: lastReadAt },
     },
   })),
+
+  // When a read receipt arrives, stamp readAt on all messages in this conv sent
+  // by the current user (not the reader) that were created before lastReadAt
+  markMessagesReadAt: (convId, readerUserId, readAt) => set((state) => {
+    const prev = state.messages[convId];
+    if (!prev) return state;
+    const readTime = new Date(readAt);
+    const updated = prev.map(m => {
+      if (m.senderId === readerUserId) return m;   // reader's own messages
+      if (m.readAt) return m;                       // already marked
+      if (new Date(m.createdAt) > readTime) return m; // newer than read mark
+      return { ...m, readAt };
+    });
+    return { messages: { ...state.messages, [convId]: updated } };
+  }),
 }));

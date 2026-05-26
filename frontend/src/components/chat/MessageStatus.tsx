@@ -1,12 +1,9 @@
 interface Props {
-  messageCreatedAt: string;
-  // ISO timestamp когда собеседник последний раз читал чат (undefined = ещё не читал)
-  otherLastReadAt: string | undefined;
+  readAt: string | undefined;
 }
 
-export default function MessageStatus({ messageCreatedAt, otherLastReadAt }: Props) {
-  const isRead = otherLastReadAt != null &&
-    new Date(messageCreatedAt) <= new Date(otherLastReadAt);
+export default function MessageStatus({ readAt }: Props) {
+  const isRead = readAt != null;
 
   if (isRead) {
     // Двойная синяя галочка

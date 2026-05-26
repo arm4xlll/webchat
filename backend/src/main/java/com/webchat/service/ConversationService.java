@@ -26,6 +26,7 @@ public class ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final ConversationMemberRepository memberRepository;
+    private final com.webchat.repository.MessageRepository messageRepository;
     private final UserService userService;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -91,8 +92,14 @@ public class ConversationService {
     public void markAsRead(UUID conversationId, UUID userId) {
         memberRepository.findByConversationIdAndUserId(conversationId, userId).ifPresent(member -> {
             Instant now = Instant.now();
+            // Only move forward — never overwrite a newer timestamp
+            if (member.getLastReadAt() != null && !now.isAfter(member.getLastReadAt())) return;
+
             member.setLastReadAt(now);
             memberRepository.save(member);
+
+            // Mark individual messages as read (only first time — read_at IS NULL)
+            messageRepository.markMessagesRead(conversationId, userId, now);
 
             ReadReceiptEvent event = new ReadReceiptEvent(conversationId, userId, now);
             messagingTemplate.convertAndSend(
