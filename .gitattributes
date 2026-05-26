@@ -1,0 +1,22 @@
+# Default: normalize line endings on commit, checkout per OS
+* text=auto
+
+# Shell scripts must stay LF (executed on Linux in CI)
+*.sh text eol=lf
+mvnw text eol=lf
+backend/mvnw text eol=lf
+
+# Windows-only scripts: CRLF is fine
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files: no line-ending conversion
+*.jar binary
+*.png binary
+*.svg binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary
+*.gz binary
