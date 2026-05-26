@@ -5,6 +5,8 @@ import { getMessages } from '../../api/conversations';
 import type { Attachment, Conversation, Message } from '../../types';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import UserAvatar from '../common/UserAvatar';
+import UserProfileModal from '../profile/UserProfileModal';
 import { ArrowLeft } from 'lucide-react';
 
 function formatLastSeen(iso: string): string {
@@ -41,6 +43,7 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
 
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     if (messages[conversation.id] !== undefined) return;
@@ -66,42 +69,45 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
             <ArrowLeft className="w-5 h-5" />
           </button>
         )}
-        <div className="w-10 h-10 rounded-full bg-tg-primary text-white flex items-center justify-center font-medium text-base shrink-0 select-none">
-          {other?.name[0].toUpperCase() ?? '?'}
-        </div>
-        <div>
-          <div className="font-medium text-[15px] text-tg-text leading-none mb-1">{other?.name ?? 'Чат'}</div>
-          {typingUsers.length > 0 ? (
-            <div className="flex items-center gap-1.5 h-3.5 text-[13px] text-tg-primary animate-slide-in">
-              <span className="flex items-center gap-0.5">
-                {[0, 1, 2].map(i => (
-                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-tg-primary inline-block" style={{
-                    animation: 'bounce 1.2s infinite',
-                    animationDelay: `${i * 0.2}s`
-                  }} />
-                ))}
-              </span>
-              <span>{typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'печатает...' : 'печатают...'}</span>
-              <style>{`
-                @keyframes bounce {
-                  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-                  40% { transform: translateY(-2px); opacity: 1; }
-                }
-              `}</style>
-            </div>
-          ) : otherPresence?.online ? (
-            <div className="flex items-center gap-1 h-3.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-              <span className="text-[13px] text-green-400 leading-none">в сети</span>
-            </div>
-          ) : otherPresence?.lastSeenAt ? (
-            <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">
-              был(а) {formatLastSeen(otherPresence.lastSeenAt)}
-            </div>
-          ) : (
-            <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">не в сети</div>
-          )}
-        </div>
+        <button
+          onClick={() => other && setProfileOpen(true)}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-1 py-1 transition-colors cursor-pointer"
+        >
+          <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="md" />
+          <div>
+            <div className="font-medium text-[15px] text-tg-text leading-none mb-1">{other?.name ?? 'Чат'}</div>
+            {typingUsers.length > 0 ? (
+              <div className="flex items-center gap-1.5 h-3.5 text-[13px] text-tg-primary animate-slide-in">
+                <span className="flex items-center gap-0.5">
+                  {[0, 1, 2].map(i => (
+                    <span key={i} className="w-1.5 h-1.5 rounded-full bg-tg-primary inline-block" style={{
+                      animation: 'bounce 1.2s infinite',
+                      animationDelay: `${i * 0.2}s`
+                    }} />
+                  ))}
+                </span>
+                <span>{typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'печатает...' : 'печатают...'}</span>
+                <style>{`
+                  @keyframes bounce {
+                    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+                    40% { transform: translateY(-2px); opacity: 1; }
+                  }
+                `}</style>
+              </div>
+            ) : otherPresence?.online ? (
+              <div className="flex items-center gap-1 h-3.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                <span className="text-[13px] text-green-400 leading-none">в сети</span>
+              </div>
+            ) : otherPresence?.lastSeenAt ? (
+              <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">
+                был(а) {formatLastSeen(otherPresence.lastSeenAt)}
+              </div>
+            ) : (
+              <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">не в сети</div>
+            )}
+          </div>
+        </button>
       </div>
 
       <MessageList
@@ -128,6 +134,15 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         onCancelReply={() => setReplyingTo(null)}
         onCancelEdit={() => setEditingMessage(null)}
       />
+
+      {other && (
+        <UserProfileModal
+          user={other}
+          presence={otherPresence}
+          isOpen={profileOpen}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
     </div>
   );
 }

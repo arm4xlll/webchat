@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await login(username, password);
-      setAuth({ id: data.userId, name: data.name, username: data.username }, data.accessToken);
+      setAuth({ id: data.userId, name: data.name, username: data.username, bio: data.bio, avatarUrl: data.avatarUrl }, data.accessToken);
       navigate('/');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };

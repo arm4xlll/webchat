@@ -7,9 +7,11 @@ import java.util.UUID;
 public record UserResponse(
         UUID id,
         String name,
-        String username
+        String username,
+        String bio,
+        String avatarUrl
 ) {
     public static UserResponse from(User user) {
-        return new UserResponse(user.getId(), user.getName(), user.getUsername());
+        return new UserResponse(user.getId(), user.getName(), user.getUsername(), user.getBio(), user.getAvatarUrl());
     }
 }

@@ -1,6 +1,7 @@
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Conversation } from '../../types';
+import UserAvatar from '../common/UserAvatar';
 import { MessageSquare } from 'lucide-react';
 
 const EMPTY_MESSAGES: never[] = [];
@@ -56,13 +57,7 @@ export default function ConversationList() {
                 : 'hover:bg-tg-hover text-tg-text-secondary'
             }`}
           >
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-medium text-xl shrink-0 text-white ${
-              isActive
-                ? 'bg-tg-primary'
-                : 'bg-tg-primary'
-            }`}>
-              {other?.name[0].toUpperCase() ?? '?'}
-            </div>
+            <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="flex justify-between items-baseline mb-0.5">
                 <span className={`font-medium text-[15px] truncate ${

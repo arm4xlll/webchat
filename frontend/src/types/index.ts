@@ -2,12 +2,16 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  bio?: string;
+  avatarUrl?: string;
 }
 
 export interface AuthResponse {
   userId: string;
   username: string;
   name: string;
+  bio?: string;
+  avatarUrl?: string;
   accessToken: string;
 }
 

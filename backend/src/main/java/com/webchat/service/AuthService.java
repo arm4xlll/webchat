@@ -50,7 +50,7 @@ public class AuthService {
         log.info("Registered new user: {} ({})", user.getUsername(), user.getId());
 
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername());
-        return new AuthResponse(user.getId(), user.getUsername(), user.getName(), accessToken);
+        return new AuthResponse(user.getId(), user.getUsername(), user.getName(), user.getBio(), user.getAvatarUrl(), accessToken);
     }
 
     @Transactional
@@ -65,7 +65,7 @@ public class AuthService {
 
         log.info("User logged in: {} ({})", user.getUsername(), user.getId());
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername());
-        return new AuthResponse(user.getId(), user.getUsername(), user.getName(), accessToken);
+        return new AuthResponse(user.getId(), user.getUsername(), user.getName(), user.getBio(), user.getAvatarUrl(), accessToken);
     }
 
     @Transactional
