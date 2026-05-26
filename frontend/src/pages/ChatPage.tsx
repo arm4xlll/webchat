@@ -59,7 +59,7 @@ export default function ChatPage() {
         {activeConversation ? (
           <ChatWindow
             conversation={activeConversation}
-            onSend={content => sendMessage(activeConversationId!, content)}
+            onSend={(content, attachment) => sendMessage(activeConversationId!, content, attachment)}
             onTyping={typing => sendTyping(activeConversationId!, typing)}
             onRead={() => sendReadReceipt(activeConversationId!)}
             onBack={() => setActiveConversation(null)}

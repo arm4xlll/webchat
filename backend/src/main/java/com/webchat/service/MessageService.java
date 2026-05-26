@@ -37,11 +37,21 @@ public class MessageService {
             throw new SecurityException("User is not a member of conversation " + conv.getId());
         }
 
+        String content = (req.content() == null || req.content().isBlank()) ? "" : req.content();
+        boolean hasFile = req.fileUrl() != null && !req.fileUrl().isBlank();
+        if (content.isBlank() && !hasFile) {
+            throw new IllegalArgumentException("Message must have content or attachment");
+        }
+
         User sender = userService.getEntityById(senderId);
         Message message = Message.builder()
                 .conversation(conv)
                 .sender(sender)
-                .content(req.content())
+                .content(content)
+                .fileUrl(req.fileUrl())
+                .fileName(req.fileName())
+                .fileType(req.fileType())
+                .fileSize(req.fileSize())
                 .build();
         messageRepository.save(message);
 

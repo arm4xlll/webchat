@@ -4,7 +4,7 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
-import type { Message, ReadReceiptEvent, TypingEvent } from '../types';
+import type { Attachment, Message, ReadReceiptEvent, TypingEvent } from '../types';
 
 export function useWebSocket() {
   const stompClientRef = useRef<Client | null>(null);
@@ -107,7 +107,7 @@ export function useWebSocket() {
     conversations.forEach(c => subscribeToConversation(client, c.id));
   }, [conversations, subscribeToConversation]);
 
-  const sendMessage = useCallback((conversationId: string, content: string) => {
+  const sendMessage = useCallback((conversationId: string, content: string, attachment?: Attachment) => {
     const client = stompClientRef.current;
     if (!client?.connected) {
       console.warn('[WS] Not connected');
@@ -115,7 +115,7 @@ export function useWebSocket() {
     }
     client.publish({
       destination: '/app/chat.send',
-      body: JSON.stringify({ conversationId, content }),
+      body: JSON.stringify({ conversationId, content, ...attachment }),
     });
   }, []);
 

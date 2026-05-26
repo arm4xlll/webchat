@@ -12,6 +12,10 @@ public record MessageResponse(
         String senderUsername,
         String senderName,
         String content,
+        String fileUrl,
+        String fileName,
+        String fileType,
+        Long fileSize,
         Instant createdAt
 ) {
     public static MessageResponse from(Message m) {
@@ -22,6 +26,10 @@ public record MessageResponse(
                 m.getSender().getUsername(),
                 m.getSender().getName(),
                 m.getContent(),
+                m.getFileUrl(),
+                m.getFileName(),
+                m.getFileType(),
+                m.getFileSize(),
                 m.getCreatedAt()
         );
     }

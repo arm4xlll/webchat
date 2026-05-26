@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import { getMessages } from '../../api/conversations';
-import type { Conversation } from '../../types';
+import type { Attachment, Conversation } from '../../types';
 import MessageList from './MessageList';
 import TypingIndicator from './TypingIndicator';
 import MessageInput from './MessageInput';
@@ -10,7 +10,7 @@ import { ArrowLeft } from 'lucide-react';
 
 interface Props {
   conversation: Conversation;
-  onSend: (content: string) => void;
+  onSend: (content: string, attachment?: Attachment) => void;
   onTyping: (typing: boolean) => void;
   onRead: () => void;
   onBack?: () => void;

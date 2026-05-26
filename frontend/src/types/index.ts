@@ -25,7 +25,18 @@ export interface Message {
   senderUsername: string;
   senderName: string;
   content: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
   createdAt: string;
+}
+
+export interface Attachment {
+  fileUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
 }
 
 export interface TypingEvent {

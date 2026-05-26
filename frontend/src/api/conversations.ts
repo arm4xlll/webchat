@@ -1,5 +1,5 @@
 import api from './client';
-import type { Conversation, Message } from '../types';
+import type { Attachment, Conversation, Message } from '../types';
 
 export const getConversations = () =>
   api.get<Conversation[]>('/conversations').then(r => r.data);
@@ -12,3 +12,11 @@ export const getMessages = (conversationId: string, page = 0, size = 50) =>
 
 export const getMessagesAfter = (conversationId: string, after: string) =>
   api.get<Message[]>(`/conversations/${conversationId}/messages/after?after=${encodeURIComponent(after)}`).then(r => r.data);
+
+export const uploadFile = (file: File): Promise<Attachment> => {
+  const form = new FormData();
+  form.append('file', file);
+  return api.post<Attachment>('/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
