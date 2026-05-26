@@ -61,15 +61,19 @@ export function useWebSocket() {
   useEffect(() => {
     if (!accessToken) return;
 
+    const brokerUrl = import.meta.env.DEV 
+      ? 'ws://localhost:8080/ws' 
+      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+
     const client = new Client({
-      brokerURL: `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`,
+      brokerURL: brokerUrl,
       connectHeaders: { Authorization: `Bearer ${accessToken}` },
       reconnectDelay: 3000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
 
       onConnect: () => {
-        console.log('[WS] Connected');
+        console.log('[WS] Connected to', brokerUrl);
         setWsStatus('connected');
         subscribedConvsRef.current.clear();
         subscriptionsRef.current = [];
@@ -101,7 +105,8 @@ export function useWebSocket() {
         setWsStatus('disconnected');
       },
 
-      onWebSocketError: () => {
+      onWebSocketError: (error) => {
+        console.error('[WS] Native WebSocket error', error);
         setWsStatus('disconnected');
       },
     });
