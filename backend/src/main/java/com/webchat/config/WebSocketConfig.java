@@ -18,7 +18,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/topic", "/queue");
+        org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler te = new org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler();
+        te.setPoolSize(1);
+        te.setThreadNamePrefix("wss-heartbeat-thread-");
+        te.initialize();
+
+        registry.enableSimpleBroker("/topic", "/queue")
+                .setHeartbeatValue(new long[]{10000, 10000})
+                .setTaskScheduler(te);
         registry.setApplicationDestinationPrefixes("/app");
         registry.setUserDestinationPrefix("/user");
     }
@@ -26,6 +33,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*");
+        registry.addEndpoint("/ws/sockjs")
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
     }

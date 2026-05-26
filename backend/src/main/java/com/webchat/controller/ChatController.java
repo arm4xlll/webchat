@@ -50,6 +50,18 @@ public class ChatController {
         conversationService.markAsRead(request.conversationId(), user.getUserId());
     }
 
+    @MessageMapping("/chat.edit")
+    public void editMessage(@Payload com.webchat.dto.request.EditMessageRequest request, Principal principal) {
+        UserPrincipal user = extractPrincipal(principal);
+        messageService.editMessage(user.getUserId(), request.messageId(), request.newContent());
+    }
+
+    @MessageMapping("/chat.delete")
+    public void deleteMessage(@Payload com.webchat.dto.request.DeleteMessageRequest request, Principal principal) {
+        UserPrincipal user = extractPrincipal(principal);
+        messageService.deleteMessage(user.getUserId(), request.messageId(), request.forEveryone());
+    }
+
     private UserPrincipal extractPrincipal(Principal principal) {
         if (principal instanceof UsernamePasswordAuthenticationToken auth) {
             return (UserPrincipal) auth.getPrincipal();

@@ -2,8 +2,8 @@ package com.webchat.dto.request;
 
 import java.util.UUID;
 
-public record EditMessageRequest(
+public record DeleteMessageRequest(
         UUID conversationId,
         UUID messageId,
-        String newContent
+        boolean forEveryone
 ) {}

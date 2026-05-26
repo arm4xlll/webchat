@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import type { Attachment, Message, MessageEvent, ReadReceiptEvent, TypingEvent } from '../types';
@@ -63,11 +62,11 @@ export function useWebSocket() {
     if (!accessToken) return;
 
     const client = new Client({
-      webSocketFactory: () => new SockJS('/ws'),
+      brokerURL: `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`,
       connectHeaders: { Authorization: `Bearer ${accessToken}` },
       reconnectDelay: 3000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
 
       onConnect: () => {
         console.log('[WS] Connected');
