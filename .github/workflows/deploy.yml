@@ -50,7 +50,6 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           source: "backend/target/webchat-backend-0.0.1-SNAPSHOT.jar,frontend/dist,ecosystem.config.js,nginx.conf"
           target: /opt/webchat/upload
-          strip_components: 1
 
       - name: Restart services
         uses: appleboy/ssh-action@v1
@@ -63,9 +62,9 @@ jobs:
             set -e
 
             # Перекладываем артефакты
-            cp /opt/webchat/upload/target/webchat-backend-0.0.1-SNAPSHOT.jar \
+            cp /opt/webchat/upload/backend/target/webchat-backend-0.0.1-SNAPSHOT.jar \
                /opt/webchat/webchat-backend.jar
-            rsync -a --delete /opt/webchat/upload/dist/ /opt/webchat/frontend/
+            rsync -a --delete /opt/webchat/upload/frontend/dist/ /opt/webchat/frontend/
             cp /opt/webchat/upload/ecosystem.config.js /opt/webchat/
             sudo cp /opt/webchat/upload/nginx.conf /etc/nginx/sites-available/webchat
             sudo ln -sf /etc/nginx/sites-available/webchat /etc/nginx/sites-enabled/webchat
