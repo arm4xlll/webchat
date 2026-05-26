@@ -8,8 +8,10 @@ import UserSearch from '../components/sidebar/UserSearch';
 import ConversationList from '../components/sidebar/ConversationList';
 import ChatWindow from '../components/chat/ChatWindow';
 import { LogOut, MessageSquare, WifiOff, Loader2 } from 'lucide-react';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function ChatPage() {
+  usePushNotifications();
   const user = useAuthStore(s => s.user);
   const doLogout = useAuthStore(s => s.logout);
   const { conversations, activeConversationId, setConversations, setActiveConversation } = useChatStore();

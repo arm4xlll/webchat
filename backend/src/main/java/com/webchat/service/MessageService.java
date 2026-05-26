@@ -29,6 +29,7 @@ public class MessageService {
     private final ConversationService conversationService;
     private final UserService userService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final PushNotificationService pushNotificationService;
 
     @Transactional
     public MessageResponse sendMessage(UUID senderId, SendMessageRequest req) {
@@ -69,6 +70,18 @@ public class MessageService {
                 response
         );
         log.info("Message sent: convId={} senderId={} msgId={}", conv.getId(), senderId, message.getId());
+
+        for (var member : conv.getMembers()) {
+            if (!member.getUser().getId().equals(senderId)) {
+                pushNotificationService.sendPushToUser(
+                        member.getUser().getId(),
+                        sender.getName(),
+                        content.isBlank() ? "📎 Вложение" : content,
+                        java.util.Map.of("conversationId", conv.getId().toString())
+                );
+            }
+        }
+
         return response;
     }
 
