@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getPublicKey, subscribeToPush } from '../api/push';
 import { useAuthStore } from '../store/authStore';
 
@@ -15,53 +15,53 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-export function usePushNotifications() {
-  const [isSupported, setIsSupported] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const isAuthenticated = useAuthStore(s => !!s.accessToken);
+async function subscribe(registration: ServiceWorkerRegistration) {
+  if (Notification.permission === 'denied') return;
+  if (Notification.permission === 'default') {
+    const result = await Notification.requestPermission();
+    if (result !== 'granted') return;
+  }
 
-  useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      setIsSupported(true);
-    }
-  }, []);
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    const publicKey = await getPublicKey();
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+  }
+  await subscribeToPush(subscription);
+}
+
+export function usePushNotifications() {
+  const [isSupported] = useState(
+    () => 'serviceWorker' in navigator && 'PushManager' in window
+  );
+  const isAuthenticated = useAuthStore(s => !!s.accessToken);
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const askedRef = useRef(false);
 
   useEffect(() => {
     if (!isSupported || !isAuthenticated) return;
 
-    const setupPush = async () => {
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        
-        if (Notification.permission === 'default') {
-           await Notification.requestPermission();
-        }
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      registrationRef.current = reg;
 
-        if (Notification.permission !== 'granted') {
-          console.log('[Push] Permission denied');
-          return;
-        }
-
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          const publicKey = await getPublicKey();
-          const applicationServerKey = urlBase64ToUint8Array(publicKey);
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey,
-          });
-        }
-        
-        await subscribeToPush(subscription);
-        setIsSubscribed(true);
-        console.log('[Push] Successfully subscribed to push notifications');
-      } catch (e) {
-        console.error('[Push] Failed to setup push notifications', e);
+      // Если разрешение уже выдано — подписываемся сразу без диалога
+      if (Notification.permission === 'granted') {
+        subscribe(reg).catch(console.error);
+        return;
       }
-    };
 
-    setupPush();
+      // Просим разрешение когда пользователь уходит с вкладки —
+      // именно в этот момент push-уведомления наиболее полезны
+      const onBlur = () => {
+        if (askedRef.current) return;
+        askedRef.current = true;
+        subscribe(reg).catch(console.error);
+      };
+      window.addEventListener('blur', onBlur, { once: true });
+      return () => window.removeEventListener('blur', onBlur);
+    }).catch(e => console.error('[Push] SW registration failed', e));
   }, [isSupported, isAuthenticated]);
-
-  return { isSupported, isSubscribed };
 }

@@ -22,7 +22,7 @@ export const uploadFile = (file: File): Promise<Attachment> => {
 };
 
 export const editMessage = (conversationId: string, messageId: string, content: string): Promise<Message> =>
-  api.patch<Message>(`/conversations/${conversationId}/messages/${messageId}`, { content }).then(r => r.data);
+  api.patch<Message>(`/conversations/${conversationId}/messages/${messageId}`, { newContent: content }).then(r => r.data);
 
 export const deleteMessage = (conversationId: string, messageId: string, forEveryone: boolean): Promise<void> =>
   api.delete(`/conversations/${conversationId}/messages/${messageId}?forEveryone=${forEveryone}`).then(() => undefined);
