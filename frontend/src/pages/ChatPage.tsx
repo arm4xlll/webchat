@@ -147,7 +147,7 @@ export default function ChatPage() {
 
       </div>{/* /основной layout */}
 
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

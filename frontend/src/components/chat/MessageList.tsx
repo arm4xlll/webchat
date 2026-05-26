@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Pencil, Trash2, CornerUpLeft, CheckCheck } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
-import type { Conversation, Message } from '../../types';
+import type { Message } from '../../types';
 import MessageStatus from './MessageStatus';
 import MediaViewer from './MediaViewer';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
@@ -17,7 +17,6 @@ function formatReadTime(iso: string): string {
 
 interface Props {
   conversationId: string;
-  conversation: Conversation;
   onReply: (msg: Message) => void;
   onEdit: (msg: Message) => void;
   onDelete: (msg: Message, forEveryone: boolean) => void;
@@ -96,7 +95,7 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick }: MediaB
   );
 }
 
-export default function MessageList({ conversationId, conversation, onReply, onEdit, onDelete, onRead }: Props) {
+export default function MessageList({ conversationId, onReply, onEdit, onDelete, onRead }: Props) {
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
   const bottomRef = useRef<HTMLDivElement>(null);

@@ -107,7 +107,6 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
 
       <MessageList
         conversationId={conversation.id}
-        conversation={conversation}
         onReply={(msg) => { setReplyingTo(msg); setEditingMessage(null); }}
         onEdit={(msg) => { setEditingMessage(msg); setReplyingTo(null); }}
         onDelete={(msg, all) => onDeleteMessage(msg.id, all)}

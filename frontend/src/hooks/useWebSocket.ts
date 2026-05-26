@@ -173,9 +173,11 @@ export function useWebSocket() {
     return () => {
       client.deactivate();
       stompClientRef.current = null;
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- refs are stable, safe to use in cleanup
       subscribedConvsRef.current.clear();
       subscriptionsRef.current = [];
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- addConversation, clearAllTyping, subscribeToConversation are stable callbacks; re-running on each render would reconnect the socket
   }, [accessToken]);
 
   useEffect(() => {

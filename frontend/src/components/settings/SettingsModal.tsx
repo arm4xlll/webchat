@@ -5,16 +5,16 @@ import { updateProfile, uploadAvatar } from '../../api/users';
 import UserAvatar from '../common/UserAvatar';
 
 interface Props {
-  isOpen: boolean;
   onClose: () => void;
 }
 
-export default function SettingsModal({ isOpen, onClose }: Props) {
+export default function SettingsModal({ onClose }: Props) {
   const user = useAuthStore(s => s.user);
   const updateUser = useAuthStore(s => s.updateUser);
 
-  const [name, setName] = useState('');
-  const [bio, setBio] = useState('');
+  // Initialized from user on mount — component is only rendered when open
+  const [name, setName] = useState(user?.name ?? '');
+  const [bio, setBio] = useState(user?.bio ?? '');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState('');
@@ -22,24 +22,13 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // sync form state when modal opens
   useEffect(() => {
-    if (isOpen && user) {
-      setName(user.name);
-      setBio(user.bio ?? '');
-      setError('');
-      setSaved(false);
-    }
-  }, [isOpen, user]);
-
-  useEffect(() => {
-    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  }, [onClose]);
 
-  if (!isOpen || !user) return null;
+  if (!user) return null;
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -55,10 +44,6 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,7 +90,7 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
           <div className="relative">
             <UserAvatar name={user.name} avatarUrl={user.avatarUrl} size="xl" />
             <button
-              onClick={handleAvatarClick}
+              onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
               className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-wait"
             >
