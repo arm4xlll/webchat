@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -11,6 +11,7 @@ export function useWebSocket() {
   const subscribedConvsRef = useRef<Set<string>>(new Set());
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const accessToken = useAuthStore(s => s.accessToken);
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const { addMessage, addConversation, setTyping, setLastReadAt, conversations } = useChatStore();
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
@@ -59,6 +60,7 @@ export function useWebSocket() {
 
       onConnect: () => {
         console.log('[WS] Connected');
+        setWsStatus('connected');
         subscribedConvsRef.current.clear();
         subscriptionsRef.current = [];
         useChatStore.getState().conversations.forEach(c => {
@@ -80,12 +82,18 @@ export function useWebSocket() {
 
       onDisconnect: () => {
         console.log('[WS] Disconnected');
+        setWsStatus('disconnected');
         subscribedConvsRef.current.clear();
         subscriptionsRef.current = [];
       },
 
       onStompError: (frame) => {
         console.error('[WS] STOMP error', frame);
+        setWsStatus('disconnected');
+      },
+
+      onWebSocketError: () => {
+        setWsStatus('disconnected');
       },
     });
 
@@ -137,5 +145,5 @@ export function useWebSocket() {
     });
   }, []);
 
-  return { sendMessage, sendTyping, sendReadReceipt };
+  return { sendMessage, sendTyping, sendReadReceipt, wsStatus };
 }

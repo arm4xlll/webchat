@@ -7,13 +7,13 @@ import { logout } from '../api/auth';
 import UserSearch from '../components/sidebar/UserSearch';
 import ConversationList from '../components/sidebar/ConversationList';
 import ChatWindow from '../components/chat/ChatWindow';
-import { LogOut, MessageSquare } from 'lucide-react';
+import { LogOut, MessageSquare, WifiOff, Loader2 } from 'lucide-react';
 
 export default function ChatPage() {
   const user = useAuthStore(s => s.user);
   const doLogout = useAuthStore(s => s.logout);
   const { conversations, activeConversationId, setConversations, setActiveConversation } = useChatStore();
-  const { sendMessage, sendTyping, sendReadReceipt } = useWebSocket();
+  const { sendMessage, sendTyping, sendReadReceipt, wsStatus } = useWebSocket();
 
   useEffect(() => {
     getConversations().then(setConversations);
@@ -27,7 +27,24 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-tg-bg text-tg-text overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="flex flex-col h-screen w-full bg-tg-bg text-tg-text overflow-hidden" style={{ height: '100dvh' }}>
+      {/* Индикатор соединения — показывается только когда нет связи */}
+      {wsStatus !== 'connected' && (
+        <div className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium select-none shrink-0 transition-all ${
+          wsStatus === 'connecting'
+            ? 'bg-yellow-500/15 text-yellow-400'
+            : 'bg-rose-500/15 text-rose-400'
+        }`}>
+          {wsStatus === 'connecting' ? (
+            <><Loader2 className="w-3 h-3 animate-spin" />Подключение...</>
+          ) : (
+            <><WifiOff className="w-3 h-3" />Нет соединения — переподключение...</>
+          )}
+        </div>
+      )}
+      {/* Основной layout */}
+      <div className="flex flex-1 overflow-hidden">
+
       {/* Sidebar — на мобильном скрывается когда открыт чат */}
       <div className={`${activeConversationId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-[350px] bg-tg-sidebar-bg border-r border-tg-border shrink-0 safe-top`}>
         {/* User header */}
@@ -77,6 +94,8 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+
+      </div>{/* /основной layout */}
     </div>
   );
 }
