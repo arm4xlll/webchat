@@ -107,7 +107,7 @@ export default function MessageInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
     if (e.key === 'Escape') {
-      if (editingMessage) { onCancelEdit(); setText(''); }
+      if (editingMessage) { handleCancelEdit(); }
       else if (replyingTo) { onCancelReply(); }
     }
   };
@@ -115,6 +115,8 @@ export default function MessageInput({
   const handleCancelEdit = () => {
     onCancelEdit();
     setText('');
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (isTypingRef.current) { isTypingRef.current = false; onTyping(false); }
   };
 
   const canSend = (text.trim().length > 0 || !!file) && !uploading;
