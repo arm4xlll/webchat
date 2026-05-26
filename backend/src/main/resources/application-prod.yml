@@ -1,4 +1,9 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
@@ -27,6 +32,8 @@ server:
   port: 7361
 
 app:
+  upload:
+    dir: /opt/webchat/uploads
   jwt:
     secret: ${JWT_SECRET}
     access-token-expiration: 86400000
