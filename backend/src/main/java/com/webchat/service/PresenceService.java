@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -81,6 +82,25 @@ public class PresenceService {
         } catch (RedisConnectionFailureException e) {
             return null;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public void sendPresenceSnapshot(UUID requesterId, String requesterUsername) {
+        List<PresenceResponse> snapshot = conversationRepository.findByMemberUserId(requesterId)
+                .stream()
+                .flatMap(conv -> conv.getMembers().stream())
+                .map(m -> m.getUser().getId())
+                .filter(id -> !id.equals(requesterId))
+                .distinct()
+                .map(contactId -> {
+                    boolean online = isOnline(contactId);
+                    Instant lastSeen = online ? null : getLastSeen(contactId);
+                    return new PresenceResponse(contactId, online, lastSeen);
+                })
+                .toList();
+
+        messagingTemplate.convertAndSendToUser(requesterUsername, "/queue/presence", snapshot);
+        log.debug("[Presence] Sent snapshot ({} contacts) to {}", snapshot.size(), requesterUsername);
     }
 
     private void broadcastPresence(UUID userId, boolean online, Instant lastSeenAt) {

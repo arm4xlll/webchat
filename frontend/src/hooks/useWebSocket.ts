@@ -84,10 +84,9 @@ export function useWebSocket() {
         setWsStatus('connected');
         subscribedConvsRef.current.clear();
         subscriptionsRef.current = [];
-
-        // Сбрасываем все typing-индикаторы — после обрыва их состояние неизвестно
         clearAllTyping();
 
+        // Подписки на user-specific очереди — СНАЧАЛА, до топиков разговоров
         const newConvSub = client.subscribe('/user/queue/conversations', (frame: IMessage) => {
           try {
             const conv = JSON.parse(frame.body);
@@ -97,14 +96,29 @@ export function useWebSocket() {
             console.error('[WS] Failed to parse new conversation', e);
           }
         });
-        subscriptionsRef.current.push(newConvSub);
 
-        // Перезапрашиваем список разговоров и догружаем пропущенные сообщения
+        // Очередь для снапшота presence (массив) и реалтайм-событий (одиночный объект)
+        const presenceQueueSub = client.subscribe('/user/queue/presence', (frame: IMessage) => {
+          try {
+            const data = JSON.parse(frame.body);
+            const events: PresenceEvent[] = Array.isArray(data) ? data : [data];
+            events.forEach(ev => useChatStore.getState().setPresence(ev.userId, ev.online, ev.lastSeenAt));
+          } catch (e) {
+            console.error('[WS] Failed to parse presence queue', e);
+          }
+        });
+
+        subscriptionsRef.current.push(newConvSub, presenceQueueSub);
+
+        // Загружаем разговоры, подписываемся на топики, потом запрашиваем presence-снапшот
         getConversations().then(convs => {
           useChatStore.getState().setConversations(convs);
           convs.forEach(c => subscribeToConversation(client, c.id));
 
-          // Для каждого разговора с кешированными сообщениями — догружаем пропущенное
+          // Запрашиваем текущий presence всех контактов — ответ придёт в /user/queue/presence
+          client.publish({ destination: '/app/presence.sync', body: '{}' });
+
+          // Догружаем пропущенные сообщения
           const cachedMessages = useChatStore.getState().messages;
           convs.forEach(c => {
             const msgs = cachedMessages[c.id];

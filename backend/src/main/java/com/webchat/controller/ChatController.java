@@ -62,6 +62,12 @@ public class ChatController {
         messageService.deleteMessage(user.getUserId(), request.messageId(), request.forEveryone());
     }
 
+    @MessageMapping("/presence.sync")
+    public void presenceSync(Principal principal) {
+        UserPrincipal user = extractPrincipal(principal);
+        presenceService.sendPresenceSnapshot(user.getUserId(), user.getUsername());
+    }
+
     private UserPrincipal extractPrincipal(Principal principal) {
         if (principal instanceof UsernamePasswordAuthenticationToken auth) {
             return (UserPrincipal) auth.getPrincipal();
