@@ -76,8 +76,8 @@ export function useWebSocket() {
       webSocketFactory: () => new SockJS('/ws/sockjs'),
       connectHeaders: { Authorization: `Bearer ${accessToken}` },
       reconnectDelay: 3000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
 
       onConnect: () => {
         console.log('[WS] Connected');
@@ -132,20 +132,27 @@ export function useWebSocket() {
       },
 
       onDisconnect: () => {
-        console.log('[WS] Disconnected');
-        setWsStatus('disconnected');
+        console.log('[WS] Disconnected — will reconnect');
+        setWsStatus('connecting');
         subscribedConvsRef.current.clear();
         subscriptionsRef.current = [];
       },
 
       onStompError: (frame) => {
         console.error('[WS] STOMP error', frame);
-        setWsStatus('disconnected');
+        setWsStatus('connecting');
       },
 
       onWebSocketError: (error) => {
-        console.error('[WS] Native WebSocket error', error);
-        setWsStatus('disconnected');
+        console.error('[WS] WebSocket error', error);
+        setWsStatus('connecting');
+      },
+
+      onWebSocketClose: () => {
+        console.log('[WS] WebSocket closed — reconnecting');
+        setWsStatus('connecting');
+        subscribedConvsRef.current.clear();
+        subscriptionsRef.current = [];
       },
     });
 

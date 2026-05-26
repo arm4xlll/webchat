@@ -26,4 +26,12 @@ public interface ConversationMemberRepository extends JpaRepository<Conversation
 
     @Query("SELECT cm FROM ConversationMember cm WHERE cm.conversation.id = :convId")
     List<ConversationMember> findAllByConversationId(@Param("convId") UUID conversationId);
+
+    @Query("SELECT DISTINCT cm2.user.id FROM ConversationMember cm1 " +
+           "JOIN ConversationMember cm2 ON cm1.conversation = cm2.conversation " +
+           "WHERE cm1.user.id = :userId AND cm2.user.id != :userId")
+    List<UUID> findContactIdsByUserId(@Param("userId") UUID userId);
+
+    @Query("SELECT cm.conversation.id FROM ConversationMember cm WHERE cm.user.id = :userId")
+    List<UUID> findConversationIdsByUserId(@Param("userId") UUID userId);
 }

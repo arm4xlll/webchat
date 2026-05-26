@@ -2,7 +2,7 @@ package com.webchat.service;
 
 import com.webchat.dto.response.PresenceResponse;
 import com.webchat.dto.response.TypingResponse;
-import com.webchat.repository.ConversationRepository;
+import com.webchat.repository.ConversationMemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -23,7 +23,7 @@ public class PresenceService {
 
     private final StringRedisTemplate redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ConversationRepository conversationRepository;
+    private final ConversationMemberRepository memberRepository;
 
     private static final Duration TYPING_TTL = Duration.ofSeconds(5);
     private static final String ONLINE_KEY  = "presence:online:";
@@ -86,12 +86,9 @@ public class PresenceService {
 
     @Transactional(readOnly = true)
     public void sendPresenceSnapshot(UUID requesterId, String requesterUsername) {
-        List<PresenceResponse> snapshot = conversationRepository.findByMemberUserId(requesterId)
+        // Прямой JPQL-запрос — без lazy loading цепочек
+        List<PresenceResponse> snapshot = memberRepository.findContactIdsByUserId(requesterId)
                 .stream()
-                .flatMap(conv -> conv.getMembers().stream())
-                .map(m -> m.getUser().getId())
-                .filter(id -> !id.equals(requesterId))
-                .distinct()
                 .map(contactId -> {
                     boolean online = isOnline(contactId);
                     Instant lastSeen = online ? null : getLastSeen(contactId);
@@ -105,9 +102,10 @@ public class PresenceService {
 
     private void broadcastPresence(UUID userId, boolean online, Instant lastSeenAt) {
         PresenceResponse response = new PresenceResponse(userId, online, lastSeenAt);
-        conversationRepository.findByMemberUserId(userId).forEach(conv ->
+        // Прямой запрос только conversation IDs — без lazy loading
+        memberRepository.findConversationIdsByUserId(userId).forEach(convId ->
                 messagingTemplate.convertAndSend(
-                        "/topic/conversation." + conv.getId() + ".presence",
+                        "/topic/conversation." + convId + ".presence",
                         response
                 )
         );
