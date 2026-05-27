@@ -69,11 +69,6 @@ export interface ReadReceiptEvent {
   lastReadAt: string;
 }
 
-export interface MessageEvent {
-  type: 'EDITED' | 'DELETED' | 'REACTION';
-  message: Message;
-}
-
 export interface PresenceEvent {
   userId: string;
   online: boolean;

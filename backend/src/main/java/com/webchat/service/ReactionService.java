@@ -1,15 +1,14 @@
 package com.webchat.service;
 
-import com.webchat.dto.response.MessageEventResponse;
 import com.webchat.dto.response.MessageResponse;
 import com.webchat.model.Message;
 import com.webchat.model.MessageReaction;
 import com.webchat.model.User;
 import com.webchat.repository.MessageReactionRepository;
 import com.webchat.repository.MessageRepository;
+import com.webchat.sse.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +26,7 @@ public class ReactionService {
     private final MessageReactionRepository reactionRepository;
     private final MessageRepository messageRepository;
     private final UserService userService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final EventPublisher eventPublisher;
 
     @Transactional
     public void toggleReaction(UUID userId, UUID messageId, String emoji) {
@@ -53,10 +52,8 @@ public class ReactionService {
         Map<String, List<UUID>> reactions = buildReactionsMap(messageId);
         MessageResponse response = MessageResponse.from(message, reactions);
 
-        messagingTemplate.convertAndSend(
-                "/topic/conversation." + message.getConversation().getId() + ".event",
-                new MessageEventResponse("REACTION", response)
-        );
+        eventPublisher.publishToConversation(
+                message.getConversation().getId(), "message.reaction", response);
     }
 
     public Map<String, List<UUID>> buildReactionsMap(UUID messageId) {
@@ -67,7 +64,6 @@ public class ReactionService {
                 ));
     }
 
-    /** Batch load reactions for a list of messages → avoids N+1 */
     public Map<UUID, Map<String, List<UUID>>> buildReactionsMapForMessages(List<UUID> messageIds) {
         if (messageIds.isEmpty()) return Map.of();
         return reactionRepository.findByMessageIdIn(messageIds).stream()

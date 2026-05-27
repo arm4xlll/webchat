@@ -3,11 +3,11 @@ package com.webchat.service;
 import com.webchat.dto.response.PresenceResponse;
 import com.webchat.dto.response.TypingResponse;
 import com.webchat.repository.ConversationMemberRepository;
+import com.webchat.sse.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class PresenceService {
 
     private final StringRedisTemplate redisTemplate;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final EventPublisher eventPublisher;
     private final ConversationMemberRepository memberRepository;
 
     private static final Duration TYPING_TTL = Duration.ofSeconds(5);
@@ -37,9 +37,11 @@ public class PresenceService {
         } catch (RedisConnectionFailureException e) {
             log.warn("Redis unavailable, typing not persisted for user={}", username);
         }
-        messagingTemplate.convertAndSend(
-                "/topic/conversation." + conversationId + ".typing",
-                new TypingResponse(conversationId, userId, username, typing)
+        eventPublisher.publishToConversation(
+                conversationId,
+                "conversation.typing",
+                new TypingResponse(conversationId, userId, username, typing),
+                userId
         );
     }
 
@@ -85,8 +87,7 @@ public class PresenceService {
     }
 
     @Transactional(readOnly = true)
-    public void sendPresenceSnapshot(UUID requesterId, String requesterUsername) {
-        // Прямой JPQL-запрос — без lazy loading цепочек
+    public void sendPresenceSnapshot(UUID requesterId) {
         List<PresenceResponse> snapshot = memberRepository.findContactIdsByUserId(requesterId)
                 .stream()
                 .map(contactId -> {
@@ -96,18 +97,14 @@ public class PresenceService {
                 })
                 .toList();
 
-        messagingTemplate.convertAndSendToUser(requesterUsername, "/queue/presence", snapshot);
-        log.debug("[Presence] Sent snapshot ({} contacts) to {}", snapshot.size(), requesterUsername);
+        eventPublisher.publishToUser(requesterId, "presence.snapshot", snapshot);
+        log.debug("[Presence] Sent snapshot ({} contacts) to user={}", snapshot.size(), requesterId);
     }
 
     private void broadcastPresence(UUID userId, boolean online, Instant lastSeenAt) {
         PresenceResponse response = new PresenceResponse(userId, online, lastSeenAt);
-        // Прямой запрос только conversation IDs — без lazy loading
         memberRepository.findConversationIdsByUserId(userId).forEach(convId ->
-                messagingTemplate.convertAndSend(
-                        "/topic/conversation." + convId + ".presence",
-                        response
-                )
+                eventPublisher.publishToConversation(convId, "presence.update", response)
         );
     }
 }

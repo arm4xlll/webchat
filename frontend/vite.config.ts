@@ -4,16 +4,18 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  define: { global: 'globalThis' },
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
-      '/uploads': 'http://localhost:8080',
-      '/ws': {
+      '/api': {
         target: 'http://localhost:8080',
-        ws: true,
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setHeader('X-Accel-Buffering', 'no');
+          });
+        },
       },
+      '/uploads': 'http://localhost:8080',
     },
   },
 })
-

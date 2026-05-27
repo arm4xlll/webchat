@@ -6,10 +6,10 @@ import com.webchat.dto.response.UserResponse;
 import com.webchat.model.User;
 import com.webchat.repository.ConversationMemberRepository;
 import com.webchat.repository.UserRepository;
+import com.webchat.sse.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,7 +32,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ConversationMemberRepository memberRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final EventPublisher eventPublisher;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -95,14 +95,12 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateSettings(UUID userId, String username, UpdateSettingsRequest req) {
+    public UserResponse updateSettings(UUID userId, UpdateSettingsRequest req) {
         User user = getEntityById(userId);
-        // Serialize as compact JSON (no Jackson dependency needed — it's a simple two-field object)
         String json = String.format("{\"themeId\":\"%s\",\"fontSize\":\"%s\"}", req.themeId(), req.fontSize());
         user.setSettings(json);
         UserResponse response = UserResponse.from(user);
-        // Push to all connected sessions of this user so other devices sync immediately
-        messagingTemplate.convertAndSendToUser(username, "/queue/settings", response);
+        eventPublisher.publishToUser(userId, "user.settings_updated", response);
         log.debug("Settings update for user={} theme={} fontSize={}", userId, req.themeId(), req.fontSize());
         return response;
     }
@@ -110,7 +108,7 @@ public class UserService {
     private void publishProfileUpdate(UUID userId, UserResponse updated) {
         List<UUID> convIds = memberRepository.findConversationIdsByUserId(userId);
         convIds.forEach(convId ->
-                messagingTemplate.convertAndSend("/topic/conversation." + convId + ".member_updated", updated));
+                eventPublisher.publishToConversation(convId, "conversation.member_updated", updated));
         log.debug("Profile update broadcast for user={} to {} conversations", userId, convIds.size());
     }
 

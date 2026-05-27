@@ -2,11 +2,14 @@ package com.webchat.controller;
 
 import com.webchat.dto.request.CreateConversationRequest;
 import com.webchat.dto.request.EditMessageRequest;
+import com.webchat.dto.request.SendMessageRequest;
+import com.webchat.dto.request.TypingRequest;
 import com.webchat.dto.response.ConversationResponse;
 import com.webchat.dto.response.MessageResponse;
 import com.webchat.security.UserPrincipal;
 import com.webchat.service.ConversationService;
 import com.webchat.service.MessageService;
+import com.webchat.service.PresenceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +29,7 @@ public class ConversationController {
 
     private final ConversationService conversationService;
     private final MessageService messageService;
+    private final PresenceService presenceService;
 
     @GetMapping
     public ResponseEntity<List<ConversationResponse>> list(@AuthenticationPrincipal UserPrincipal principal) {
@@ -63,6 +67,16 @@ public class ConversationController {
         return ResponseEntity.ok(messageService.getAfter(id, principal.getUserId(), after));
     }
 
+    @PostMapping("/{id}/messages")
+    public ResponseEntity<MessageResponse> sendMessage(
+            @PathVariable UUID id,
+            @Valid @RequestBody SendMessageRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(
+                messageService.sendMessage(principal.getUserId(), request.withConversationId(id))
+        );
+    }
+
     @PatchMapping("/{convId}/messages/{msgId}")
     public ResponseEntity<MessageResponse> editMessage(
             @PathVariable UUID convId,
@@ -79,6 +93,23 @@ public class ConversationController {
             @RequestParam(defaultValue = "false") boolean forEveryone,
             @AuthenticationPrincipal UserPrincipal principal) {
         messageService.deleteMessage(principal.getUserId(), msgId, forEveryone);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/typing")
+    public ResponseEntity<Void> typing(
+            @PathVariable UUID id,
+            @Valid @RequestBody TypingRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        presenceService.handleTyping(id, principal.getUserId(), principal.getUsername(), request.typing());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/read")
+    public ResponseEntity<Void> markRead(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        conversationService.markAsRead(id, principal.getUserId());
         return ResponseEntity.noContent().build();
     }
 }

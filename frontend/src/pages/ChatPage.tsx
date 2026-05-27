@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { useThemeStore, type FontSize } from '../store/themeStore';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useEventStream } from '../hooks/useEventStream';
 import {
   getConversations, editMessage as editMessageAPI, deleteMessage as deleteMessageAPI,
   getSavedConversation,
@@ -27,7 +27,7 @@ export default function ChatPage() {
     setConversations, setActiveConversation,
     updateMessage, removeMessage, addConversation,
   } = useChatStore();
-  const { sendMessage, sendTyping, sendReadReceipt, sendReaction, wsStatus } = useWebSocket();
+  const { sendMessage, sendTyping, sendReadReceipt, sendReaction, wsStatus } = useEventStream();
   const applyFromServer = useThemeStore(s => s.applyFromServer);
   const [settingsOpen, setSettingsOpen] = useState(false);
 

@@ -53,7 +53,7 @@ public class UserController {
     public ResponseEntity<UserResponse> updateSettings(
             @Valid @RequestBody UpdateSettingsRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(userService.updateSettings(principal.getUserId(), principal.getUsername(), req));
+        return ResponseEntity.ok(userService.updateSettings(principal.getUserId(), req));
     }
 
     @PostMapping("/me/avatar")

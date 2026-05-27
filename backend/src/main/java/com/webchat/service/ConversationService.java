@@ -9,19 +9,17 @@ import com.webchat.model.User;
 import com.webchat.repository.ConversationMemberRepository;
 import com.webchat.repository.ConversationRepository;
 import com.webchat.repository.MessageRepository;
+import com.webchat.sse.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,14 +30,13 @@ public class ConversationService {
     private final ConversationMemberRepository memberRepository;
     private final MessageRepository messageRepository;
     private final UserService userService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final EventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> getForUser(UUID userId) {
         List<Conversation> convs = conversationRepository.findByMemberUserId(userId);
         if (convs.isEmpty()) return List.of();
 
-        // Batch load unread counts
         List<UUID> convIds = convs.stream().map(Conversation::getId).toList();
         Map<UUID, Integer> unreadMap = new HashMap<>();
         messageRepository.countUnreadByConversations(convIds, userId)
@@ -50,7 +47,7 @@ public class ConversationService {
                 .sorted((a, b) -> {
                     Instant at = a.lastMessageAt() != null ? a.lastMessageAt() : a.createdAt();
                     Instant bt = b.lastMessageAt() != null ? b.lastMessageAt() : b.createdAt();
-                    return bt.compareTo(at); // newest first
+                    return bt.compareTo(at);
                 })
                 .toList();
     }
@@ -85,12 +82,7 @@ public class ConversationService {
                             0
                     );
 
-                    messagingTemplate.convertAndSendToUser(
-                            targetUser.getUsername(),
-                            "/queue/conversations",
-                            response
-                    );
-
+                    eventPublisher.publishToUser(targetUserId, "conversation.created", response);
                     return response;
                 });
     }
@@ -132,8 +124,7 @@ public class ConversationService {
             messageRepository.markMessagesRead(conversationId, userId, now);
 
             ReadReceiptEvent event = new ReadReceiptEvent(conversationId, userId, now);
-            messagingTemplate.convertAndSend(
-                    "/topic/conversation." + conversationId + ".read", event);
+            eventPublisher.publishToConversation(conversationId, "conversation.read", event);
             log.debug("Read receipt: user={} conv={} at={}", userId, conversationId, now);
         });
     }

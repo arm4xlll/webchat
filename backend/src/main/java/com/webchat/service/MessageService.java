@@ -1,16 +1,15 @@
 package com.webchat.service;
 
 import com.webchat.dto.request.SendMessageRequest;
-import com.webchat.dto.response.MessageEventResponse;
 import com.webchat.dto.response.MessageResponse;
 import com.webchat.model.Conversation;
 import com.webchat.model.Message;
 import com.webchat.model.User;
 import com.webchat.repository.MessageRepository;
+import com.webchat.sse.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +28,7 @@ public class MessageService {
     private final ConversationService conversationService;
     private final UserService userService;
     private final ReactionService reactionService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final EventPublisher eventPublisher;
     private final PushNotificationService pushNotificationService;
 
     @Transactional
@@ -65,14 +64,10 @@ public class MessageService {
                 .build();
         messageRepository.save(message);
 
-        // Update conversation recency
         conv.setLastMessageAt(message.getCreatedAt());
 
         MessageResponse response = MessageResponse.from(message);
-        messagingTemplate.convertAndSend(
-                "/topic/conversation." + conv.getId(),
-                response
-        );
+        eventPublisher.publishToConversation(conv.getId(), "message.created", response);
         log.info("Message sent: convId={} senderId={} msgId={}", conv.getId(), senderId, message.getId());
 
         for (var member : conv.getMembers()) {
@@ -80,8 +75,8 @@ public class MessageService {
                 pushNotificationService.sendPushToUser(
                         member.getUser().getId(),
                         sender.getName(),
-                        content.isBlank() ? "📎 Вложение" : content,
-                        java.util.Map.of("conversationId", conv.getId().toString())
+                        content.isBlank() ? "Вложение" : content,
+                        Map.of("conversationId", conv.getId().toString())
                 );
             }
         }
@@ -99,7 +94,6 @@ public class MessageService {
                 .stream()
                 .toList();
 
-        // Batch load reactions
         List<UUID> ids = messages.stream().map(Message::getId).toList();
         Map<UUID, Map<String, List<UUID>>> reactionsMap = reactionService.buildReactionsMapForMessages(ids);
 
@@ -144,10 +138,8 @@ public class MessageService {
 
         Map<String, List<UUID>> reactions = reactionService.buildReactionsMap(messageId);
         MessageResponse response = MessageResponse.from(message, reactions);
-        messagingTemplate.convertAndSend(
-                "/topic/conversation." + message.getConversation().getId() + ".event",
-                new MessageEventResponse("EDITED", response)
-        );
+        eventPublisher.publishToConversation(
+                message.getConversation().getId(), "message.updated", response);
         log.info("Message edited: msgId={} by userId={}", messageId, userId);
         return response;
     }
@@ -171,10 +163,8 @@ public class MessageService {
             messageRepository.save(message);
 
             MessageResponse response = MessageResponse.from(message);
-            messagingTemplate.convertAndSend(
-                    "/topic/conversation." + message.getConversation().getId() + ".event",
-                    new MessageEventResponse("DELETED", response)
-            );
+            eventPublisher.publishToConversation(
+                    message.getConversation().getId(), "message.deleted", response);
             log.info("Message deleted for everyone: msgId={} by userId={}", messageId, userId);
         } else {
             message.setDeletedForSender(true);

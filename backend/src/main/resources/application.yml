@@ -4,6 +4,10 @@ spring:
       max-file-size: 50MB
       max-request-size: 55MB
 
+  mvc:
+    async:
+      request-timeout: 3600000
+
   datasource:
     url: jdbc:postgresql://localhost:5433/webchat
     username: webchat
@@ -50,8 +54,6 @@ vapid:
 logging:
   level:
     com.webchat: DEBUG
-    org.springframework.web.socket: DEBUG
-    org.springframework.messaging: DEBUG
   file:
     name: logs/webchat.log
   pattern:

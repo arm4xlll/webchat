@@ -4,6 +4,10 @@ spring:
       max-file-size: 50MB
       max-request-size: 55MB
 
+  mvc:
+    async:
+      request-timeout: 3600000
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
@@ -44,8 +48,6 @@ app:
 logging:
   level:
     com.webchat: INFO
-    org.springframework.web.socket: WARN
-    org.springframework.messaging: WARN
   file:
     name: /var/log/webchat/webchat.log
   pattern:
