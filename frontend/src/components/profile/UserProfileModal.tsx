@@ -47,7 +47,7 @@ export default function UserProfileModal({ user, presence, isOpen, onClose }: Pr
         <div className="relative bg-gradient-to-b from-tg-primary/20 to-transparent pt-8 pb-4 px-6 flex flex-col items-center">
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 p-1.5 rounded-full text-tg-text-secondary hover:text-white hover:bg-tg-hover transition-colors cursor-pointer"
+            className="absolute top-3 right-3 p-1.5 rounded-full text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

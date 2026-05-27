@@ -14,12 +14,16 @@ export interface ThemeColors {
   hover: string;
   active: string;
   inputBg: string;
+  /** Text color on own message bubbles and active list items */
+  msgOutText: string;
+  /** Muted text (timestamps, secondary) on own message bubbles */
+  msgOutTextMuted: string;
 }
 
 export interface AppTheme {
   id: string;
   name: string;
-  icon: string; // lucide icon name — kept for future use
+  icon: string;
   colors: ThemeColors;
 }
 
@@ -40,6 +44,8 @@ export const THEMES: AppTheme[] = [
       hover: '#202b36',
       active: '#2b5278',
       inputBg: '#17212b',
+      msgOutText: '#ffffff',
+      msgOutTextMuted: 'rgba(255,255,255,0.6)',
     },
   },
   {
@@ -58,6 +64,8 @@ export const THEMES: AppTheme[] = [
       hover: '#fad4e0',
       active: '#f48fb1',
       inputBg: '#ffffff',
+      msgOutText: '#2d0d1f',
+      msgOutTextMuted: 'rgba(45,13,31,0.65)',
     },
   },
   {
@@ -76,6 +84,8 @@ export const THEMES: AppTheme[] = [
       hover: '#16162a',
       active: '#2e2b6e',
       inputBg: '#0f0f1a',
+      msgOutText: '#ffffff',
+      msgOutTextMuted: 'rgba(255,255,255,0.6)',
     },
   },
   {
@@ -94,6 +104,8 @@ export const THEMES: AppTheme[] = [
       hover: '#0f2840',
       active: '#0a3d5c',
       inputBg: '#0d1e30',
+      msgOutText: '#ffffff',
+      msgOutTextMuted: 'rgba(255,255,255,0.6)',
     },
   },
   {
@@ -112,6 +124,8 @@ export const THEMES: AppTheme[] = [
       hover: '#152318',
       active: '#1b4523',
       inputBg: '#0e1f11',
+      msgOutText: '#ffffff',
+      msgOutTextMuted: 'rgba(255,255,255,0.6)',
     },
   },
 ];
@@ -138,6 +152,8 @@ function applyTheme(theme: AppTheme, fontSize: FontSize) {
   root.setProperty('--color-tg-hover', c.hover);
   root.setProperty('--color-tg-active', c.active);
   root.setProperty('--color-tg-input-bg', c.inputBg);
+  root.setProperty('--color-tg-msg-out-text', c.msgOutText);
+  root.setProperty('--color-tg-msg-out-text-muted', c.msgOutTextMuted);
   root.setProperty('--chat-font-size', FONT_SIZE_MAP[fontSize]);
 }
 

@@ -32,6 +32,10 @@ function formatTime(iso: string) {
 function isImage(type?: string) { return !!type?.startsWith('image/'); }
 function isVideo(type?: string) { return !!type?.startsWith('video/'); }
 
+// Inline style helpers — uses CSS variables so they change with theme
+const ownText = { color: 'var(--color-tg-msg-out-text)' } as const;
+const ownTextMuted = { color: 'var(--color-tg-msg-out-text-muted)' } as const;
+
 interface MediaBubbleProps {
   msg: Message;
   isOwn: boolean;
@@ -85,10 +89,16 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
 
       {hasCaption && (
         <div className="px-3.5 pt-1.5 pb-2 flex flex-wrap items-end gap-2">
-          <span className={`chat-text leading-relaxed break-words whitespace-pre-wrap ${isOwn ? 'text-white' : 'text-tg-text'}`}>
+          <span
+            className="chat-text leading-relaxed break-words whitespace-pre-wrap"
+            style={isOwn ? ownText : undefined}
+          >
             {msg.content}
           </span>
-          <span className={`ml-auto flex items-center gap-1 text-[11px] select-none ${isOwn ? 'text-white/60' : 'text-tg-text-secondary'}`}>
+          <span
+            className={`ml-auto flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+            style={isOwn ? ownTextMuted : undefined}
+          >
             {timeNode}
           </span>
         </div>
@@ -220,11 +230,19 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
           const timeNode = (
             <>
               {msg.editedAt && !msg.deleted && (
-                <span className={`text-[10px] italic ${isOwn ? 'text-[rgba(255,255,255,0.5)]' : 'text-tg-text-secondary'}`}>
+                <span
+                  className={`text-[10px] italic ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                  style={isOwn ? ownTextMuted : undefined}
+                >
                   изм.
                 </span>
               )}
-              <span className={`text-[11px] ${hasMedia ? 'text-white/90' : isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
+              <span
+                className={`text-[11px] ${hasMedia ? '' : !isOwn ? 'text-tg-text-secondary' : ''}`}
+                style={hasMedia
+                  ? { color: 'rgba(255,255,255,0.9)' }
+                  : isOwn ? ownTextMuted : undefined}
+              >
                 {formatTime(msg.createdAt)}
               </span>
               {isOwn && (
@@ -252,10 +270,16 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
                 {msg.deleted ? (
                   <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
                     <div className="flex flex-wrap items-end gap-2">
-                      <span className={`${isOwn ? 'text-[rgba(255,255,255,0.5)]' : 'text-tg-text-secondary'}`}>
+                      <span
+                        className={!isOwn ? 'text-tg-text-secondary' : ''}
+                        style={isOwn ? ownTextMuted : undefined}
+                      >
                         Сообщение удалено
                       </span>
-                      <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${isOwn ? 'text-[rgba(255,255,255,0.45)]' : 'text-tg-text-secondary'}`}>
+                      <span
+                        className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                        style={isOwn ? ownTextMuted : undefined}
+                      >
                         {timeNode}
                       </span>
                     </div>
@@ -270,25 +294,37 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
                     replyNode={msg.replyToId ? (
                       <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
                         <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                        <div className={`truncate mt-0.5 text-xs ${isOwn ? 'text-white/70' : 'text-tg-text-secondary'}`}>
+                        <div
+                          className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                          style={isOwn ? ownTextMuted : undefined}
+                        >
                           {msg.replyToContent ?? 'Сообщение удалено'}
                         </div>
                       </div>
                     ) : undefined}
                   />
                 ) : (
-                  <div className={`relative px-3.5 py-1.5 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out text-white' : 'bg-tg-msg-in text-tg-text'}`}>
+                  <div
+                    className={`relative px-3.5 py-1.5 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in text-tg-text'}`}
+                    style={isOwn ? ownText : undefined}
+                  >
                     {msg.replyToId && (
                       <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
                         <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                        <div className={`truncate mt-0.5 text-xs ${isOwn ? 'text-white/70' : 'text-tg-text-secondary'}`}>
+                        <div
+                          className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                          style={isOwn ? ownTextMuted : undefined}
+                        >
                           {msg.replyToContent ?? 'Сообщение удалено'}
                         </div>
                       </div>
                     )}
                     <div className="flex flex-wrap items-end gap-2">
                       <span className="whitespace-pre-wrap max-w-full break-words">{msg.content}</span>
-                      <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${isOwn ? 'text-white/60' : 'text-tg-text-secondary'}`}>
+                      <span
+                        className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                        style={isOwn ? ownTextMuted : undefined}
+                      >
                         {timeNode}
                       </span>
                     </div>
@@ -320,5 +356,3 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
     </>
   );
 }
-
-

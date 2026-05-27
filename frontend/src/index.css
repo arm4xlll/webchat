@@ -13,6 +13,9 @@
   --color-tg-hover: #202b36;
   --color-tg-active: #2b5278;
   --color-tg-input-bg: #17212b;
+  /* Text on colored backgrounds (own messages, active list item) */
+  --color-tg-msg-out-text: #ffffff;
+  --color-tg-msg-out-text-muted: rgba(255,255,255,0.6);
   --chat-font-size: 15px;
 }
 

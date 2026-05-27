@@ -107,14 +107,14 @@ export default function ChatPage() {
           <button
             onClick={() => setSettingsOpen(true)}
             title="Настройки"
-            className="p-2 text-tg-text-secondary hover:text-white hover:bg-tg-hover rounded-full cursor-pointer transition-colors"
+            className="p-2 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full cursor-pointer transition-colors"
           >
             <Settings className="w-4.5 h-4.5" />
           </button>
           <button
             onClick={handleLogout}
             title="Выйти"
-            className="p-2 text-tg-text-secondary hover:text-white hover:bg-tg-hover rounded-full cursor-pointer transition-colors"
+            className="p-2 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full cursor-pointer transition-colors"
           >
             <LogOut className="w-4.5 h-4.5" />
           </button>

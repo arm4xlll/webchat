@@ -145,7 +145,7 @@ export default function MessageInput({
           </div>
           <button
             onClick={onCancelReply}
-            className="p-1.5 text-tg-text-secondary hover:text-white hover:bg-tg-hover rounded-full transition-colors shrink-0 cursor-pointer"
+            className="p-1.5 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors shrink-0 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -162,7 +162,7 @@ export default function MessageInput({
           </div>
           <button
             onClick={handleCancelEdit}
-            className="p-1.5 text-tg-text-secondary hover:text-white hover:bg-tg-hover rounded-full transition-colors shrink-0 cursor-pointer"
+            className="p-1.5 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors shrink-0 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>

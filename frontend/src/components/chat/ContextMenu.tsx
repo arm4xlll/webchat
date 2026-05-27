@@ -46,7 +46,7 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
     <div
       ref={ref}
       style={{ position: 'fixed', left: x, top: y, zIndex: 1000 }}
-      className="bg-[#1e2d3d] border border-tg-border rounded-xl shadow-2xl py-1 min-w-[172px] overflow-hidden select-none"
+      className="bg-tg-sidebar-bg border border-tg-border rounded-xl shadow-2xl py-1 min-w-[172px] overflow-hidden select-none"
     >
       {items.map((item, i) => (
         item.info ? (

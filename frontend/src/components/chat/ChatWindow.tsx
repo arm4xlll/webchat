@@ -59,7 +59,7 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         {onBack && (
           <button
             onClick={onBack}
-            className="md:hidden p-2 -ml-1 text-tg-text-secondary hover:text-white hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
+            className="md:hidden p-2 -ml-1 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>

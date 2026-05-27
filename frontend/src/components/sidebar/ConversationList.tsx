@@ -53,27 +53,32 @@ export default function ConversationList() {
             onClick={() => setActiveConversation(conv.id)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors duration-150 select-none ${
               isActive
-                ? 'bg-tg-active text-white'
+                ? 'bg-tg-active'
                 : 'hover:bg-tg-hover text-tg-text-secondary'
             }`}
+            style={isActive ? { color: 'var(--color-tg-msg-out-text)' } : undefined}
           >
             <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="flex justify-between items-baseline mb-0.5">
                 <span className={`font-semibold text-[15px] truncate leading-tight ${
-                  isActive ? 'text-white' : 'text-tg-text'
+                  isActive ? '' : 'text-tg-text'
                 }`}>
                   {other?.name ?? 'Неизвестно'}
                 </span>
                 {lastMsg && (
-                  <span className={`text-[11.5px] shrink-0 ml-2 leading-none ${isActive ? 'text-white/70' : 'text-tg-text-secondary'}`}>
+                  <span
+                    className={`text-[11.5px] shrink-0 ml-2 leading-none ${!isActive ? 'text-tg-text-secondary' : ''}`}
+                    style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
+                  >
                     {formatTime(lastMsg.createdAt)}
                   </span>
                 )}
               </div>
-              <div className={`text-[13.5px] truncate leading-tight mt-0.5 ${
-                isActive ? 'text-white/70' : 'text-tg-text-secondary'
-              }`}>
+              <div
+                className={`text-[13.5px] truncate leading-tight mt-0.5 ${!isActive ? 'text-tg-text-secondary' : ''}`}
+                style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
+              >
                 {lastMsg ? lastMsg.content : `@${other?.username ?? ''}`}
               </div>
             </div>
