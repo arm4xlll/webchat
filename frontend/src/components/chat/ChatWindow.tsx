@@ -185,7 +185,21 @@ export default function ChatWindow({
 
     if (messages[conversation.id] !== undefined) return;
     getMessages(conversation.id, 0, PAGE_SIZE).then(msgs => {
-      setMessages(conversation.id, msgs);
+      // Merge with messages already in store (may have arrived via WS while fetch was in-flight)
+      const inStore = useChatStore.getState().messages[conversation.id] ?? [];
+      if (inStore.length === 0) {
+        setMessages(conversation.id, msgs);
+      } else {
+        const storeIds = new Set(inStore.map(m => m.id));
+        const toAdd = msgs.filter(m => !storeIds.has(m.id));
+        if (toAdd.length > 0) {
+          const merged = [...toAdd, ...inStore].sort(
+            (a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)
+          );
+          setMessages(conversation.id, merged);
+        }
+        // else store already has everything (all came via WS) — keep as is
+      }
       if (msgs.length < PAGE_SIZE) setHasMore(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

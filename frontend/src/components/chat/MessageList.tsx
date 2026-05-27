@@ -149,6 +149,7 @@ export default function MessageList({
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const scrollHeightBeforeRef = useRef(0);
+  const scrollTopBeforeRef = useRef(0);
   const prevFirstIdRef = useRef<string | null>(null);
   const initialScrollDoneRef = useRef(false);
 
@@ -181,7 +182,9 @@ export default function MessageList({
     const firstId = messages[0].id;
     const isPrepend = prevFirstIdRef.current !== null && firstId !== prevFirstIdRef.current;
     if (isPrepend) {
-      container.scrollTop = container.scrollHeight - scrollHeightBeforeRef.current;
+      // Correct formula: preserve user's visual position relative to their anchor
+      // new scrollTop = old scrollTop + (new scrollHeight - old scrollHeight)
+      container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
     } else if (!initialScrollDoneRef.current) {
       container.scrollTop = container.scrollHeight;
       initialScrollDoneRef.current = true;
@@ -205,10 +208,17 @@ export default function MessageList({
     if (!sentinel || !container || !onLoadMore) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && hasMore && !loadingMore) {
+        // Save both scrollHeight and scrollTop before load so we can restore position accurately
         scrollHeightBeforeRef.current = container.scrollHeight;
+        scrollTopBeforeRef.current = container.scrollTop;
         onLoadMore();
       }
-    }, { root: container, threshold: 0.1 });
+    }, {
+      root: container,
+      // Trigger 400px before the sentinel becomes visible — preload before user reaches top
+      rootMargin: '400px 0px 0px 0px',
+      threshold: 0,
+    });
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
