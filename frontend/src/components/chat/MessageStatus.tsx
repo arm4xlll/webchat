@@ -1,27 +1,36 @@
+import { useId } from 'react';
+
 interface Props {
   readAt: string | undefined;
 }
 
 export default function MessageStatus({ readAt }: Props) {
+  const uid = useId();
+  const gradId = `hg-${uid.replace(/:/g, '')}`;
   const isRead = readAt != null;
 
-  if (isRead) {
-    // Двойная галочка — цвет акцента темы
-    return (
-      <span className="inline-flex items-center shrink-0" title="Прочитано">
-        <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
-          <path d="M1 5.5L4.5 9L10 3" stroke="var(--color-tg-primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M5 5.5L8.5 9L14 3" stroke="var(--color-tg-primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </span>
-    );
-  }
-
-  // Одинарная галочка — muted цвет текста своих сообщений
   return (
-    <span className="inline-flex items-center shrink-0" title="Отправлено">
-      <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-        <path d="M1 4.5L4.5 8L11 1" stroke="var(--color-tg-msg-out-text-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    <span className="inline-flex items-center shrink-0" title={isRead ? 'Прочитано' : 'Отправлено'}>
+      <svg width="15" height="13" viewBox="0 0 16 14" fill="none">
+        <defs>
+          {/* Half-fill gradient for "sent" state: left 52% filled, rest transparent */}
+          <linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">
+            <stop offset="52%" stopColor="var(--color-tg-msg-out-text-muted)" />
+            <stop offset="52%" stopColor="transparent" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M8 12.8C8 12.8 1 8.2 1 4.2C1 2.2 2.6 1 4.5 1C5.9 1 7.1 1.85 8 3C8.9 1.85 10.1 1 11.5 1C13.4 1 15 2.2 15 4.2C15 8.2 8 12.8 8 12.8Z"
+          fill={isRead
+            ? 'var(--color-tg-primary)'
+            : `url(#${gradId})`}
+          stroke={isRead
+            ? 'var(--color-tg-primary)'
+            : 'var(--color-tg-msg-out-text-muted)'}
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </span>
   );
