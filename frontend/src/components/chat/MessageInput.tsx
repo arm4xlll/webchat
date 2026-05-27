@@ -84,6 +84,10 @@ export default function MessageInput({
   };
 
   const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setUploadError('Браузер не поддерживает запись (нужен HTTPS или localhost)');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recordChunksRef.current = [];
@@ -108,8 +112,15 @@ export default function MessageInput({
       recordTimerRef.current = setInterval(() => {
         setRecordSeconds(s => s + 1);
       }, 1000);
-    } catch {
-      setUploadError('Нет доступа к микрофону');
+    } catch (err: unknown) {
+      const name = (err as { name?: string })?.name;
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setUploadError('Доступ к микрофону запрещён — разрешите в настройках браузера');
+      } else if (name === 'NotFoundError') {
+        setUploadError('Микрофон не найден');
+      } else {
+        setUploadError('Не удалось получить доступ к микрофону');
+      }
     }
   };
 
