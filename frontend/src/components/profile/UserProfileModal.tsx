@@ -76,7 +76,7 @@ export default function UserProfileModal({ user, presence, isOpen, onClose }: Pr
         {/* Info rows */}
         <div className="px-4 pb-4 space-y-1">
           {/* Username */}
-          <div className="flex items-center gap-3 px-2 py-3 rounded-xl hover:bg-tg-hover transition-colors">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-tg-hover transition-colors">
             <div className="w-9 h-9 rounded-full bg-tg-primary/15 flex items-center justify-center shrink-0">
               <AtSign className="w-4 h-4 text-tg-primary" />
             </div>
@@ -88,7 +88,7 @@ export default function UserProfileModal({ user, presence, isOpen, onClose }: Pr
 
           {/* Bio */}
           {user.bio && (
-            <div className="flex items-start gap-3 px-2 py-3 rounded-xl hover:bg-tg-hover transition-colors">
+            <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-tg-hover transition-colors">
               <div className="w-9 h-9 rounded-full bg-tg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
                 <Info className="w-4 h-4 text-tg-primary" />
               </div>

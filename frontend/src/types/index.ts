@@ -73,3 +73,14 @@ export interface PresenceEvent {
   online: boolean;
   lastSeenAt?: string;
 }
+
+export interface Session {
+  id: string;
+  label: string | null;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  lastActiveAt: string;
+  primary: boolean;
+  current: boolean;
+}

@@ -31,23 +31,23 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-tg-bg px-4">
       {/* Login Card */}
-      <div className="w-full max-w-[420px] bg-tg-sidebar-bg border border-tg-border rounded-xl p-8 sm:p-10 shadow-lg">
+      <div className="w-full max-w-[400px] bg-tg-sidebar-bg border border-tg-border rounded-2xl p-8 sm:p-9 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-tg-primary text-white mb-4">
-            <MessageSquare className="w-8 h-8" />
+          <div className="inline-flex items-center justify-center w-15 h-15 rounded-full bg-tg-primary text-white mb-4">
+            <MessageSquare className="w-7.5 h-7.5" />
           </div>
           <h1 className="text-2xl font-bold text-tg-text tracking-tight">Вход в WebChat</h1>
-          <p className="text-tg-text-secondary mt-2 text-sm">Пожалуйста, войдите в свой аккаунт</p>
+          <p className="text-tg-text-secondary mt-1.5 text-[14px]">Пожалуйста, войдите в свой аккаунт</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-tg-text-secondary">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-tg-text-secondary pl-1">
               Юзернейм
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tg-text-secondary">
-                <User className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-tg-text-secondary">
+                <User className="w-4.5 h-4.5" />
               </span>
               <input
                 type="text"
@@ -55,18 +55,18 @@ export default function LoginPage() {
                 onChange={e => setUsername(e.target.value)}
                 placeholder="username"
                 required
-                className="w-full pl-10 pr-4 py-3 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-tg-text-secondary">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-tg-text-secondary pl-1">
               Пароль
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tg-text-secondary">
-                <Lock className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-tg-text-secondary">
+                <Lock className="w-4.5 h-4.5" />
               </span>
               <input
                 type="password"
@@ -74,7 +74,7 @@ export default function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full pl-10 pr-4 py-3 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
               />
             </div>
           </div>
@@ -91,7 +91,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 bg-tg-primary hover:opacity-90 text-white font-medium text-[15px] rounded-xl transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer mt-2"
+            className="w-full py-3 px-4 bg-tg-primary hover:opacity-90 text-white font-semibold text-[15px] rounded-xl transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer mt-2"
           >
             {loading ? (
               <>
@@ -104,9 +104,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center mt-8 text-[15px] text-tg-text-secondary">
+        <p className="text-center mt-7 text-[14.5px] text-tg-text-secondary">
           Нет аккаунта?{' '}
-          <Link to="/register" className="text-tg-primary hover:underline font-medium transition-colors">
+          <Link to="/register" className="text-tg-primary hover:underline font-semibold transition-colors">
             Зарегистрироваться
           </Link>
         </p>

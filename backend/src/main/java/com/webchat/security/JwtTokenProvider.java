@@ -26,16 +26,18 @@ public class JwtTokenProvider {
         this.accessTokenExpiration = accessTokenExpiration;
     }
 
-    public String generateAccessToken(UUID userId, String username) {
+    public String generateAccessToken(UUID userId, String username, UUID sessionId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessTokenExpiration);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(userId.toString())
                 .claim("username", username)
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(key)
-                .compact();
+                .expiration(expiry);
+        if (sessionId != null) {
+            builder.claim("sessionId", sessionId.toString());
+        }
+        return builder.signWith(key).compact();
     }
 
     public UUID extractUserId(String token) {
@@ -44,6 +46,12 @@ public class JwtTokenProvider {
 
     public String extractUsername(String token) {
         return parseClaims(token).get("username", String.class);
+    }
+
+    /** Returns null if the token has no sessionId claim (old tokens). */
+    public UUID extractSessionId(String token) {
+        String raw = parseClaims(token).get("sessionId", String.class);
+        return raw != null ? UUID.fromString(raw) : null;
     }
 
     public boolean validateToken(String token) {

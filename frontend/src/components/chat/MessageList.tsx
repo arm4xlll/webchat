@@ -38,14 +38,16 @@ interface MediaBubbleProps {
   bubbleShape: string;
   timeNode: React.ReactNode;
   onImageClick: (src: string, alt: string) => void;
+  replyNode?: React.ReactNode;
 }
 
-function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick }: MediaBubbleProps) {
+function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNode }: MediaBubbleProps) {
   const hasCaption = msg.content.trim().length > 0;
   const bgClass = isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in';
 
   return (
-    <div className={`overflow-hidden ${bubbleShape} ${bgClass} shadow-sm`}>
+    <div className={`overflow-hidden ${bubbleShape} ${bgClass} shadow-sm flex flex-col`}>
+      {replyNode}
       {isImage(msg.fileType) && (
         <div
           className="relative cursor-pointer group"
@@ -54,11 +56,11 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick }: MediaB
           <img
             src={msg.fileUrl}
             alt={msg.fileName ?? 'image'}
-            className="block w-full max-w-xs object-cover group-hover:brightness-90 transition-[filter]"
+            className="block w-full max-w-xs object-cover group-hover:brightness-95 transition-[filter]"
             loading="lazy"
           />
           {!hasCaption && (
-            <div className="absolute bottom-1.5 right-2 bg-black/50 rounded-full px-1.5 py-0.5 flex items-center gap-1">
+            <div className="absolute bottom-1.5 right-2 bg-black/40 backdrop-blur-[2px] rounded-full px-2 py-0.5 flex items-center gap-1 select-none">
               {timeNode}
             </div>
           )}
@@ -74,7 +76,7 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick }: MediaB
             preload="metadata"
           />
           {!hasCaption && (
-            <div className="absolute bottom-1.5 right-2 bg-black/50 rounded-full px-1.5 py-0.5 flex items-center gap-1">
+            <div className="absolute bottom-1.5 right-2 bg-black/40 backdrop-blur-[2px] rounded-full px-2 py-0.5 flex items-center gap-1 select-none">
               {timeNode}
             </div>
           )}
@@ -82,11 +84,11 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick }: MediaB
       )}
 
       {hasCaption && (
-        <div className="px-3 pt-1.5 pb-2 flex flex-wrap items-end gap-2">
-          <span className={`text-[15px] leading-relaxed break-words whitespace-pre-wrap ${isOwn ? 'text-white' : 'text-tg-text'}`}>
+        <div className="px-3.5 pt-1.5 pb-2 flex flex-wrap items-end gap-2">
+          <span className={`chat-text leading-relaxed break-words whitespace-pre-wrap ${isOwn ? 'text-white' : 'text-tg-text'}`}>
             {msg.content}
           </span>
-          <span className={`ml-auto flex items-center gap-1 text-[11px] select-none ${isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
+          <span className={`ml-auto flex items-center gap-1 text-[11px] select-none ${isOwn ? 'text-white/60' : 'text-tg-text-secondary'}`}>
             {timeNode}
           </span>
         </div>
@@ -259,40 +261,36 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
                     </div>
                   </div>
                 ) : hasMedia ? (
-                  <div className="flex flex-col w-full">
-                    {msg.replyToId && (
-                      <ReplyQuote
-                        senderName={msg.replyToSenderName ?? ''}
-                        content={msg.replyToContent ?? null}
-                        isOwn={isOwn}
-                        attached
-                      />
-                    )}
-                    <MediaBubble
-                      msg={msg}
-                      isOwn={isOwn}
-                      bubbleShape={msg.replyToId ? (isOwn ? 'rounded-l-2xl rounded-r-[5px]' : 'rounded-r-2xl rounded-l-[5px]') : bubbleShape}
-                      timeNode={timeNode}
-                      onImageClick={(src, alt) => setLightbox({ src, alt })}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex flex-col w-full">
-                    {msg.replyToId && (
-                      <ReplyQuote
-                        senderName={msg.replyToSenderName ?? ''}
-                        content={msg.replyToContent ?? null}
-                        isOwn={isOwn}
-                        attached
-                      />
-                    )}
-                    <div className={`relative px-4 py-2 text-[15px] leading-relaxed break-words shadow-sm ${msg.replyToId ? (isOwn ? 'rounded-l-2xl rounded-r-[5px]' : 'rounded-r-2xl rounded-l-[5px]') : bubbleShape} ${isOwn ? 'bg-tg-msg-out text-white' : 'bg-tg-msg-in text-tg-text'}`}>
-                      <div className="flex flex-wrap items-end gap-2">
-                        <span className="whitespace-pre-wrap max-w-full break-words">{msg.content}</span>
-                        <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
-                          {timeNode}
-                        </span>
+                  <MediaBubble
+                    msg={msg}
+                    isOwn={isOwn}
+                    bubbleShape={bubbleShape}
+                    timeNode={timeNode}
+                    onImageClick={(src, alt) => setLightbox({ src, alt })}
+                    replyNode={msg.replyToId ? (
+                      <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
+                        <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
+                        <div className={`truncate mt-0.5 text-xs ${isOwn ? 'text-white/70' : 'text-tg-text-secondary'}`}>
+                          {msg.replyToContent ?? 'Сообщение удалено'}
+                        </div>
                       </div>
+                    ) : undefined}
+                  />
+                ) : (
+                  <div className={`relative px-3.5 py-1.5 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out text-white' : 'bg-tg-msg-in text-tg-text'}`}>
+                    {msg.replyToId && (
+                      <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
+                        <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
+                        <div className={`truncate mt-0.5 text-xs ${isOwn ? 'text-white/70' : 'text-tg-text-secondary'}`}>
+                          {msg.replyToContent ?? 'Сообщение удалено'}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-end gap-2">
+                      <span className="whitespace-pre-wrap max-w-full break-words">{msg.content}</span>
+                      <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${isOwn ? 'text-white/60' : 'text-tg-text-secondary'}`}>
+                        {timeNode}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -323,28 +321,4 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
   );
 }
 
-interface ReplyQuoteProps {
-  senderName: string;
-  content: string | null;
-  isOwn: boolean;
-  attached?: boolean;
-}
 
-function ReplyQuote({ senderName, content, isOwn, attached }: ReplyQuoteProps) {
-  return (
-    <div className={`
-      px-3 pt-2 pb-1 text-[13px] border-l-2 border-tg-primary
-      ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}
-      ${attached
-        ? isOwn
-          ? 'rounded-l-2xl rounded-tr-2xl rounded-br-none'
-          : 'rounded-r-2xl rounded-tl-2xl rounded-bl-none'
-        : 'rounded-xl'}
-    `}>
-      <div className="font-medium text-tg-primary truncate">{senderName}</div>
-      <div className={`truncate mt-0.5 ${isOwn ? 'text-[rgba(255,255,255,0.6)]' : 'text-tg-text-secondary'}`}>
-        {content ?? 'Сообщение удалено'}
-      </div>
-    </div>
-  );
-}

@@ -1,5 +1,6 @@
 package com.webchat.security;
 
+import com.webchat.service.SessionService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final SessionService sessionService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -32,14 +34,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
             UUID userId = jwtTokenProvider.extractUserId(token);
             String username = jwtTokenProvider.extractUsername(token);
+            UUID sessionId = jwtTokenProvider.extractSessionId(token);
 
-            UserPrincipal principal = new UserPrincipal(userId, username);
+            // Check if session was revoked (e.g. kicked from another device)
+            if (sessionId != null && sessionService.isRevoked(sessionId)) {
+                log.info("Rejected revoked session {} for user {}", sessionId, username);
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session revoked");
+                return;
+            }
+
+            UserPrincipal principal = new UserPrincipal(userId, username, sessionId);
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     principal, null, Collections.emptyList()
             );
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);
-            log.debug("Authenticated user: {} ({})", username, userId);
+
+            // Update lastActiveAt at most once per 5 minutes (debounced via Redis)
+            if (sessionId != null) {
+                sessionService.updateHeartbeat(sessionId);
+            }
+
+            log.debug("Authenticated user: {} ({}) session={}", username, userId, sessionId);
         }
         filterChain.doFilter(request, response);
     }

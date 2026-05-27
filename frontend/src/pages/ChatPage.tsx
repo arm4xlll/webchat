@@ -77,15 +77,15 @@ export default function ChatPage() {
       {/* Sidebar — на мобильном скрывается когда открыт чат */}
       <div className={`${activeConversationId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-[350px] bg-tg-sidebar-bg border-r border-tg-border shrink-0 safe-top`}>
         {/* User header */}
-        <div className="px-4 pt-4 pb-3 border-b border-tg-border flex items-center gap-3">
+        <div className="px-3.5 pt-3 pb-2.5 border-b border-tg-border flex items-center gap-2">
           <button
             onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-1 py-1 transition-colors cursor-pointer"
+            className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer"
           >
             <UserAvatar name={user?.name ?? '?'} avatarUrl={user?.avatarUrl} size="md" />
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm text-tg-text truncate">{user?.name}</div>
-              <div className="text-xs text-tg-text-secondary truncate">@{user?.username}</div>
+              <div className="font-semibold text-[14.5px] text-tg-text truncate leading-tight">{user?.name}</div>
+              <div className="text-[12.5px] text-tg-text-secondary truncate mt-0.5">@{user?.username}</div>
             </div>
           </button>
           <button
@@ -93,14 +93,14 @@ export default function ChatPage() {
             title="Настройки"
             className="p-2 text-tg-text-secondary hover:text-white hover:bg-tg-hover rounded-full cursor-pointer transition-colors"
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-4.5 h-4.5" />
           </button>
           <button
             onClick={handleLogout}
             title="Выйти"
             className="p-2 text-tg-text-secondary hover:text-white hover:bg-tg-hover rounded-full cursor-pointer transition-colors"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4.5 h-4.5" />
           </button>
         </div>
 

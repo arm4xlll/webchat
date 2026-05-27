@@ -4,6 +4,7 @@ import { createConversation } from '../../api/conversations';
 import { useChatStore } from '../../store/chatStore';
 import type { User } from '../../types';
 import { Search, Loader2 } from 'lucide-react';
+import UserAvatar from '../common/UserAvatar';
 
 export default function UserSearch() {
   const [query, setQuery] = useState('');
@@ -50,13 +51,13 @@ export default function UserSearch() {
   const showDropdown = focused && (results.length > 0 || (loading && query.trim().length > 0));
 
   return (
-    <div className="p-4 pb-2 relative z-50">
+    <div className="px-3.5 py-2 relative z-50">
       <div className="relative">
-        <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-tg-text-secondary">
+        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tg-text-secondary">
           {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin text-tg-primary" />
+            <Loader2 className="w-4.5 h-4.5 animate-spin text-tg-primary" />
           ) : (
-            <Search className="w-5 h-5" />
+            <Search className="w-4.5 h-4.5" />
           )}
         </span>
         <input
@@ -66,7 +67,7 @@ export default function UserSearch() {
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
           placeholder="Поиск..."
-          className="w-full pl-9 pr-4 py-2 bg-tg-input-bg border border-tg-border focus:border-tg-primary rounded-full text-tg-text placeholder:text-tg-text-secondary text-sm focus:outline-none transition-all duration-200"
+          className="w-full pl-9 pr-4 py-1.5 bg-tg-input-bg border border-tg-border focus:border-tg-primary rounded-full text-tg-text placeholder:text-tg-text-secondary text-[14px] leading-tight focus:outline-none transition-all duration-200"
         />
       </div>
 
@@ -82,14 +83,12 @@ export default function UserSearch() {
             <div
               key={user.id}
               onMouseDown={e => openChat(e, user)}
-              className="flex items-center gap-3 px-4 py-2 hover:bg-tg-hover cursor-pointer transition-colors duration-150"
+              className="flex items-center gap-3 px-3.5 py-2 hover:bg-tg-hover cursor-pointer transition-colors duration-150"
             >
-              <div className="w-10 h-10 rounded-full bg-tg-primary text-white flex items-center justify-center font-medium text-base shrink-0">
-                {user.name[0].toUpperCase()}
-              </div>
+              <UserAvatar name={user.name} avatarUrl={user.avatarUrl} size="md" />
               <div className="min-w-0 flex-1">
-                <div className="font-medium text-sm text-tg-text truncate">{user.name}</div>
-                <div className="text-xs text-tg-text-secondary truncate">@{user.username}</div>
+                <div className="font-semibold text-[14.5px] text-tg-text truncate leading-tight">{user.name}</div>
+                <div className="text-[12.5px] text-tg-text-secondary truncate mt-0.5">@{user.username}</div>
               </div>
             </div>
           ))}

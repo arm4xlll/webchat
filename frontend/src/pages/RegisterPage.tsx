@@ -32,24 +32,24 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-tg-bg px-4">
       {/* Register Card */}
-      <div className="w-full max-w-[440px] bg-tg-sidebar-bg border border-tg-border rounded-xl p-8 sm:p-10 shadow-lg">
+      <div className="w-full max-w-[420px] bg-tg-sidebar-bg border border-tg-border rounded-2xl p-8 sm:p-9 shadow-2xl">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-tg-primary text-white mb-4">
-            <UserPlus className="w-8 h-8" />
+          <div className="inline-flex items-center justify-center w-15 h-15 rounded-full bg-tg-primary text-white mb-4">
+            <UserPlus className="w-7.5 h-7.5" />
           </div>
           <h1 className="text-2xl font-bold text-tg-text tracking-tight">Регистрация</h1>
-          <p className="text-tg-text-secondary mt-2 text-sm">Создайте аккаунт в WebChat</p>
+          <p className="text-tg-text-secondary mt-1.5 text-[14px]">Создайте аккаунт в WebChat</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4.5">
           {/* Name Input */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-tg-text-secondary">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-tg-text-secondary pl-1">
               Имя
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tg-text-secondary">
-                <User className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-tg-text-secondary">
+                <User className="w-4.5 h-4.5" />
               </span>
               <input
                 type="text"
@@ -58,19 +58,19 @@ export default function RegisterPage() {
                 placeholder="Имя Фамилия"
                 required
                 minLength={2}
-                className="w-full pl-10 pr-4 py-3 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
               />
             </div>
           </div>
 
           {/* Username Input */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-tg-text-secondary">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-tg-text-secondary pl-1">
               Юзернейм
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tg-text-secondary">
-                <User className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-tg-text-secondary">
+                <User className="w-4.5 h-4.5" />
               </span>
               <input
                 type="text"
@@ -81,22 +81,22 @@ export default function RegisterPage() {
                 minLength={3}
                 pattern="^[a-zA-Z0-9_]+$"
                 title="Только латиница, цифры и _"
-                className="w-full pl-10 pr-4 py-3 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
               />
             </div>
-            <div className="text-[12px] text-tg-text-secondary mt-1 pl-1">
+            <div className="text-[11.5px] text-tg-text-secondary pl-1 leading-tight">
               Только латинские буквы, цифры и символ подчеркивания (_)
             </div>
           </div>
 
           {/* Password Input */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-tg-text-secondary">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-tg-text-secondary pl-1">
               Пароль
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tg-text-secondary">
-                <Lock className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-tg-text-secondary">
+                <Lock className="w-4.5 h-4.5" />
               </span>
               <input
                 type="password"
@@ -105,7 +105,7 @@ export default function RegisterPage() {
                 placeholder="Минимум 6 символов"
                 required
                 minLength={6}
-                className="w-full pl-10 pr-4 py-3 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text placeholder:text-tg-text-secondary text-[15px] focus:outline-none focus:border-tg-primary transition-colors"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 bg-tg-primary hover:opacity-90 text-white font-medium text-[15px] rounded-xl transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer mt-2"
+            className="w-full py-3 px-4 bg-tg-primary hover:opacity-90 text-white font-semibold text-[15px] rounded-xl transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer mt-2"
           >
             {loading ? (
               <>
@@ -135,9 +135,9 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <p className="text-center mt-6 text-[15px] text-tg-text-secondary">
+        <p className="text-center mt-6 text-[14.5px] text-tg-text-secondary">
           Уже есть аккаунт?{' '}
-          <Link to="/login" className="text-tg-primary hover:underline font-medium transition-colors">
+          <Link to="/login" className="text-tg-primary hover:underline font-semibold transition-colors">
             Войти
           </Link>
         </p>

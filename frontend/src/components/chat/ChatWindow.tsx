@@ -55,7 +55,7 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
   return (
     <div className="flex flex-col h-full bg-tg-bg relative overflow-hidden">
       {/* Header */}
-      <div className="px-4 md:px-6 py-3 bg-tg-sidebar-bg border-b border-tg-border flex items-center gap-3 relative z-10 safe-top">
+      <div className="px-4 md:px-5 py-2.5 bg-tg-sidebar-bg border-b border-tg-border flex items-center gap-2.5 relative z-10 safe-top">
         {onBack && (
           <button
             onClick={onBack}
@@ -66,22 +66,22 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         )}
         <button
           onClick={() => other && setProfileOpen(true)}
-          className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-1 py-1 transition-colors cursor-pointer"
+          className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer"
         >
           <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="md" />
-          <div>
-            <div className="font-medium text-[15px] text-tg-text leading-none mb-1">{other?.name ?? 'Чат'}</div>
+          <div className="flex flex-col justify-center min-w-0">
+            <div className="font-semibold text-[15.5px] text-tg-text leading-tight">{other?.name ?? 'Чат'}</div>
             {typingUsers.length > 0 ? (
-              <div className="flex items-center gap-1.5 h-3.5 text-[13px] text-tg-primary animate-slide-in">
-                <span className="flex items-center gap-0.5">
+              <div className="flex items-center gap-1.5 text-[13px] text-tg-primary animate-slide-in mt-0.5">
+                <span className="flex items-center gap-0.5 shrink-0">
                   {[0, 1, 2].map(i => (
-                    <span key={i} className="w-1.5 h-1.5 rounded-full bg-tg-primary inline-block" style={{
+                    <span key={i} className="w-1 h-1 rounded-full bg-tg-primary inline-block" style={{
                       animation: 'bounce 1.2s infinite',
                       animationDelay: `${i * 0.2}s`
                     }} />
                   ))}
                 </span>
-                <span>{typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'печатает...' : 'печатают...'}</span>
+                <span className="truncate">{typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'печатает...' : 'печатают...'}</span>
                 <style>{`
                   @keyframes bounce {
                     0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
@@ -90,16 +90,16 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
                 `}</style>
               </div>
             ) : otherPresence?.online ? (
-              <div className="flex items-center gap-1 h-3.5">
+              <div className="flex items-center gap-1 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-                <span className="text-[13px] text-green-400 leading-none">в сети</span>
+                <span className="text-[13px] text-green-400 leading-tight">в сети</span>
               </div>
             ) : otherPresence?.lastSeenAt ? (
-              <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">
+              <div className="text-[13px] text-tg-text-secondary leading-tight mt-0.5">
                 был(а) {formatLastSeen(otherPresence.lastSeenAt)}
               </div>
             ) : (
-              <div className="text-[13px] h-3.5 text-tg-text-secondary leading-none">не в сети</div>
+              <div className="text-[13px] text-tg-text-secondary leading-tight mt-0.5">не в сети</div>
             )}
           </div>
         </button>

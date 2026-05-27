@@ -13,6 +13,7 @@
   --color-tg-hover: #202b36;
   --color-tg-active: #2b5278;
   --color-tg-input-bg: #17212b;
+  --chat-font-size: 15px;
 }
 
 @layer base {
@@ -52,6 +53,10 @@
 }
 
 @layer utilities {
+  .chat-text {
+    font-size: var(--chat-font-size, 15px);
+  }
+
   .animate-slide-in {
     animation: slideIn 0.25s ease-out forwards;
   }
