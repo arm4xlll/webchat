@@ -22,6 +22,7 @@ interface Props {
   onEdit: (msg: Message) => void;
   onDelete: (msg: Message, forEveryone: boolean) => void;
   onRead: () => void;
+  searchQuery?: string;
 }
 
 const EMPTY_MESSAGES: never[] = [];
@@ -109,7 +110,22 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
   );
 }
 
-export default function MessageList({ conversationId, onReply, onEdit, onDelete, onRead }: Props) {
+/** Highlight search query in text — returns array of spans */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.toLowerCase() === query.toLowerCase()
+          ? <mark key={i} className="rounded-sm px-[1px]" style={{ background: 'var(--color-tg-primary)', color: 'var(--color-tg-msg-out-text)', opacity: 0.9 }}>{p}</mark>
+          : <span key={i}>{p}</span>
+      )}
+    </>
+  );
+}
+
+export default function MessageList({ conversationId, onReply, onEdit, onDelete, onRead, searchQuery = '' }: Props) {
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -201,7 +217,10 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 flex flex-col bg-transparent">
+      <div
+        className="flex-1 overflow-y-auto px-4 md:px-8 py-4 flex flex-col bg-transparent"
+        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+      >
         {messages.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="bg-tg-input-bg text-tg-text-secondary text-[15px] px-4 py-1.5 rounded-full select-none">
@@ -257,7 +276,8 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
           return (
             <div
               key={msg.id}
-              className={`flex w-full select-text animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
+              className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
+              data-msg-id={msg.id}
               onContextMenu={(e) => handleContextMenu(e, msg)}
               onTouchStart={(e) => handleTouchStart(e, msg)}
               onTouchEnd={handleTouchEnd}
@@ -337,8 +357,8 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
                         </div>
                       </div>
                     )}
-                    <div className="flex flex-wrap items-end gap-2">
-                      <span className="whitespace-pre-wrap max-w-full break-words">{msg.content}</span>
+                    <div className="flex flex-wrap items-end gap-2 select-text">
+                      <span className="whitespace-pre-wrap max-w-full break-words"><Highlighted text={msg.content} query={searchQuery} /></span>
                       <span
                         className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
                         style={isOwn ? ownTextMuted : undefined}
