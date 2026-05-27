@@ -47,9 +47,11 @@ export default function ChatWindow({
 }: Props) {
   const user = useAuthStore(s => s.user);
   const { setMessages, prependMessages, messages } = useChatStore();
-  const typingUsers = useChatStore(s =>
-    (s.typingUsers[conversation.id] ?? EMPTY_TYPING).filter(u => u.userId !== user?.id)
-  );
+  // Get the raw list from the store (stable reference when unchanged),
+  // then filter outside the selector — .filter() always returns a new array,
+  // so putting it inside the selector causes infinite re-renders (React #185).
+  const allTypingUsers = useChatStore(s => s.typingUsers[conversation.id] ?? EMPTY_TYPING);
+  const typingUsers = allTypingUsers.filter(u => u.userId !== user?.id);
   const presenceStatus = useChatStore(s => s.presenceStatus);
   const isSaved = conversation.type === 'saved';
   const other = user ? (isSaved ? user : getOtherMember(conversation, user.id)) : null;
