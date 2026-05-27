@@ -15,11 +15,13 @@ import ConversationList from '../components/sidebar/ConversationList';
 import ChatWindow from '../components/chat/ChatWindow';
 import UserAvatar from '../components/common/UserAvatar';
 import SettingsModal from '../components/settings/SettingsModal';
-import { LogOut, MessageSquare, WifiOff, Loader2, Bell, Settings } from 'lucide-react';
+import { LogOut, MessageSquare, WifiOff, Loader2, Bell, Settings, RefreshCw } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useVersionCheck } from '../hooks/useVersionCheck';
 
 export default function ChatPage() {
   const { showBanner, requestPermission } = usePushNotifications();
+  const { updateReady, countdown, reloadNow } = useVersionCheck();
   const user = useAuthStore(s => s.user);
   const doLogout = useAuthStore(s => s.logout);
   const {
@@ -87,6 +89,19 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-tg-bg text-tg-text overflow-hidden" style={{ height: '100dvh' }}>
+      {updateReady && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-500/15 text-sm shrink-0">
+          <div className="flex items-center gap-2 text-tg-text">
+            <RefreshCw className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Доступна новая версия — обновление через {countdown} с</span>
+          </div>
+          <button onClick={reloadNow}
+            className="shrink-0 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-medium hover:bg-emerald-400 transition-colors cursor-pointer">
+            Обновить
+          </button>
+        </div>
+      )}
+
       {showBanner && (
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-tg-primary/15 text-sm shrink-0">
           <div className="flex items-center gap-2 text-tg-text">

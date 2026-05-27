@@ -5,6 +5,7 @@ import { useChatStore } from '../store/chatStore';
 import { useThemeStore, type FontSize } from '../store/themeStore';
 import { getConversations, getMessagesAfter } from '../api/conversations';
 import * as eventsApi from '../api/events';
+import { isNewVersionAvailable } from '../utils/versionCheck';
 import type {
   Attachment, Conversation, Message, PresenceEvent,
   ReadReceiptEvent, TypingEvent, User,
@@ -75,6 +76,11 @@ export function useEventStream() {
       switch (type) {
         case 'stream.ready':
           onStreamReady();
+          // SSE reconnect = backend restarted = likely a new deploy.
+          // Check version.json; if newer → the update banner will appear.
+          isNewVersionAvailable().then(newer => {
+            if (newer) window.dispatchEvent(new CustomEvent('app:update-available'));
+          });
           break;
         case 'message.created': {
           const msg = data as Message;
