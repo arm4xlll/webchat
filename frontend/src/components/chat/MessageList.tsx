@@ -179,7 +179,7 @@ export default function MessageList({
     isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }, []);
 
-  // Smart scroll
+  // Smart scroll + read receipt on new messages
   useEffect(() => {
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
@@ -192,8 +192,13 @@ export default function MessageList({
     } else if (!initialScrollDoneRef.current) {
       container.scrollTop = container.scrollHeight;
       initialScrollDoneRef.current = true;
+      // Initial render — mark as read (IntersectionObserver fires too, but it's idempotent)
+      onReadRef.current();
     } else if (isAtBottomRef.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // New message arrived while user is at the bottom: IntersectionObserver won't fire
+      // because bottomRef was already intersecting — call directly.
+      onReadRef.current();
     }
     prevFirstIdRef.current = firstId;
   }, [messages]);
