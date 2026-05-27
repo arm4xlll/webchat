@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -27,6 +28,7 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final ConversationService conversationService;
     private final UserService userService;
+    private final ReactionService reactionService;
     private final SimpMessagingTemplate messagingTemplate;
     private final PushNotificationService pushNotificationService;
 
@@ -63,6 +65,9 @@ public class MessageService {
                 .build();
         messageRepository.save(message);
 
+        // Update conversation recency
+        conv.setLastMessageAt(message.getCreatedAt());
+
         MessageResponse response = MessageResponse.from(message);
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + conv.getId(),
@@ -89,13 +94,19 @@ public class MessageService {
         if (!conversationService.isMember(conversationId, userId)) {
             throw new SecurityException("User is not a member of conversation " + conversationId);
         }
-        List<MessageResponse> messages = messageRepository
+        List<Message> messages = messageRepository
                 .findByConversationId(conversationId, userId, PageRequest.of(page, size))
                 .stream()
-                .map(MessageResponse::from)
                 .toList();
 
-        List<MessageResponse> result = new java.util.ArrayList<>(messages);
+        // Batch load reactions
+        List<UUID> ids = messages.stream().map(Message::getId).toList();
+        Map<UUID, Map<String, List<UUID>>> reactionsMap = reactionService.buildReactionsMapForMessages(ids);
+
+        List<MessageResponse> result = messages.stream()
+                .map(m -> MessageResponse.from(m, reactionsMap.getOrDefault(m.getId(), Map.of())))
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+
         Collections.reverse(result);
         return result;
     }
@@ -105,8 +116,13 @@ public class MessageService {
         if (!conversationService.isMember(conversationId, userId)) {
             throw new SecurityException("User is not a member of conversation " + conversationId);
         }
-        return messageRepository.findAfter(conversationId, after, userId).stream()
-                .map(MessageResponse::from)
+        List<Message> messages = messageRepository.findAfter(conversationId, after, userId);
+
+        List<UUID> ids = messages.stream().map(Message::getId).toList();
+        Map<UUID, Map<String, List<UUID>>> reactionsMap = reactionService.buildReactionsMapForMessages(ids);
+
+        return messages.stream()
+                .map(m -> MessageResponse.from(m, reactionsMap.getOrDefault(m.getId(), Map.of())))
                 .toList();
     }
 
@@ -126,7 +142,8 @@ public class MessageService {
         message.setEditedAt(Instant.now());
         messageRepository.save(message);
 
-        MessageResponse response = MessageResponse.from(message);
+        Map<String, List<UUID>> reactions = reactionService.buildReactionsMap(messageId);
+        MessageResponse response = MessageResponse.from(message, reactions);
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + message.getConversation().getId() + ".event",
                 new MessageEventResponse("EDITED", response)

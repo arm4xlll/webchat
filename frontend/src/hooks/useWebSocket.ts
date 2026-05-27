@@ -14,7 +14,11 @@ export function useWebSocket() {
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const { addMessage, updateMessage, addConversation, updateConversationMember, setTyping, clearAllTyping, setLastReadAt, setPresence, conversations } = useChatStore();
+  const {
+    addMessage, updateMessage, addConversation, updateConversationMember,
+    updateConversationLastMessage, incrementUnread,
+    setTyping, clearAllTyping, setLastReadAt, setPresence, conversations,
+  } = useChatStore();
   const applyFromServer = useThemeStore(s => s.applyFromServer);
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
@@ -23,7 +27,18 @@ export function useWebSocket() {
 
     const s1 = client.subscribe(`/topic/conversation.${convId}`, (frame: IMessage) => {
       try {
-        addMessage(JSON.parse(frame.body) as Message);
+        const msg = JSON.parse(frame.body) as Message;
+        addMessage(msg);
+        // Update conversation recency
+        updateConversationLastMessage(convId, msg.createdAt);
+        // Increment unread if not the active conversation and not sent by me
+        const currentUserId = useAuthStore.getState().user?.id;
+        if (msg.senderId !== currentUserId) {
+          const activeId = useChatStore.getState().activeConversationId;
+          if (activeId !== convId) {
+            incrementUnread(convId);
+          }
+        }
       } catch (e) {
         console.error('[WS] Failed to parse message', e);
       }
@@ -42,7 +57,6 @@ export function useWebSocket() {
       try {
         const ev: ReadReceiptEvent = JSON.parse(frame.body);
         setLastReadAt(ev.conversationId, ev.readerUserId, ev.lastReadAt);
-        // Mark messages as read in the local store (for sender's own messages)
         useChatStore.getState().markMessagesReadAt(ev.conversationId, ev.readerUserId, ev.lastReadAt);
       } catch (e) {
         console.error('[WS] Failed to parse read receipt', e);
@@ -52,7 +66,7 @@ export function useWebSocket() {
     const s4 = client.subscribe(`/topic/conversation.${convId}.event`, (frame: IMessage) => {
       try {
         const ev: MessageEvent = JSON.parse(frame.body);
-        if (ev.type === 'EDITED' || ev.type === 'DELETED') {
+        if (ev.type === 'EDITED' || ev.type === 'DELETED' || ev.type === 'REACTION') {
           updateMessage(ev.message);
         }
       } catch (e) {
@@ -80,7 +94,8 @@ export function useWebSocket() {
 
     subscriptionsRef.current.push(s1, s2, s3, s4, s5, s6);
     console.log('[WS] Subscribed to conversation', convId);
-  }, [addMessage, updateMessage, updateConversationMember, setTyping, setLastReadAt, setPresence]);
+  }, [addMessage, updateMessage, updateConversationMember, updateConversationLastMessage,
+      incrementUnread, setTyping, setLastReadAt, setPresence]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -99,7 +114,6 @@ export function useWebSocket() {
         subscriptionsRef.current = [];
         clearAllTyping();
 
-        // Подписки на user-specific очереди — СНАЧАЛА, до топиков разговоров
         const newConvSub = client.subscribe('/user/queue/conversations', (frame: IMessage) => {
           try {
             const conv = JSON.parse(frame.body);
@@ -110,7 +124,6 @@ export function useWebSocket() {
           }
         });
 
-        // Очередь для снапшота presence (массив) и реалтайм-событий (одиночный объект)
         const presenceQueueSub = client.subscribe('/user/queue/presence', (frame: IMessage) => {
           try {
             const data = JSON.parse(frame.body);
@@ -121,7 +134,6 @@ export function useWebSocket() {
           }
         });
 
-        // Синхронизация темы с другого устройства
         const settingsQueueSub = client.subscribe('/user/queue/settings', (frame: IMessage) => {
           try {
             const user = JSON.parse(frame.body);
@@ -138,15 +150,11 @@ export function useWebSocket() {
 
         subscriptionsRef.current.push(newConvSub, presenceQueueSub, settingsQueueSub);
 
-        // Загружаем разговоры, подписываемся на топики, потом запрашиваем presence-снапшот
         getConversations().then(convs => {
           useChatStore.getState().setConversations(convs);
           convs.forEach(c => subscribeToConversation(client, c.id));
-
-          // Запрашиваем текущий presence всех контактов — ответ придёт в /user/queue/presence
           client.publish({ destination: '/app/presence.sync', body: '{}' });
 
-          // Догружаем пропущенные сообщения
           const cachedMessages = useChatStore.getState().messages;
           convs.forEach(c => {
             const msgs = cachedMessages[c.id];
@@ -190,11 +198,11 @@ export function useWebSocket() {
     return () => {
       client.deactivate();
       stompClientRef.current = null;
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- refs are stable, safe to use in cleanup
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- refs are stable
       subscribedConvsRef.current.clear();
       subscriptionsRef.current = [];
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- addConversation, clearAllTyping, subscribeToConversation are stable callbacks; re-running on each render would reconnect the socket
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
   useEffect(() => {
@@ -239,5 +247,14 @@ export function useWebSocket() {
     });
   }, []);
 
-  return { sendMessage, sendTyping, sendReadReceipt, wsStatus };
+  const sendReaction = useCallback((messageId: string, emoji: string) => {
+    const client = stompClientRef.current;
+    if (!client?.connected) return;
+    client.publish({
+      destination: '/app/chat.react',
+      body: JSON.stringify({ messageId, emoji }),
+    });
+  }, []);
+
+  return { sendMessage, sendTyping, sendReadReceipt, sendReaction, wsStatus };
 }

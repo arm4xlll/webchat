@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Pencil, Trash2, CornerUpLeft, CheckCheck } from 'lucide-react';
+import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File, Bookmark } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Message } from '../../types';
@@ -7,6 +7,7 @@ import MessageStatus from './MessageStatus';
 import MediaViewer from './MediaViewer';
 import VoiceMessage from './VoiceMessage';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
+import EmojiPicker from './EmojiPicker';
 
 function formatReadTime(iso: string): string {
   const d = new Date(iso);
@@ -16,12 +17,21 @@ function formatReadTime(iso: string): string {
   return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) + ' ' + time;
 }
 
+function formatSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+}
+
 interface Props {
   conversationId: string;
   onReply: (msg: Message) => void;
   onEdit: (msg: Message) => void;
   onDelete: (msg: Message, forEveryone: boolean) => void;
   onRead: () => void;
+  onReact: (messageId: string, emoji: string) => void;
+  onSaveMessage?: (msg: Message) => void;
   searchQuery?: string;
   highlightedMsgId?: string | null;
   hasMore?: boolean;
@@ -38,8 +48,22 @@ function formatTime(iso: string) {
 function isImage(type?: string) { return !!type?.startsWith('image/'); }
 function isVideo(type?: string) { return !!type?.startsWith('video/'); }
 function isAudio(type?: string) { return !!type?.startsWith('audio/'); }
+function isDocument(type?: string) {
+  return !!type && !isImage(type) && !isVideo(type) && !isAudio(type);
+}
 
-// Inline style helpers — uses CSS variables so they change with theme
+function docIcon(type?: string, name?: string) {
+  const lower = (name ?? type ?? '').toLowerCase();
+  if (lower.includes('pdf')) return <FileText className="w-8 h-8 text-rose-400 shrink-0" />;
+  if (lower.includes('zip') || lower.includes('rar') || lower.includes('archive'))
+    return <FileArchive className="w-8 h-8 text-yellow-400 shrink-0" />;
+  if (lower.includes('doc') || lower.includes('word'))
+    return <FileText className="w-8 h-8 text-blue-400 shrink-0" />;
+  if (lower.includes('xls') || lower.includes('sheet'))
+    return <FileText className="w-8 h-8 text-green-400 shrink-0" />;
+  return <File className="w-8 h-8 text-tg-text-secondary shrink-0" />;
+}
+
 const ownText = { color: 'var(--color-tg-msg-out-text)' } as const;
 const ownTextMuted = { color: 'var(--color-tg-msg-out-text-muted)' } as const;
 
@@ -60,10 +84,7 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
     <div className={`overflow-hidden ${bubbleShape} ${bgClass} shadow-sm flex flex-col`}>
       {replyNode}
       {isImage(msg.fileType) && (
-        <div
-          className="relative cursor-pointer group"
-          onClick={() => onImageClick(msg.fileUrl!, msg.fileName ?? '')}
-        >
+        <div className="relative cursor-pointer group" onClick={() => onImageClick(msg.fileUrl!, msg.fileName ?? '')}>
           <img
             src={msg.fileUrl}
             alt={msg.fileName ?? 'image'}
@@ -77,15 +98,9 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
           )}
         </div>
       )}
-
       {isVideo(msg.fileType) && (
         <div className="relative">
-          <video
-            src={msg.fileUrl}
-            controls
-            className="block w-full max-w-xs max-h-64 bg-black"
-            preload="metadata"
-          />
+          <video src={msg.fileUrl} controls className="block w-full max-w-xs max-h-64 bg-black" preload="metadata" />
           {!hasCaption && (
             <div className="absolute bottom-1.5 right-2 bg-black/40 backdrop-blur-[2px] rounded-full px-2 py-0.5 flex items-center gap-1 select-none">
               {timeNode}
@@ -93,19 +108,12 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
           )}
         </div>
       )}
-
       {hasCaption && (
         <div className="px-3.5 pt-1.5 pb-2 flex flex-wrap items-end gap-2">
-          <span
-            className="chat-text leading-relaxed break-words whitespace-pre-wrap"
-            style={isOwn ? ownText : undefined}
-          >
+          <span className="chat-text leading-relaxed break-words whitespace-pre-wrap" style={isOwn ? ownText : undefined}>
             {msg.content}
           </span>
-          <span
-            className={`ml-auto flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-            style={isOwn ? ownTextMuted : undefined}
-          >
+          <span className={`ml-auto flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
             {timeNode}
           </span>
         </div>
@@ -114,7 +122,7 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
   );
 }
 
-/** Highlight search query in text — returns array of spans */
+/** Highlight search query in text */
 export function Highlighted({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text}</>;
   const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
@@ -130,7 +138,7 @@ export function Highlighted({ text, query }: { text: string; query: string }) {
 }
 
 export default function MessageList({
-  conversationId, onReply, onEdit, onDelete, onRead,
+  conversationId, onReply, onEdit, onDelete, onRead, onReact, onSaveMessage,
   searchQuery = '', highlightedMsgId, hasMore, loadingMore, onLoadMore,
 }: Props) {
   const user = useAuthStore(s => s.user);
@@ -146,9 +154,11 @@ export default function MessageList({
 
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msg: Message } | null>(null);
+  const [emojiPicker, setEmojiPicker] = useState<{ x: number; y: number; msgId: string } | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ctxPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Flash-highlight state for search navigation
+  // Flash highlight for search
   const [flashId, setFlashId] = useState<string | null>(null);
   useEffect(() => {
     if (!highlightedMsgId) return;
@@ -157,61 +167,53 @@ export default function MessageList({
     return () => clearTimeout(t);
   }, [highlightedMsgId]);
 
-  // Track scroll position to decide if we should auto-scroll on new messages
+  // Track scroll
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }, []);
 
-  // Smart scroll: handles initial load, new messages, and prepend (infinite scroll)
+  // Smart scroll
   useEffect(() => {
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
-
     const firstId = messages[0].id;
     const isPrepend = prevFirstIdRef.current !== null && firstId !== prevFirstIdRef.current;
-
     if (isPrepend) {
-      // Restore scroll position after prepending old messages
       container.scrollTop = container.scrollHeight - scrollHeightBeforeRef.current;
     } else if (!initialScrollDoneRef.current) {
-      // First load — jump to bottom instantly
       container.scrollTop = container.scrollHeight;
       initialScrollDoneRef.current = true;
     } else if (isAtBottomRef.current) {
-      // New message appended — smooth scroll to bottom (only if user was near bottom)
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-
     prevFirstIdRef.current = firstId;
   }, [messages]);
 
-  // Reset scroll state when switching conversations
+  // Reset on conversation switch
   useEffect(() => {
     initialScrollDoneRef.current = false;
     prevFirstIdRef.current = null;
     isAtBottomRef.current = true;
   }, [conversationId]);
 
-  // IntersectionObserver for top sentinel — triggers infinite scroll
+  // Infinite scroll sentinel
   useEffect(() => {
     const sentinel = topSentinelRef.current;
     const container = containerRef.current;
     if (!sentinel || !container || !onLoadMore) return;
-
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && hasMore && !loadingMore) {
         scrollHeightBeforeRef.current = container.scrollHeight;
         onLoadMore();
       }
     }, { root: container, threshold: 0.1 });
-
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
 
-  // Read receipt observer
+  // Read receipt
   useEffect(() => {
     const el = bottomRef.current;
     if (!el) return;
@@ -223,6 +225,7 @@ export default function MessageList({
   }, [onRead]);
 
   const openContextMenu = useCallback((x: number, y: number, msg: Message) => {
+    ctxPosRef.current = { x, y };
     setContextMenu({ x, y, msg });
   }, []);
 
@@ -251,9 +254,26 @@ export default function MessageList({
 
     if (!msg.deleted) {
       items.push({
+        icon: <Smile className="w-4 h-4" />,
+        label: 'Реакция',
+        onClick: () => {
+          const pos = ctxPosRef.current;
+          setContextMenu(null);
+          if (pos) setTimeout(() => setEmojiPicker({ x: pos.x, y: pos.y, msgId: msg.id }), 0);
+        },
+      });
+      items.push({
         icon: <CornerUpLeft className="w-4 h-4" />,
         label: 'Ответить',
         onClick: () => onReply(msg),
+      });
+    }
+
+    if (onSaveMessage && !msg.deleted) {
+      items.push({
+        icon: <Bookmark className="w-4 h-4" />,
+        label: 'В избранное',
+        onClick: () => onSaveMessage(msg),
       });
     }
 
@@ -275,7 +295,6 @@ export default function MessageList({
         onClick: () => onDelete(msg, true),
         danger: true,
       });
-
       if (msg.readAt) {
         items.push({
           icon: <CheckCheck className="w-4 h-4" />,
@@ -287,7 +306,7 @@ export default function MessageList({
     }
 
     return items;
-  }, [user?.id, onReply, onEdit, onDelete]);
+  }, [user?.id, onReply, onEdit, onDelete, onSaveMessage]);
 
   return (
     <>
@@ -297,10 +316,8 @@ export default function MessageList({
         style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
         onScroll={handleScroll}
       >
-        {/* Top sentinel for infinite scroll */}
         <div ref={topSentinelRef} className="shrink-0 h-px" />
 
-        {/* Loading spinner for older messages */}
         {loadingMore && (
           <div className="flex justify-center py-3 shrink-0">
             <div className="w-5 h-5 border-2 border-tg-primary/30 border-t-tg-primary rounded-full animate-spin" />
@@ -324,7 +341,10 @@ export default function MessageList({
           const showName = !isOwn && isFirst;
           const hasMedia = !msg.deleted && (isImage(msg.fileType) || isVideo(msg.fileType));
           const hasAudio = !msg.deleted && isAudio(msg.fileType);
+          const hasDoc   = !msg.deleted && isDocument(msg.fileType);
           const isFlashing = flashId === msg.id;
+          const reactions = msg.reactions ?? {};
+          const hasReactions = Object.keys(reactions).length > 0;
 
           const bubbleShape = isOwn
             ? isFirst && isLast ? 'rounded-l-2xl rounded-tr-2xl rounded-br-[5px]'
@@ -339,31 +359,22 @@ export default function MessageList({
           const timeNode = (
             <>
               {msg.editedAt && !msg.deleted && (
-                <span
-                  className={`text-[10px] italic ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                  style={isOwn ? ownTextMuted : undefined}
-                >
-                  изм.
-                </span>
+                <span className={`text-[10px] italic ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>изм.</span>
               )}
               <span
                 className={`text-[11px] ${hasMedia ? '' : !isOwn ? 'text-tg-text-secondary' : ''}`}
-                style={hasMedia
-                  ? { color: 'rgba(255,255,255,0.9)' }
-                  : isOwn ? ownTextMuted : undefined}
+                style={hasMedia ? { color: 'rgba(255,255,255,0.9)' } : isOwn ? ownTextMuted : undefined}
               >
                 {formatTime(msg.createdAt)}
               </span>
-              {isOwn && (
-                <MessageStatus readAt={msg.readAt} />
-              )}
+              {isOwn && <MessageStatus readAt={msg.readAt} />}
             </>
           );
 
           return (
             <div
               key={msg.id}
-              className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'} transition-all duration-300 ${isFlashing ? 'scale-[1.01]' : ''}`}
+              className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
               data-msg-id={msg.id}
               onContextMenu={(e) => handleContextMenu(e, msg)}
               onTouchStart={(e) => handleTouchStart(e, msg)}
@@ -372,58 +383,58 @@ export default function MessageList({
             >
               <div className={`max-w-[75%] md:max-w-[65%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                 {showName && (
-                  <span className="text-[13px] font-medium text-tg-primary mb-0.5 px-1">
-                    {msg.senderName}
-                  </span>
+                  <span className="text-[13px] font-medium text-tg-primary mb-0.5 px-1">{msg.senderName}</span>
                 )}
 
-                {/* Flash highlight ring */}
                 <div className={`transition-all duration-500 rounded-2xl ${isFlashing ? 'ring-2 ring-tg-primary ring-offset-2 ring-offset-transparent' : ''}`}>
                   {msg.deleted ? (
                     <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
                       <div className="flex flex-wrap items-end gap-2">
-                        <span
-                          className={!isOwn ? 'text-tg-text-secondary' : ''}
-                          style={isOwn ? ownTextMuted : undefined}
-                        >
-                          Сообщение удалено
-                        </span>
-                        <span
-                          className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                          style={isOwn ? ownTextMuted : undefined}
-                        >
-                          {timeNode}
-                        </span>
+                        <span className={!isOwn ? 'text-tg-text-secondary' : ''} style={isOwn ? ownTextMuted : undefined}>Сообщение удалено</span>
+                        <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>{timeNode}</span>
                       </div>
                     </div>
                   ) : hasAudio ? (
-                    <div
-                      className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}
-                      style={isOwn ? ownText : undefined}
-                    >
+                    <div className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`} style={isOwn ? ownText : undefined}>
                       <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
-                      <div
-                        className={`px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1`}
-                        style={isOwn ? ownTextMuted : undefined}
-                      >
+                      <div className="px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1" style={isOwn ? ownTextMuted : undefined}>
                         <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
                         {isOwn && <MessageStatus readAt={msg.readAt} />}
                       </div>
                     </div>
+                  ) : hasDoc ? (
+                    /* ── Document bubble ── */
+                    <a
+                      href={msg.fileUrl}
+                      download={msg.fileName}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'} hover:opacity-90 transition-opacity no-underline`}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {docIcon(msg.fileType, msg.fileName)}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium truncate leading-tight" style={isOwn ? ownText : undefined}>
+                          {msg.fileName ?? 'Файл'}
+                        </div>
+                        <div className="text-[11px] mt-0.5" style={isOwn ? ownTextMuted : { color: 'var(--color-tg-text-secondary)' }}>
+                          {formatSize(msg.fileSize)}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0 self-end pb-0.5">
+                        <span className={`flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+                          {timeNode}
+                        </span>
+                      </div>
+                    </a>
                   ) : hasMedia ? (
                     <MediaBubble
-                      msg={msg}
-                      isOwn={isOwn}
-                      bubbleShape={bubbleShape}
-                      timeNode={timeNode}
+                      msg={msg} isOwn={isOwn} bubbleShape={bubbleShape} timeNode={timeNode}
                       onImageClick={(src, alt) => setLightbox({ src, alt })}
                       replyNode={msg.replyToId ? (
                         <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
                           <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                          <div
-                            className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                            style={isOwn ? ownTextMuted : undefined}
-                          >
+                          <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
                             {msg.replyToContent ?? 'Сообщение удалено'}
                           </div>
                         </div>
@@ -437,10 +448,7 @@ export default function MessageList({
                       {msg.replyToId && (
                         <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
                           <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                          <div
-                            className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                            style={isOwn ? ownTextMuted : undefined}
-                          >
+                          <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
                             {msg.replyToContent ?? 'Сообщение удалено'}
                           </div>
                         </div>
@@ -449,16 +457,35 @@ export default function MessageList({
                         <span className="whitespace-pre-wrap max-w-full break-words">
                           <Highlighted text={msg.content} query={searchQuery} />
                         </span>
-                        <span
-                          className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                          style={isOwn ? ownTextMuted : undefined}
-                        >
+                        <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
                           {timeNode}
                         </span>
                       </div>
                     </div>
                   )}
                 </div>
+
+                {/* Reaction pills */}
+                {hasReactions && (
+                  <div className={`flex flex-wrap gap-1 mt-1 px-0.5 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                    {Object.entries(reactions).map(([emoji, userIds]) => {
+                      const mine = userIds.includes(user?.id ?? '');
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => onReact(msg.id, emoji)}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] transition-colors cursor-pointer border select-none
+                            ${mine
+                              ? 'bg-tg-primary/20 border-tg-primary/60 text-tg-primary'
+                              : 'bg-tg-input-bg border-tg-border text-tg-text hover:bg-tg-hover'}`}
+                        >
+                          <span>{emoji}</span>
+                          <span className="text-[11px] font-semibold tabular-nums">{userIds.length}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -475,12 +502,17 @@ export default function MessageList({
         />
       )}
 
-      {lightbox && (
-        <MediaViewer
-          src={lightbox.src}
-          alt={lightbox.alt}
-          onClose={() => setLightbox(null)}
+      {emojiPicker && (
+        <EmojiPicker
+          x={emojiPicker.x}
+          y={emojiPicker.y}
+          onSelect={(emoji) => onReact(emojiPicker.msgId, emoji)}
+          onClose={() => setEmojiPicker(null)}
         />
+      )}
+
+      {lightbox && (
+        <MediaViewer src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />
       )}
     </>
   );

@@ -3,6 +3,8 @@ package com.webchat.dto.response;
 import com.webchat.model.Message;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record MessageResponse(
@@ -22,9 +24,15 @@ public record MessageResponse(
         UUID replyToId,
         String replyToContent,
         String replyToSenderName,
-        Instant readAt
+        Instant readAt,
+        Map<String, List<UUID>> reactions
 ) {
+    /** Used when reactions are not needed / not yet loaded */
     public static MessageResponse from(Message m) {
+        return from(m, Map.of());
+    }
+
+    public static MessageResponse from(Message m, Map<String, List<UUID>> reactions) {
         UUID replyToId = null;
         String replyToContent = null;
         String replyToSenderName = null;
@@ -53,7 +61,8 @@ public record MessageResponse(
                 replyToId,
                 replyToContent,
                 replyToSenderName,
-                m.getReadAt()
+                m.getReadAt(),
+                reactions
         );
     }
 }

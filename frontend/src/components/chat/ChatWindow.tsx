@@ -7,7 +7,7 @@ import MessageList, { Highlighted } from './MessageList';
 import MessageInput from './MessageInput';
 import UserAvatar from '../common/UserAvatar';
 import UserProfileModal from '../profile/UserProfileModal';
-import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload } from 'lucide-react';
+import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload, Bookmark } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -30,6 +30,8 @@ interface Props {
   onDeleteMessage: (messageId: string, forEveryone: boolean) => void;
   onTyping: (typing: boolean) => void;
   onRead: () => void;
+  onReact: (messageId: string, emoji: string) => void;
+  onSaveMessage?: (msg: Message) => void;
   onBack?: () => void;
 }
 
@@ -39,19 +41,23 @@ function getOtherMember(conv: Conversation, myId: string) {
 
 const EMPTY_TYPING: never[] = [];
 
-export default function ChatWindow({ conversation, onSend, onEditMessage, onDeleteMessage, onTyping, onRead, onBack }: Props) {
+export default function ChatWindow({
+  conversation, onSend, onEditMessage, onDeleteMessage,
+  onTyping, onRead, onReact, onSaveMessage, onBack,
+}: Props) {
   const user = useAuthStore(s => s.user);
   const { setMessages, prependMessages, messages } = useChatStore();
   const typingUsers = useChatStore(s => s.typingUsers[conversation.id] ?? EMPTY_TYPING);
   const presenceStatus = useChatStore(s => s.presenceStatus);
-  const other = user ? getOtherMember(conversation, user.id) : null;
-  const otherPresence = other ? presenceStatus[other.id] : undefined;
+  const isSaved = conversation.type === 'saved';
+  const other = user ? (isSaved ? user : getOtherMember(conversation, user.id)) : null;
+  const otherPresence = (other && !isSaved) ? presenceStatus[other.id] : undefined;
 
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // ── Pagination (infinite scroll up) ──────────────────────────────────────
+  // ── Pagination ────────────────────────────────────────────────────────────
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -93,7 +99,7 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
     const ids = convMessages
       .filter(m => !m.deleted && m.content.toLowerCase().includes(q))
       .map(m => m.id)
-      .reverse(); // newest first in dropdown
+      .reverse();
     setMatchIds(ids);
     setMatchIndex(0);
     setShowDropdown(ids.length > 0);
@@ -101,18 +107,15 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
   }, [searchQuery, convMessages.length]);
 
   const scrollToMatch = useCallback((id: string) => {
-    const el = document.querySelector(`[data-msg-id="${id}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.querySelector(`[data-msg-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setHighlightedMsgId(id);
     setTimeout(() => setHighlightedMsgId(null), 2000);
   }, []);
 
-  // Navigate to a specific result from the dropdown
   const handleSelectMatch = useCallback((idx: number) => {
     setMatchIndex(idx);
     setShowDropdown(false);
-    const id = matchIds[idx];
-    scrollToMatch(id);
+    scrollToMatch(matchIds[idx]);
   }, [matchIds, scrollToMatch]);
 
   const goNext = useCallback(() => {
@@ -166,13 +169,12 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
     e.preventDefault();
     dragCountRef.current = 0;
     setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) setDroppedFile(file);
+    const f = e.dataTransfer.files[0];
+    if (f) setDroppedFile(f);
   }, []);
 
   // ── Data loading ─────────────────────────────────────────────────────────
   useEffect(() => {
-    // Reset pagination when switching conversations
     setPage(0);
     setHasMore(true);
     setLoadingMore(false);
@@ -204,36 +206,50 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
             <ArrowLeft className="w-5 h-5" />
           </button>
         )}
-        <button onClick={() => other && setProfileOpen(true)}
-          className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer">
-          <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="md" />
+        <button
+          onClick={() => !isSaved && other && setProfileOpen(true)}
+          className={`flex items-center gap-3 flex-1 min-w-0 text-left rounded-xl px-2.5 py-1.5 transition-colors ${!isSaved ? 'hover:bg-tg-hover cursor-pointer' : 'cursor-default'}`}
+        >
+          {isSaved ? (
+            <div className="w-10 h-10 shrink-0 rounded-full bg-tg-primary flex items-center justify-center">
+              <Bookmark className="w-5 h-5 text-white" />
+            </div>
+          ) : (
+            <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="md" />
+          )}
           <div className="flex flex-col justify-center min-w-0">
-            <div className="font-semibold text-[15.5px] text-tg-text leading-tight">{other?.name ?? 'Чат'}</div>
-            {typingUsers.length > 0 ? (
-              <div className="flex items-center gap-1.5 text-[13px] text-tg-primary animate-slide-in mt-0.5">
-                <span className="flex items-center gap-0.5 shrink-0">
-                  {[0,1,2].map(i => (
-                    <span key={i} className="w-1 h-1 rounded-full bg-tg-primary inline-block"
-                      style={{ animation: 'bounce 1.2s infinite', animationDelay: `${i*0.2}s` }} />
-                  ))}
-                </span>
-                <span className="truncate">{typingUsers.map(u=>u.username).join(', ')} {typingUsers.length===1?'печатает...':'печатают...'}</span>
-                <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-2px);opacity:1}}`}</style>
-              </div>
-            ) : otherPresence?.online ? (
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-                <span className="text-[13px] text-green-400">в сети</span>
-              </div>
-            ) : otherPresence?.lastSeenAt ? (
-              <div className="text-[13px] text-tg-text-secondary mt-0.5">был(а) {formatLastSeen(otherPresence.lastSeenAt)}</div>
-            ) : (
-              <div className="text-[13px] text-tg-text-secondary mt-0.5">не в сети</div>
+            <div className="font-semibold text-[15.5px] text-tg-text leading-tight">
+              {isSaved ? 'Избранное' : (other?.name ?? 'Чат')}
+            </div>
+            {!isSaved && (
+              typingUsers.length > 0 ? (
+                <div className="flex items-center gap-1.5 text-[13px] text-tg-primary animate-slide-in mt-0.5">
+                  <span className="flex items-center gap-0.5 shrink-0">
+                    {[0,1,2].map(i => (
+                      <span key={i} className="w-1 h-1 rounded-full bg-tg-primary inline-block"
+                        style={{ animation: 'bounce 1.2s infinite', animationDelay: `${i*0.2}s` }} />
+                    ))}
+                  </span>
+                  <span className="truncate">{typingUsers.map(u=>u.username).join(', ')} {typingUsers.length===1?'печатает...':'печатают...'}</span>
+                  <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-2px);opacity:1}}`}</style>
+                </div>
+              ) : otherPresence?.online ? (
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                  <span className="text-[13px] text-green-400">в сети</span>
+                </div>
+              ) : otherPresence?.lastSeenAt ? (
+                <div className="text-[13px] text-tg-text-secondary mt-0.5">был(а) {formatLastSeen(otherPresence.lastSeenAt)}</div>
+              ) : (
+                <div className="text-[13px] text-tg-text-secondary mt-0.5">не в сети</div>
+              )
+            )}
+            {isSaved && (
+              <div className="text-[13px] text-tg-text-secondary mt-0.5">Ваши сохранённые сообщения</div>
             )}
           </div>
         </button>
 
-        {/* Search toggle */}
         <button onClick={searchOpen ? closeSearch : openSearch}
           className={`p-2 rounded-full transition-colors cursor-pointer shrink-0 ${searchOpen ? 'text-tg-primary bg-tg-primary/15' : 'text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover'}`}>
           <Search className="w-4.5 h-4.5" />
@@ -243,7 +259,6 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
       {/* Search bar + dropdown */}
       {searchOpen && (
         <div className="relative z-20 shrink-0">
-          {/* Input row */}
           <div className="px-4 py-2 bg-tg-sidebar-bg border-b border-tg-border flex items-center gap-2">
             <Search className="w-4 h-4 text-tg-text-secondary shrink-0" />
             <input
@@ -266,11 +281,11 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
                   {matchIds.length > 0 ? `${matchIndex + 1}/${matchIds.length}` : '0'}
                 </span>
                 <button onClick={goPrev} disabled={matchIds.length === 0}
-                  className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer" title="Предыдущий">
+                  className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer">
                   <ChevronUp className="w-4 h-4" />
                 </button>
                 <button onClick={goNext} disabled={matchIds.length === 0}
-                  className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer" title="Следующий">
+                  className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer">
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </>
@@ -280,36 +295,29 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
             </button>
           </div>
 
-          {/* Results dropdown */}
           {showDropdown && searchQuery.trim() && (
             <div className="absolute left-0 right-0 top-full bg-tg-sidebar-bg border-b border-tg-border shadow-xl max-h-72 overflow-y-auto">
               {matchIds.length === 0 ? (
                 <div className="px-4 py-3 text-[13px] text-tg-text-secondary">Ничего не найдено</div>
-              ) : (
-                matchIds.map((id, idx) => {
-                  const msg = convMessages.find(m => m.id === id);
-                  if (!msg) return null;
-                  return (
-                    <button
-                      key={id}
-                      onMouseDown={(e) => { e.preventDefault(); handleSelectMatch(idx); }}
-                      className={`w-full px-4 py-2.5 flex items-start gap-3 text-left transition-colors hover:bg-tg-hover ${idx === matchIndex ? 'bg-tg-primary/10' : ''}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold text-tg-primary truncate leading-tight">
-                          {msg.senderName}
-                        </div>
-                        <div className="text-[13px] text-tg-text truncate mt-0.5">
-                          <Highlighted text={msg.content} query={searchQuery} />
-                        </div>
+              ) : matchIds.map((id, idx) => {
+                const msg = convMessages.find(m => m.id === id);
+                if (!msg) return null;
+                return (
+                  <button
+                    key={id}
+                    onMouseDown={(e) => { e.preventDefault(); handleSelectMatch(idx); }}
+                    className={`w-full px-4 py-2.5 flex items-start gap-3 text-left transition-colors hover:bg-tg-hover ${idx === matchIndex ? 'bg-tg-primary/10' : ''}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-semibold text-tg-primary truncate leading-tight">{msg.senderName}</div>
+                      <div className="text-[13px] text-tg-text truncate mt-0.5">
+                        <Highlighted text={msg.content} query={searchQuery} />
                       </div>
-                      <div className="text-[11px] text-tg-text-secondary shrink-0 mt-0.5">
-                        {formatTime(msg.createdAt)}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+                    </div>
+                    <div className="text-[11px] text-tg-text-secondary shrink-0 mt-0.5">{formatTime(msg.createdAt)}</div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -326,6 +334,8 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         onEdit={(msg) => { setEditingMessage(msg); setReplyingTo(null); }}
         onDelete={(msg, all) => onDeleteMessage(msg.id, all)}
         onRead={onRead}
+        onReact={onReact}
+        onSaveMessage={onSaveMessage}
       />
 
       <MessageInput
@@ -342,7 +352,6 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         onExternalFileConsumed={() => setDroppedFile(null)}
       />
 
-      {/* Drag overlay */}
       {dragging && (
         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="absolute inset-0 bg-tg-primary/10 backdrop-blur-[2px] border-2 border-dashed border-tg-primary rounded-none" />
@@ -354,7 +363,7 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         </div>
       )}
 
-      {other && (
+      {!isSaved && other && (
         <UserProfileModal user={other} presence={otherPresence} isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
       )}
     </div>

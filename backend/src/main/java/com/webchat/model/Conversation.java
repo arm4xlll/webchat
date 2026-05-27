@@ -28,6 +28,9 @@ public class Conversation {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "last_message_at")
+    private Instant lastMessageAt;
+
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ConversationMember> members = new ArrayList<>();

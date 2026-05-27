@@ -32,6 +32,11 @@ public class ConversationController {
         return ResponseEntity.ok(conversationService.getForUser(principal.getUserId()));
     }
 
+    @GetMapping("/saved")
+    public ResponseEntity<ConversationResponse> saved(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(conversationService.getOrCreateSaved(principal.getUserId()));
+    }
+
     @PostMapping
     public ResponseEntity<ConversationResponse> createOrGet(
             @Valid @RequestBody CreateConversationRequest request,

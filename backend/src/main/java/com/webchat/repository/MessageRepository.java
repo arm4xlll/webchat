@@ -46,4 +46,24 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     int markMessagesRead(@Param("convId") UUID convId,
                          @Param("readerId") UUID readerId,
                          @Param("readAt") Instant readAt);
+
+    @Query("""
+            SELECT COUNT(m) FROM Message m
+            WHERE m.conversation.id = :convId
+              AND m.sender.id != :userId
+              AND m.readAt IS NULL
+              AND m.deleted = false
+            """)
+    long countUnread(@Param("convId") UUID convId, @Param("userId") UUID userId);
+
+    @Query("""
+            SELECT m.conversation.id, COUNT(m) FROM Message m
+            WHERE m.conversation.id IN :convIds
+              AND m.sender.id != :userId
+              AND m.readAt IS NULL
+              AND m.deleted = false
+            GROUP BY m.conversation.id
+            """)
+    List<Object[]> countUnreadByConversations(@Param("convIds") List<UUID> convIds,
+                                              @Param("userId") UUID userId);
 }

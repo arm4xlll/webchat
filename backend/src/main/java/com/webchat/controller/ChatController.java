@@ -1,13 +1,16 @@
 package com.webchat.controller;
 
+import com.webchat.dto.request.DeleteMessageRequest;
+import com.webchat.dto.request.EditMessageRequest;
+import com.webchat.dto.request.ReactRequest;
 import com.webchat.dto.request.ReadReceiptRequest;
 import com.webchat.dto.request.SendMessageRequest;
 import com.webchat.dto.request.TypingRequest;
-import com.webchat.dto.response.MessageResponse;
 import com.webchat.security.UserPrincipal;
 import com.webchat.service.ConversationService;
 import com.webchat.service.MessageService;
 import com.webchat.service.PresenceService;
+import com.webchat.service.ReactionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -25,6 +28,7 @@ public class ChatController {
     private final MessageService messageService;
     private final PresenceService presenceService;
     private final ConversationService conversationService;
+    private final ReactionService reactionService;
 
     @MessageMapping("/chat.send")
     public void sendMessage(@Payload SendMessageRequest request, Principal principal) {
@@ -51,15 +55,21 @@ public class ChatController {
     }
 
     @MessageMapping("/chat.edit")
-    public void editMessage(@Payload com.webchat.dto.request.EditMessageRequest request, Principal principal) {
+    public void editMessage(@Payload EditMessageRequest request, Principal principal) {
         UserPrincipal user = extractPrincipal(principal);
         messageService.editMessage(user.getUserId(), request.messageId(), request.newContent());
     }
 
     @MessageMapping("/chat.delete")
-    public void deleteMessage(@Payload com.webchat.dto.request.DeleteMessageRequest request, Principal principal) {
+    public void deleteMessage(@Payload DeleteMessageRequest request, Principal principal) {
         UserPrincipal user = extractPrincipal(principal);
         messageService.deleteMessage(user.getUserId(), request.messageId(), request.forEveryone());
+    }
+
+    @MessageMapping("/chat.react")
+    public void react(@Payload ReactRequest request, Principal principal) {
+        UserPrincipal user = extractPrincipal(principal);
+        reactionService.toggleReaction(user.getUserId(), request.messageId(), request.emoji());
     }
 
     @MessageMapping("/presence.sync")

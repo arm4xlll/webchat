@@ -23,6 +23,8 @@ export interface Conversation {
   members: User[];
   createdAt: string;
   lastReadAt?: Record<string, string>;
+  lastMessageAt?: string;
+  unreadCount?: number;
 }
 
 export interface Message {
@@ -43,6 +45,8 @@ export interface Message {
   replyToContent?: string;
   replyToSenderName?: string;
   readAt?: string;
+  /** emoji → list of userIds who reacted */
+  reactions?: Record<string, string[]>;
 }
 
 export interface Attachment {
@@ -66,7 +70,7 @@ export interface ReadReceiptEvent {
 }
 
 export interface MessageEvent {
-  type: 'EDITED' | 'DELETED';
+  type: 'EDITED' | 'DELETED' | 'REACTION';
   message: Message;
 }
 

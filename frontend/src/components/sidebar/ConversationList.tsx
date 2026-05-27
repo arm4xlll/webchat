@@ -1,12 +1,17 @@
+import { useMemo } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Conversation } from '../../types';
 import UserAvatar from '../common/UserAvatar';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Bookmark } from 'lucide-react';
 
 const EMPTY_MESSAGES: never[] = [];
 
-function getOtherMember(conv: Conversation, myId: string) {
+function getSelf(conv: Conversation, myId: string) {
+  return conv.members.find(m => m.id === myId) ?? conv.members[0];
+}
+
+function getOther(conv: Conversation, myId: string) {
   return conv.members.find(m => m.id !== myId) ?? conv.members[0];
 }
 
@@ -21,11 +26,22 @@ function formatTime(iso: string) {
 
 export default function ConversationList() {
   const user = useAuthStore(s => s.user);
-  const { conversations, activeConversationId, setActiveConversation, messages } = useChatStore();
+  const { conversations, activeConversationId, setActiveConversation, messages, unreadCounts } = useChatStore();
+
+  const sorted = useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      // Saved always on top
+      if (a.type === 'saved') return -1;
+      if (b.type === 'saved') return 1;
+      const at = a.lastMessageAt ?? a.createdAt;
+      const bt = b.lastMessageAt ?? b.createdAt;
+      return bt.localeCompare(at); // ISO strings are lexicographically comparable
+    });
+  }, [conversations]);
 
   if (!user) return null;
 
-  if (conversations.length === 0) {
+  if (sorted.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-tg-input-bg text-tg-text-secondary mb-3">
@@ -41,45 +57,77 @@ export default function ConversationList() {
 
   return (
     <div className="flex-1 overflow-y-auto px-2 space-y-1">
-      {conversations.map(conv => {
-        const other = getOtherMember(conv, user.id);
+      {sorted.map(conv => {
+        const isSaved = conv.type === 'saved';
+        const other = isSaved ? getSelf(conv, user.id) : getOther(conv, user.id);
         const convMessages = messages[conv.id] ?? EMPTY_MESSAGES;
         const lastMsg = convMessages[convMessages.length - 1];
         const isActive = activeConversationId === conv.id;
+        const unread = unreadCounts[conv.id] ?? 0;
+
+        // Last message preview
+        let lastPreview = '';
+        if (lastMsg) {
+          if (lastMsg.deleted) lastPreview = 'Сообщение удалено';
+          else if (lastMsg.fileType?.startsWith('audio/')) lastPreview = '🎤 Голосовое';
+          else if (lastMsg.fileType?.startsWith('image/')) lastPreview = '🖼 Фото';
+          else if (lastMsg.fileType?.startsWith('video/')) lastPreview = '🎬 Видео';
+          else if (lastMsg.fileType) lastPreview = `📎 ${lastMsg.fileName ?? 'Файл'}`;
+          else lastPreview = lastMsg.content;
+        } else if (isSaved) {
+          lastPreview = 'Сохраняйте сообщения сюда';
+        } else {
+          lastPreview = `@${other?.username ?? ''}`;
+        }
+
+        // Time to show: prefer lastMessageAt from conv, fallback to last loaded message
+        const timeStr = conv.lastMessageAt ?? lastMsg?.createdAt;
 
         return (
           <div
             key={conv.id}
             onClick={() => setActiveConversation(conv.id)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors duration-150 select-none ${
-              isActive
-                ? 'bg-tg-active'
-                : 'hover:bg-tg-hover text-tg-text-secondary'
+              isActive ? 'bg-tg-active' : 'hover:bg-tg-hover text-tg-text-secondary'
             }`}
             style={isActive ? { color: 'var(--color-tg-msg-out-text)' } : undefined}
           >
-            <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="lg" />
+            {isSaved ? (
+              <div className="w-11 h-11 shrink-0 rounded-full bg-tg-primary flex items-center justify-center">
+                <Bookmark className="w-5 h-5 text-white" />
+              </div>
+            ) : (
+              <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="lg" />
+            )}
+
             <div className="min-w-0 flex-1">
               <div className="flex justify-between items-baseline mb-0.5">
-                <span className={`font-semibold text-[15px] truncate leading-tight ${
-                  isActive ? '' : 'text-tg-text'
-                }`}>
-                  {other?.name ?? 'Неизвестно'}
+                <span className={`font-semibold text-[15px] truncate leading-tight ${isActive ? '' : 'text-tg-text'}`}>
+                  {isSaved ? 'Избранное' : (other?.name ?? 'Неизвестно')}
                 </span>
-                {lastMsg && (
+                {timeStr && (
                   <span
-                    className={`text-[11.5px] shrink-0 ml-2 leading-none ${!isActive ? 'text-tg-text-secondary' : ''}`}
+                    className={`text-[11.5px] shrink-0 ml-2 leading-none ${!isActive ? (unread > 0 ? 'text-tg-primary font-semibold' : 'text-tg-text-secondary') : ''}`}
                     style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
                   >
-                    {formatTime(lastMsg.createdAt)}
+                    {formatTime(timeStr)}
                   </span>
                 )}
               </div>
-              <div
-                className={`text-[13.5px] truncate leading-tight mt-0.5 ${!isActive ? 'text-tg-text-secondary' : ''}`}
-                style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
-              >
-                {lastMsg ? lastMsg.content : `@${other?.username ?? ''}`}
+              <div className="flex items-center justify-between gap-2">
+                <div
+                  className={`text-[13.5px] truncate leading-tight mt-0.5 flex-1 ${!isActive ? 'text-tg-text-secondary' : ''}`}
+                  style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
+                >
+                  {lastPreview}
+                </div>
+                {unread > 0 && !isActive && (
+                  <div className="shrink-0 min-w-[20px] h-5 bg-tg-primary rounded-full flex items-center justify-center px-1.5">
+                    <span className="text-[11px] font-bold text-white leading-none tabular-nums">
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -88,4 +136,3 @@ export default function ConversationList() {
     </div>
   );
 }
-

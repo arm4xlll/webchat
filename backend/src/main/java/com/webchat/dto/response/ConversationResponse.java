@@ -13,9 +13,15 @@ public record ConversationResponse(
         String type,
         List<UserResponse> members,
         Instant createdAt,
-        Map<UUID, Instant> lastReadAt
+        Map<UUID, Instant> lastReadAt,
+        Instant lastMessageAt,
+        int unreadCount
 ) {
     public static ConversationResponse from(Conversation conv) {
+        return from(conv, 0);
+    }
+
+    public static ConversationResponse from(Conversation conv, int unreadCount) {
         List<UserResponse> memberList = conv.getMembers().stream()
                 .map(m -> UserResponse.from(m.getUser()))
                 .toList();
@@ -25,6 +31,14 @@ public record ConversationResponse(
                         m -> m.getUser().getId(),
                         m -> m.getLastReadAt()
                 ));
-        return new ConversationResponse(conv.getId(), conv.getType(), memberList, conv.getCreatedAt(), readAt);
+        return new ConversationResponse(
+                conv.getId(),
+                conv.getType(),
+                memberList,
+                conv.getCreatedAt(),
+                readAt,
+                conv.getLastMessageAt(),
+                unreadCount
+        );
     }
 }

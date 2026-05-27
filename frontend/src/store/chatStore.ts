@@ -12,10 +12,12 @@ interface ChatState {
   messages: Record<string, Message[]>;
   typingUsers: Record<string, TypingUser[]>;
   lastReadAt: Record<string, Record<string, string>>;
+  unreadCounts: Record<string, number>;
 
   setConversations: (convs: Conversation[]) => void;
   addConversation: (conv: Conversation) => void;
   updateConversationMember: (member: User) => void;
+  updateConversationLastMessage: (convId: string, timestamp: string) => void;
   setActiveConversation: (id: string | null) => void;
   setMessages: (convId: string, msgs: Message[]) => void;
   prependMessages: (convId: string, msgs: Message[]) => void;
@@ -26,6 +28,8 @@ interface ChatState {
   clearAllTyping: () => void;
   setLastReadAt: (convId: string, userId: string, lastReadAt: string) => void;
   markMessagesReadAt: (convId: string, readerUserId: string, readAt: string) => void;
+  incrementUnread: (convId: string) => void;
+  clearUnread: (convId: string) => void;
   presenceStatus: Record<string, { online: boolean; lastSeenAt?: string }>;
   setPresence: (userId: string, online: boolean, lastSeenAt?: string) => void;
 }
@@ -36,16 +40,21 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: {},
   typingUsers: {},
   lastReadAt: {},
+  unreadCounts: {},
   presenceStatus: {},
 
   setConversations: (convs) => set((state) => {
     const merged = { ...state.lastReadAt };
+    const unreadCounts = { ...state.unreadCounts };
     convs.forEach(conv => {
       if (conv.lastReadAt) {
         merged[conv.id] = { ...(merged[conv.id] ?? {}), ...conv.lastReadAt };
       }
+      if (conv.unreadCount !== undefined) {
+        unreadCounts[conv.id] = conv.unreadCount;
+      }
     });
-    return { conversations: convs, lastReadAt: merged };
+    return { conversations: convs, lastReadAt: merged, unreadCounts };
   }),
 
   addConversation: (conv) => set((state) => {
@@ -65,7 +74,17 @@ export const useChatStore = create<ChatState>((set) => ({
     })),
   })),
 
-  setActiveConversation: (id) => set({ activeConversationId: id }),
+  updateConversationLastMessage: (convId, timestamp) => set((state) => ({
+    conversations: state.conversations.map(c =>
+      c.id === convId ? { ...c, lastMessageAt: timestamp } : c
+    ),
+  })),
+
+  setActiveConversation: (id) => set((state) => ({
+    activeConversationId: id,
+    // Clear unread when opening a conversation
+    unreadCounts: id ? { ...state.unreadCounts, [id]: 0 } : state.unreadCounts,
+  })),
 
   setMessages: (convId, msgs) => set((state) => ({
     messages: { ...state.messages, [convId]: msgs },
@@ -131,18 +150,27 @@ export const useChatStore = create<ChatState>((set) => ({
     },
   })),
 
-  // When a read receipt arrives, stamp readAt on all messages in this conv sent
-  // by the current user (not the reader) that were created before lastReadAt
   markMessagesReadAt: (convId, readerUserId, readAt) => set((state) => {
     const prev = state.messages[convId];
     if (!prev) return state;
     const readTime = new Date(readAt);
     const updated = prev.map(m => {
-      if (m.senderId === readerUserId) return m;   // reader's own messages
-      if (m.readAt) return m;                       // already marked
-      if (new Date(m.createdAt) > readTime) return m; // newer than read mark
+      if (m.senderId === readerUserId) return m;
+      if (m.readAt) return m;
+      if (new Date(m.createdAt) > readTime) return m;
       return { ...m, readAt };
     });
     return { messages: { ...state.messages, [convId]: updated } };
   }),
+
+  incrementUnread: (convId) => set((state) => ({
+    unreadCounts: {
+      ...state.unreadCounts,
+      [convId]: (state.unreadCounts[convId] ?? 0) + 1,
+    },
+  })),
+
+  clearUnread: (convId) => set((state) => ({
+    unreadCounts: { ...state.unreadCounts, [convId]: 0 },
+  })),
 }));

@@ -4,6 +4,9 @@ import type { Attachment, Conversation, Message } from '../types';
 export const getConversations = () =>
   api.get<Conversation[]>('/conversations').then(r => r.data);
 
+export const getSavedConversation = () =>
+  api.get<Conversation>('/conversations/saved').then(r => r.data);
+
 export const createConversation = (targetUserId: string) =>
   api.post<Conversation>('/conversations', { targetUserId }).then(r => r.data);
 

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, Loader2, CornerUpLeft, Pencil, Mic } from 'lucide-react';
+import { Send, Paperclip, X, Loader2, CornerUpLeft, Pencil, Mic, FileText, FileArchive, File } from 'lucide-react';
 import { uploadFile } from '../../api/conversations';
 import type { Attachment, Message } from '../../types';
 
@@ -10,16 +10,33 @@ interface Props {
   editingMessage?: Message | null;
   onCancelReply: () => void;
   onCancelEdit: () => void;
-  /** File dropped onto the chat area from outside */
   externalFile?: File | null;
   onExternalFileConsumed?: () => void;
 }
 
-const ACCEPTED = 'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,video/ogg';
 const MAX_MB = 50;
 
 function formatRecordTime(s: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+}
+
+function getFileIcon(file: File) {
+  const t = file.type.toLowerCase();
+  const n = file.name.toLowerCase();
+  if (t.includes('pdf') || n.endsWith('.pdf')) return <FileText className="w-8 h-8 text-rose-400 shrink-0" />;
+  if (t.includes('zip') || t.includes('rar') || n.endsWith('.zip') || n.endsWith('.rar'))
+    return <FileArchive className="w-8 h-8 text-yellow-400 shrink-0" />;
+  if (t.includes('word') || t.includes('doc') || n.endsWith('.doc') || n.endsWith('.docx'))
+    return <FileText className="w-8 h-8 text-blue-400 shrink-0" />;
+  if (t.includes('sheet') || t.includes('excel') || n.endsWith('.xls') || n.endsWith('.xlsx'))
+    return <FileText className="w-8 h-8 text-green-400 shrink-0" />;
+  return <File className="w-8 h-8 text-tg-text-secondary shrink-0" />;
 }
 
 export default function MessageInput({
@@ -55,13 +72,33 @@ export default function MessageInput({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Pick up externally dropped file
+  // External drop
   useEffect(() => {
     if (!externalFile) return;
     attachFile(externalFile);
     onExternalFileConsumed?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalFile]);
+
+  // Ctrl+V paste from clipboard
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Only handle if textarea is focused or no other input is active
+      const active = document.activeElement;
+      const isInInput = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+      // For textarea our own — always allow. For other inputs ignore file paste.
+      if (isInInput && active !== textareaRef.current) return;
+
+      const clipFile = e.clipboardData?.files[0];
+      if (clipFile) {
+        e.preventDefault();
+        attachFile(clipFile);
+        textareaRef.current?.focus();
+      }
+    };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, []);
 
   useEffect(() => {
     if (editingMessage) {
@@ -85,7 +122,9 @@ export default function MessageInput({
     }
     setUploadError('');
     setFile(picked);
-    setPreview(URL.createObjectURL(picked));
+    // Only create object URL for media types (for preview)
+    const isMedia = picked.type.startsWith('image/') || picked.type.startsWith('video/');
+    setPreview(isMedia ? URL.createObjectURL(picked) : null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,13 +153,11 @@ export default function MessageInput({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recordChunksRef.current = [];
       setRecordSeconds(0);
-
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
           ? 'audio/ogg;codecs=opus'
           : 'audio/webm';
-
       const mr = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mr;
       mr.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
@@ -155,7 +192,6 @@ export default function MessageInput({
       const mimeType = rawMime.split(';')[0].trim();
       const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
       const blob = new Blob(recordChunksRef.current, { type: mimeType });
-      // Encode duration in filename for player fallback
       const audioFile = new File([blob], `voice-${dur}-${Date.now()}.${ext}`, { type: mimeType });
       recordChunksRef.current = [];
       const attachment = await uploadFile(audioFile);
@@ -183,7 +219,10 @@ export default function MessageInput({
       if (file) { attachment = await uploadFile(file); removeFile(); }
       onSend(content, attachment);
       setText('');
-    } catch { setUploadError('Ошибка загрузки файла'); }
+    } catch (e) {
+      console.error('Upload failed', e);
+      setUploadError('Ошибка загрузки файла');
+    }
     finally { setUploading(false); }
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     isTypingRef.current = false; onTyping(false);
@@ -203,7 +242,10 @@ export default function MessageInput({
 
   const canSend = (text.trim().length > 0 || !!file) && !uploading;
   const showMic = !editingMessage && !text.trim() && !file && !uploading;
-  const isVideo = file?.type.startsWith('video/');
+
+  const isImageFile = file?.type.startsWith('image/');
+  const isVideoFile = file?.type.startsWith('video/');
+  const isMediaFile = isImageFile || isVideoFile;
 
   return (
     <div className="bg-tg-sidebar-bg border-t border-tg-border safe-bottom">
@@ -236,19 +278,28 @@ export default function MessageInput({
       )}
 
       {/* File preview */}
-      {preview && (
+      {file && (
         <div className="px-4 pt-3 flex items-start gap-3">
           <div className="relative shrink-0">
-            {isVideo
-              ? <video src={preview} className="w-20 h-20 object-cover rounded-xl bg-black" preload="metadata" />
-              : <img src={preview} alt="preview" className="w-20 h-20 object-cover rounded-xl" />}
+            {isMediaFile && preview ? (
+              isVideoFile
+                ? <video src={preview} className="w-20 h-20 object-cover rounded-xl bg-black" preload="metadata" />
+                : <img src={preview} alt="preview" className="w-20 h-20 object-cover rounded-xl" />
+            ) : (
+              <div className="w-14 h-14 rounded-xl bg-tg-input-bg flex items-center justify-center border border-tg-border">
+                {getFileIcon(file)}
+              </div>
+            )}
             <button onClick={removeFile} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-tg-primary text-white rounded-full flex items-center justify-center cursor-pointer hover:opacity-80">
               <X className="w-3 h-3" />
             </button>
           </div>
           <div className="flex-1 min-w-0 pt-1">
-            <div className="text-sm text-tg-text truncate">{file?.name}</div>
-            <div className="text-xs text-tg-text-secondary mt-0.5">{file ? (file.size / 1024 / 1024).toFixed(1) + ' МБ' : ''}</div>
+            <div className="text-sm text-tg-text truncate font-medium">{file.name}</div>
+            <div className="text-xs text-tg-text-secondary mt-0.5">{formatSize(file.size)}</div>
+            {!isMediaFile && (
+              <div className="text-xs text-tg-text-secondary mt-0.5 uppercase">{file.type.split('/').pop() ?? 'файл'}</div>
+            )}
           </div>
         </div>
       )}
@@ -280,11 +331,11 @@ export default function MessageInput({
           </button>
         </div>
       ) : (
-        /* Normal input row */
         <div className="px-4 py-2.5 flex items-center gap-2 select-none">
-          <input ref={fileInputRef} type="file" accept={ACCEPTED} onChange={handleFileChange} className="hidden" />
+          {/* Accept all files — no type restriction */}
+          <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
           {!editingMessage && (
-            <button onClick={() => fileInputRef.current?.click()} title="Прикрепить файл"
+            <button onClick={() => fileInputRef.current?.click()} title="Прикрепить файл (или Ctrl+V)"
               className="p-1.5 text-tg-text-secondary hover:text-tg-primary hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0">
               <Paperclip className="w-5 h-5" />
             </button>
