@@ -157,7 +157,9 @@ export default function MessageInput({
     setRecordSeconds(0);
 
     try {
-      const mimeType = recordChunksRef.current[0]?.type || 'audio/webm';
+      // Strip codec params: "audio/webm;codecs=opus" → "audio/webm"
+      const rawMime = recordChunksRef.current[0]?.type || 'audio/webm';
+      const mimeType = rawMime.split(';')[0].trim();
       const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
       const blob = new Blob(recordChunksRef.current, { type: mimeType });
       const audioFile = new File([blob], `voice-${Date.now()}.${ext}`, { type: mimeType });
