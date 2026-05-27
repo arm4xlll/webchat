@@ -47,7 +47,9 @@ export default function ChatWindow({
 }: Props) {
   const user = useAuthStore(s => s.user);
   const { setMessages, prependMessages, messages } = useChatStore();
-  const typingUsers = useChatStore(s => s.typingUsers[conversation.id] ?? EMPTY_TYPING);
+  const typingUsers = useChatStore(s =>
+    (s.typingUsers[conversation.id] ?? EMPTY_TYPING).filter(u => u.userId !== user?.id)
+  );
   const presenceStatus = useChatStore(s => s.presenceStatus);
   const isSaved = conversation.type === 'saved';
   const other = user ? (isSaved ? user : getOtherMember(conversation, user.id)) : null;
