@@ -68,6 +68,10 @@ export default function ChatPage() {
     doLogout();
   };
 
+  const handleRead = useCallback(() => {
+    if (activeConversationId) sendReadReceipt(activeConversationId);
+  }, [activeConversationId, sendReadReceipt]);
+
   /** Forward a message to the saved conversation */
   const handleSaveMessage = useCallback((msg: Message) => {
     if (!savedConvId) return;
@@ -154,7 +158,7 @@ export default function ChatPage() {
                 } catch (e) { console.error('Delete failed', e); }
               }}
               onTyping={typing => sendTyping(activeConversationId!, typing)}
-              onRead={() => sendReadReceipt(activeConversationId!)}
+              onRead={handleRead}
               onReact={(msgId, emoji) => sendReaction(msgId, emoji)}
               onSaveMessage={activeConversation.type !== 'saved' ? handleSaveMessage : undefined}
               onBack={() => setActiveConversation(null)}

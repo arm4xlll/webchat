@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File as FileIcon, Bookmark } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
@@ -153,6 +153,10 @@ export default function MessageList({
   const prevFirstIdRef = useRef<string | null>(null);
   const initialScrollDoneRef = useRef(false);
 
+  // Stable ref for onRead so IntersectionObserver doesn't re-create on every render
+  const onReadRef = useRef(onRead);
+  useLayoutEffect(() => { onReadRef.current = onRead; });
+
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msg: Message } | null>(null);
   const [emojiPicker, setEmojiPicker] = useState<{ x: number; y: number; msgId: string } | null>(null);
@@ -223,16 +227,18 @@ export default function MessageList({
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
 
-  // Read receipt
+  // Read receipt — observer depends only on conversationId, not the callback ref,
+  // so it won't fire a spurious read on every parent re-render.
   useEffect(() => {
     const el = bottomRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) onRead();
+      if (entry.isIntersecting) onReadRef.current();
     }, { threshold: 0.1 });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [onRead]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
 
   const openContextMenu = useCallback((x: number, y: number, msg: Message) => {
     ctxPosRef.current = { x, y };
