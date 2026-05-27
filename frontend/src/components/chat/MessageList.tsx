@@ -157,6 +157,16 @@ export default function MessageList({
   const onReadRef = useRef(onRead);
   useLayoutEffect(() => { onReadRef.current = onRead; });
 
+  // Track the last seen message id to detect actual new messages vs edits/reactions
+  const lastMsgIdRef = useRef<string | null>(null);
+  // Debounce timer: coalesce rapid message bursts into a single read receipt
+  const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleRead = useCallback(() => {
+    if (readTimerRef.current) clearTimeout(readTimerRef.current);
+    readTimerRef.current = setTimeout(() => onReadRef.current(), 300);
+  }, []);
+
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msg: Message } | null>(null);
   const [emojiPicker, setEmojiPicker] = useState<{ x: number; y: number; msgId: string } | null>(null);
@@ -184,7 +194,11 @@ export default function MessageList({
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
     const firstId = messages[0].id;
+    const lastId  = messages[messages.length - 1].id;
     const isPrepend = prevFirstIdRef.current !== null && firstId !== prevFirstIdRef.current;
+    // A genuinely new message appended: last id changed and it's not a prepend (load more)
+    const isNewTail = !isPrepend && lastId !== lastMsgIdRef.current;
+
     if (isPrepend) {
       // Correct formula: preserve user's visual position relative to their anchor
       // new scrollTop = old scrollTop + (new scrollHeight - old scrollHeight)
@@ -192,22 +206,26 @@ export default function MessageList({
     } else if (!initialScrollDoneRef.current) {
       container.scrollTop = container.scrollHeight;
       initialScrollDoneRef.current = true;
-      // Initial render — mark as read (IntersectionObserver fires too, but it's idempotent)
-      onReadRef.current();
-    } else if (isAtBottomRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // Initial render: IntersectionObserver fires too, but scheduleRead dedupes via debounce
+      scheduleRead();
+    } else if (isAtBottomRef.current && isNewTail) {
       // New message arrived while user is at the bottom: IntersectionObserver won't fire
-      // because bottomRef was already intersecting — call directly.
-      onReadRef.current();
+      // because bottomRef was already intersecting — debounce to coalesce rapid bursts.
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scheduleRead();
     }
+
     prevFirstIdRef.current = firstId;
-  }, [messages]);
+    lastMsgIdRef.current   = lastId;
+  }, [messages, scheduleRead]);
 
   // Reset on conversation switch
   useEffect(() => {
     initialScrollDoneRef.current = false;
     prevFirstIdRef.current = null;
-    isAtBottomRef.current = true;
+    lastMsgIdRef.current   = null;
+    isAtBottomRef.current  = true;
+    if (readTimerRef.current) clearTimeout(readTimerRef.current);
   }, [conversationId]);
 
   // Infinite scroll sentinel
