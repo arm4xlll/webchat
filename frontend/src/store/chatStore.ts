@@ -18,6 +18,7 @@ interface ChatState {
   updateConversationMember: (member: User) => void;
   setActiveConversation: (id: string | null) => void;
   setMessages: (convId: string, msgs: Message[]) => void;
+  prependMessages: (convId: string, msgs: Message[]) => void;
   addMessage: (msg: Message) => void;
   updateMessage: (msg: Message) => void;
   removeMessage: (convId: string, msgId: string) => void;
@@ -69,6 +70,14 @@ export const useChatStore = create<ChatState>((set) => ({
   setMessages: (convId, msgs) => set((state) => ({
     messages: { ...state.messages, [convId]: msgs },
   })),
+
+  prependMessages: (convId, msgs) => set((state) => {
+    const prev = state.messages[convId] ?? [];
+    const existingIds = new Set(prev.map(m => m.id));
+    const unique = msgs.filter(m => !existingIds.has(m.id));
+    if (unique.length === 0) return state;
+    return { messages: { ...state.messages, [convId]: [...unique, ...prev] } };
+  }),
 
   addMessage: (msg) => set((state) => {
     const prev = state.messages[msg.conversationId] ?? [];

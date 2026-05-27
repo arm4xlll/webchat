@@ -23,6 +23,10 @@ interface Props {
   onDelete: (msg: Message, forEveryone: boolean) => void;
   onRead: () => void;
   searchQuery?: string;
+  highlightedMsgId?: string | null;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 const EMPTY_MESSAGES: never[] = [];
@@ -111,7 +115,7 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
 }
 
 /** Highlight search query in text — returns array of spans */
-function Highlighted({ text, query }: { text: string; query: string }) {
+export function Highlighted({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text}</>;
   const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
   return (
@@ -125,19 +129,89 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   );
 }
 
-export default function MessageList({ conversationId, onReply, onEdit, onDelete, onRead, searchQuery = '' }: Props) {
+export default function MessageList({
+  conversationId, onReply, onEdit, onDelete, onRead,
+  searchQuery = '', highlightedMsgId, hasMore, loadingMore, onLoadMore,
+}: Props) {
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
+
+  const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const scrollHeightBeforeRef = useRef(0);
+  const prevFirstIdRef = useRef<string | null>(null);
+  const initialScrollDoneRef = useRef(false);
+
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msg: Message } | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Flash-highlight state for search navigation
+  const [flashId, setFlashId] = useState<string | null>(null);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!highlightedMsgId) return;
+    setFlashId(highlightedMsgId);
+    const t = setTimeout(() => setFlashId(null), 1800);
+    return () => clearTimeout(t);
+  }, [highlightedMsgId]);
+
+  // Track scroll position to decide if we should auto-scroll on new messages
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
+
+  // Smart scroll: handles initial load, new messages, and prepend (infinite scroll)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || messages.length === 0) return;
+
+    const firstId = messages[0].id;
+    const isPrepend = prevFirstIdRef.current !== null && firstId !== prevFirstIdRef.current;
+
+    if (isPrepend) {
+      // Restore scroll position after prepending old messages
+      container.scrollTop = container.scrollHeight - scrollHeightBeforeRef.current;
+    } else if (!initialScrollDoneRef.current) {
+      // First load — jump to bottom instantly
+      container.scrollTop = container.scrollHeight;
+      initialScrollDoneRef.current = true;
+    } else if (isAtBottomRef.current) {
+      // New message appended — smooth scroll to bottom (only if user was near bottom)
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    prevFirstIdRef.current = firstId;
   }, [messages]);
 
-  // Send read receipt only when bottom of the list is actually visible
+  // Reset scroll state when switching conversations
+  useEffect(() => {
+    initialScrollDoneRef.current = false;
+    prevFirstIdRef.current = null;
+    isAtBottomRef.current = true;
+  }, [conversationId]);
+
+  // IntersectionObserver for top sentinel — triggers infinite scroll
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    const container = containerRef.current;
+    if (!sentinel || !container || !onLoadMore) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && hasMore && !loadingMore) {
+        scrollHeightBeforeRef.current = container.scrollHeight;
+        onLoadMore();
+      }
+    }, { root: container, threshold: 0.1 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [onLoadMore, hasMore, loadingMore]);
+
+  // Read receipt observer
   useEffect(() => {
     const el = bottomRef.current;
     if (!el) return;
@@ -218,10 +292,22 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
   return (
     <>
       <div
+        ref={containerRef}
         className="flex-1 overflow-y-auto px-4 md:px-8 py-4 flex flex-col bg-transparent"
         style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+        onScroll={handleScroll}
       >
-        {messages.length === 0 && (
+        {/* Top sentinel for infinite scroll */}
+        <div ref={topSentinelRef} className="shrink-0 h-px" />
+
+        {/* Loading spinner for older messages */}
+        {loadingMore && (
+          <div className="flex justify-center py-3 shrink-0">
+            <div className="w-5 h-5 border-2 border-tg-primary/30 border-t-tg-primary rounded-full animate-spin" />
+          </div>
+        )}
+
+        {messages.length === 0 && !loadingMore && (
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="bg-tg-input-bg text-tg-text-secondary text-[15px] px-4 py-1.5 rounded-full select-none">
               Нет сообщений
@@ -238,6 +324,7 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
           const showName = !isOwn && isFirst;
           const hasMedia = !msg.deleted && (isImage(msg.fileType) || isVideo(msg.fileType));
           const hasAudio = !msg.deleted && isAudio(msg.fileType);
+          const isFlashing = flashId === msg.id;
 
           const bubbleShape = isOwn
             ? isFirst && isLast ? 'rounded-l-2xl rounded-tr-2xl rounded-br-[5px]'
@@ -276,7 +363,7 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
           return (
             <div
               key={msg.id}
-              className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
+              className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'} transition-all duration-300 ${isFlashing ? 'scale-[1.01]' : ''}`}
               data-msg-id={msg.id}
               onContextMenu={(e) => handleContextMenu(e, msg)}
               onTouchStart={(e) => handleTouchStart(e, msg)}
@@ -290,84 +377,88 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
                   </span>
                 )}
 
-                {msg.deleted ? (
-                  <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
-                    <div className="flex flex-wrap items-end gap-2">
-                      <span
-                        className={!isOwn ? 'text-tg-text-secondary' : ''}
-                        style={isOwn ? ownTextMuted : undefined}
-                      >
-                        Сообщение удалено
-                      </span>
-                      <span
-                        className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                        style={isOwn ? ownTextMuted : undefined}
-                      >
-                        {timeNode}
-                      </span>
+                {/* Flash highlight ring */}
+                <div className={`transition-all duration-500 rounded-2xl ${isFlashing ? 'ring-2 ring-tg-primary ring-offset-2 ring-offset-transparent' : ''}`}>
+                  {msg.deleted ? (
+                    <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <span
+                          className={!isOwn ? 'text-tg-text-secondary' : ''}
+                          style={isOwn ? ownTextMuted : undefined}
+                        >
+                          Сообщение удалено
+                        </span>
+                        <span
+                          className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                          style={isOwn ? ownTextMuted : undefined}
+                        >
+                          {timeNode}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ) : hasAudio ? (
-                  /* ── Voice message bubble ── */
-                  <div
-                    className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}
-                    style={isOwn ? ownText : undefined}
-                  >
-                    <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
+                  ) : hasAudio ? (
                     <div
-                      className={`px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1`}
-                      style={isOwn ? ownTextMuted : undefined}
+                      className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}
+                      style={isOwn ? ownText : undefined}
                     >
-                      <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
-                      {isOwn && <MessageStatus readAt={msg.readAt} />}
-                    </div>
-                  </div>
-                ) : hasMedia ? (
-                  <MediaBubble
-                    msg={msg}
-                    isOwn={isOwn}
-                    bubbleShape={bubbleShape}
-                    timeNode={timeNode}
-                    onImageClick={(src, alt) => setLightbox({ src, alt })}
-                    replyNode={msg.replyToId ? (
-                      <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
-                        <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                        <div
-                          className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                          style={isOwn ? ownTextMuted : undefined}
-                        >
-                          {msg.replyToContent ?? 'Сообщение удалено'}
-                        </div>
-                      </div>
-                    ) : undefined}
-                  />
-                ) : (
-                  <div
-                    className={`relative px-3.5 py-1.5 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in text-tg-text'}`}
-                    style={isOwn ? ownText : undefined}
-                  >
-                    {msg.replyToId && (
-                      <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
-                        <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                        <div
-                          className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
-                          style={isOwn ? ownTextMuted : undefined}
-                        >
-                          {msg.replyToContent ?? 'Сообщение удалено'}
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap items-end gap-2 select-text">
-                      <span className="whitespace-pre-wrap max-w-full break-words"><Highlighted text={msg.content} query={searchQuery} /></span>
-                      <span
-                        className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                      <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
+                      <div
+                        className={`px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1`}
                         style={isOwn ? ownTextMuted : undefined}
                       >
-                        {timeNode}
-                      </span>
+                        <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
+                        {isOwn && <MessageStatus readAt={msg.readAt} />}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : hasMedia ? (
+                    <MediaBubble
+                      msg={msg}
+                      isOwn={isOwn}
+                      bubbleShape={bubbleShape}
+                      timeNode={timeNode}
+                      onImageClick={(src, alt) => setLightbox({ src, alt })}
+                      replyNode={msg.replyToId ? (
+                        <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
+                          <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
+                          <div
+                            className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                            style={isOwn ? ownTextMuted : undefined}
+                          >
+                            {msg.replyToContent ?? 'Сообщение удалено'}
+                          </div>
+                        </div>
+                      ) : undefined}
+                    />
+                  ) : (
+                    <div
+                      className={`relative px-3.5 py-1.5 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in text-tg-text'}`}
+                      style={isOwn ? ownText : undefined}
+                    >
+                      {msg.replyToId && (
+                        <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
+                          <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
+                          <div
+                            className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                            style={isOwn ? ownTextMuted : undefined}
+                          >
+                            {msg.replyToContent ?? 'Сообщение удалено'}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-end gap-2 select-text">
+                        <span className="whitespace-pre-wrap max-w-full break-words">
+                          <Highlighted text={msg.content} query={searchQuery} />
+                        </span>
+                        <span
+                          className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`}
+                          style={isOwn ? ownTextMuted : undefined}
+                        >
+                          {timeNode}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );

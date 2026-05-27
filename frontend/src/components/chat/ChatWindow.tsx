@@ -3,11 +3,13 @@ import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import { getMessages } from '../../api/conversations';
 import type { Attachment, Conversation, Message } from '../../types';
-import MessageList from './MessageList';
+import MessageList, { Highlighted } from './MessageList';
 import MessageInput from './MessageInput';
 import UserAvatar from '../common/UserAvatar';
 import UserProfileModal from '../profile/UserProfileModal';
 import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload } from 'lucide-react';
+
+const PAGE_SIZE = 50;
 
 function formatLastSeen(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -15,6 +17,10 @@ function formatLastSeen(iso: string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
   return `${Math.floor(diff / 86400)} дн назад`;
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 }
 
 interface Props {
@@ -35,7 +41,7 @@ const EMPTY_TYPING: never[] = [];
 
 export default function ChatWindow({ conversation, onSend, onEditMessage, onDeleteMessage, onTyping, onRead, onBack }: Props) {
   const user = useAuthStore(s => s.user);
-  const { setMessages, messages } = useChatStore();
+  const { setMessages, prependMessages, messages } = useChatStore();
   const typingUsers = useChatStore(s => s.typingUsers[conversation.id] ?? EMPTY_TYPING);
   const presenceStatus = useChatStore(s => s.presenceStatus);
   const other = user ? getOtherMember(conversation, user.id) : null;
@@ -45,31 +51,85 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // ── Pagination (infinite scroll up) ──────────────────────────────────────
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const older = await getMessages(conversation.id, nextPage, PAGE_SIZE);
+      if (older.length === 0) {
+        setHasMore(false);
+      } else {
+        prependMessages(conversation.id, older);
+        setPage(nextPage);
+        if (older.length < PAGE_SIZE) setHasMore(false);
+      }
+    } catch (e) {
+      console.error('[Pagination] Failed to load older messages', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, page, conversation.id, prependMessages]);
+
   // ── Search ───────────────────────────────────────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [matchIds, setMatchIds] = useState<string[]>([]);
   const [matchIndex, setMatchIndex] = useState(0);
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const convMessages = messages[conversation.id] ?? [];
 
   useEffect(() => {
-    if (!searchQuery.trim()) { setMatchIds([]); return; }
+    if (!searchQuery.trim()) { setMatchIds([]); setShowDropdown(false); return; }
     const q = searchQuery.toLowerCase();
     const ids = convMessages
       .filter(m => !m.deleted && m.content.toLowerCase().includes(q))
-      .map(m => m.id);
+      .map(m => m.id)
+      .reverse(); // newest first in dropdown
     setMatchIds(ids);
     setMatchIndex(0);
+    setShowDropdown(ids.length > 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, convMessages.length]);
 
-  useEffect(() => {
+  const scrollToMatch = useCallback((id: string) => {
+    const el = document.querySelector(`[data-msg-id="${id}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedMsgId(id);
+    setTimeout(() => setHighlightedMsgId(null), 2000);
+  }, []);
+
+  // Navigate to a specific result from the dropdown
+  const handleSelectMatch = useCallback((idx: number) => {
+    setMatchIndex(idx);
+    setShowDropdown(false);
+    const id = matchIds[idx];
+    scrollToMatch(id);
+  }, [matchIds, scrollToMatch]);
+
+  const goNext = useCallback(() => {
     if (matchIds.length === 0) return;
-    const id = matchIds[matchIndex];
-    document.querySelector(`[data-msg-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [matchIds, matchIndex]);
+    const next = (matchIndex + 1) % matchIds.length;
+    setMatchIndex(next);
+    setShowDropdown(false);
+    scrollToMatch(matchIds[next]);
+  }, [matchIds, matchIndex, scrollToMatch]);
+
+  const goPrev = useCallback(() => {
+    if (matchIds.length === 0) return;
+    const prev = (matchIndex - 1 + matchIds.length) % matchIds.length;
+    setMatchIndex(prev);
+    setShowDropdown(false);
+    scrollToMatch(matchIds[prev]);
+  }, [matchIds, matchIndex, scrollToMatch]);
 
   const openSearch = () => {
     setSearchOpen(true);
@@ -80,10 +140,9 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
     setSearchOpen(false);
     setSearchQuery('');
     setMatchIds([]);
+    setShowDropdown(false);
+    setHighlightedMsgId(null);
   };
-
-  const goNext = () => setMatchIndex(i => (i + 1) % matchIds.length);
-  const goPrev = () => setMatchIndex(i => (i - 1 + matchIds.length) % matchIds.length);
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
   const [dragging, setDragging] = useState(false);
@@ -113,10 +172,20 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
 
   // ── Data loading ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (messages[conversation.id] !== undefined) return;
-    getMessages(conversation.id).then(msgs => setMessages(conversation.id, msgs));
+    // Reset pagination when switching conversations
+    setPage(0);
+    setHasMore(true);
+    setLoadingMore(false);
     setSearchQuery('');
     setMatchIds([]);
+    setShowDropdown(false);
+    setHighlightedMsgId(null);
+
+    if (messages[conversation.id] !== undefined) return;
+    getMessages(conversation.id, 0, PAGE_SIZE).then(msgs => {
+      setMessages(conversation.id, msgs);
+      if (msgs.length < PAGE_SIZE) setHasMore(false);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
 
@@ -171,40 +240,88 @@ export default function ChatWindow({ conversation, onSend, onEditMessage, onDele
         </button>
       </div>
 
-      {/* Search bar */}
+      {/* Search bar + dropdown */}
       {searchOpen && (
-        <div className="px-4 py-2 bg-tg-sidebar-bg border-b border-tg-border flex items-center gap-2 shrink-0">
-          <Search className="w-4 h-4 text-tg-text-secondary shrink-0" />
-          <input
-            ref={searchInputRef}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Escape') closeSearch(); if (e.key === 'Enter') goNext(); }}
-            placeholder="Поиск по сообщениям..."
-            className="flex-1 bg-transparent text-tg-text placeholder:text-tg-text-secondary text-[14px] outline-none"
-          />
-          {searchQuery && (
-            <>
-              <span className="text-[12px] text-tg-text-secondary shrink-0 tabular-nums">
-                {matchIds.length > 0 ? `${matchIndex + 1}/${matchIds.length}` : '0'}
-              </span>
-              <button onClick={goPrev} disabled={matchIds.length === 0} className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer">
-                <ChevronUp className="w-4 h-4" />
-              </button>
-              <button onClick={goNext} disabled={matchIds.length === 0} className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer">
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </>
+        <div className="relative z-20 shrink-0">
+          {/* Input row */}
+          <div className="px-4 py-2 bg-tg-sidebar-bg border-b border-tg-border flex items-center gap-2">
+            <Search className="w-4 h-4 text-tg-text-secondary shrink-0" />
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setShowDropdown(true); }}
+              onKeyDown={e => {
+                if (e.key === 'Escape') closeSearch();
+                if (e.key === 'Enter') { e.preventDefault(); goNext(); }
+                if (e.key === 'ArrowDown') { e.preventDefault(); goNext(); }
+                if (e.key === 'ArrowUp') { e.preventDefault(); goPrev(); }
+              }}
+              onFocus={() => matchIds.length > 0 && setShowDropdown(true)}
+              placeholder="Поиск по сообщениям..."
+              className="flex-1 bg-transparent text-tg-text placeholder:text-tg-text-secondary text-[14px] outline-none"
+            />
+            {searchQuery && (
+              <>
+                <span className="text-[12px] text-tg-text-secondary shrink-0 tabular-nums">
+                  {matchIds.length > 0 ? `${matchIndex + 1}/${matchIds.length}` : '0'}
+                </span>
+                <button onClick={goPrev} disabled={matchIds.length === 0}
+                  className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer" title="Предыдущий">
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+                <button onClick={goNext} disabled={matchIds.length === 0}
+                  className="p-1 text-tg-text-secondary hover:text-tg-text disabled:opacity-30 cursor-pointer" title="Следующий">
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </>
+            )}
+            <button onClick={closeSearch} className="p-1 text-tg-text-secondary hover:text-tg-text cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Results dropdown */}
+          {showDropdown && searchQuery.trim() && (
+            <div className="absolute left-0 right-0 top-full bg-tg-sidebar-bg border-b border-tg-border shadow-xl max-h-72 overflow-y-auto">
+              {matchIds.length === 0 ? (
+                <div className="px-4 py-3 text-[13px] text-tg-text-secondary">Ничего не найдено</div>
+              ) : (
+                matchIds.map((id, idx) => {
+                  const msg = convMessages.find(m => m.id === id);
+                  if (!msg) return null;
+                  return (
+                    <button
+                      key={id}
+                      onMouseDown={(e) => { e.preventDefault(); handleSelectMatch(idx); }}
+                      className={`w-full px-4 py-2.5 flex items-start gap-3 text-left transition-colors hover:bg-tg-hover ${idx === matchIndex ? 'bg-tg-primary/10' : ''}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold text-tg-primary truncate leading-tight">
+                          {msg.senderName}
+                        </div>
+                        <div className="text-[13px] text-tg-text truncate mt-0.5">
+                          <Highlighted text={msg.content} query={searchQuery} />
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-tg-text-secondary shrink-0 mt-0.5">
+                        {formatTime(msg.createdAt)}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           )}
-          <button onClick={closeSearch} className="p-1 text-tg-text-secondary hover:text-tg-text cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
         </div>
       )}
 
       <MessageList
         conversationId={conversation.id}
         searchQuery={searchQuery}
+        highlightedMsgId={highlightedMsgId}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={handleLoadMore}
         onReply={(msg) => { setReplyingTo(msg); setEditingMessage(null); }}
         onEdit={(msg) => { setEditingMessage(msg); setReplyingTo(null); }}
         onDelete={(msg, all) => onDeleteMessage(msg.id, all)}
