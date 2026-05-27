@@ -22,7 +22,9 @@ public class FileController {
     private static final long MAX_SIZE = 50L * 1024 * 1024; // 50 MB
     private static final Set<String> ALLOWED_TYPES = Set.of(
             "image/jpeg", "image/png", "image/gif", "image/webp",
-            "video/mp4", "video/webm", "video/quicktime", "video/ogg"
+            "video/mp4", "video/webm", "video/quicktime", "video/ogg",
+            "audio/webm", "audio/ogg", "audio/mp4", "audio/wav",
+            "audio/mpeg", "audio/aac", "audio/opus"
     );
 
     @Value("${app.upload.dir:uploads}")

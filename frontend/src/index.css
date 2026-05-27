@@ -83,3 +83,8 @@
     transform: translateY(0);
   }
 }
+
+@keyframes voiceBar {
+  from { transform: scaleY(0.4); }
+  to   { transform: scaleY(1.2); }
+}

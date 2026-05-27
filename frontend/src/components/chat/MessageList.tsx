@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import type { Message } from '../../types';
 import MessageStatus from './MessageStatus';
 import MediaViewer from './MediaViewer';
+import VoiceMessage from './VoiceMessage';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 
 function formatReadTime(iso: string): string {
@@ -31,6 +32,7 @@ function formatTime(iso: string) {
 
 function isImage(type?: string) { return !!type?.startsWith('image/'); }
 function isVideo(type?: string) { return !!type?.startsWith('video/'); }
+function isAudio(type?: string) { return !!type?.startsWith('audio/'); }
 
 // Inline style helpers — uses CSS variables so they change with theme
 const ownText = { color: 'var(--color-tg-msg-out-text)' } as const;
@@ -216,6 +218,7 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
           const isLast  = !nextMsg || nextMsg.senderId !== msg.senderId;
           const showName = !isOwn && isFirst;
           const hasMedia = !msg.deleted && (isImage(msg.fileType) || isVideo(msg.fileType));
+          const hasAudio = !msg.deleted && isAudio(msg.fileType);
 
           const bubbleShape = isOwn
             ? isFirst && isLast ? 'rounded-l-2xl rounded-tr-2xl rounded-br-[5px]'
@@ -282,6 +285,21 @@ export default function MessageList({ conversationId, onReply, onEdit, onDelete,
                       >
                         {timeNode}
                       </span>
+                    </div>
+                  </div>
+                ) : hasAudio ? (
+                  /* ── Voice message bubble ── */
+                  <div
+                    className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}
+                    style={isOwn ? ownText : undefined}
+                  >
+                    <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
+                    <div
+                      className={`px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1`}
+                      style={isOwn ? ownTextMuted : undefined}
+                    >
+                      <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
+                      {isOwn && <MessageStatus readAt={msg.readAt} />}
                     </div>
                   </div>
                 ) : hasMedia ? (
