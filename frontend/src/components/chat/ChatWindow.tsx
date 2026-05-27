@@ -42,13 +42,16 @@ function getOtherMember(conv: Conversation, myId: string) {
 }
 
 const EMPTY_TYPING: never[] = [];
+const EMPTY_PINS: never[] = [];
 
 export default function ChatWindow({
   conversation, onSend, onEditMessage, onDeleteMessage,
   onTyping, onRead, onReact, onSaveMessage, onBack,
 }: Props) {
   const user = useAuthStore(s => s.user);
-  const { setMessages, prependMessages, messages } = useChatStore();
+  const setMessages = useChatStore(s => s.setMessages);
+  const prependMessages = useChatStore(s => s.prependMessages);
+  const messages = useChatStore(s => s.messages);
   // Get the raw list from the store (stable reference when unchanged),
   // then filter outside the selector — .filter() always returns a new array,
   // so putting it inside the selector causes infinite re-renders (React #185).
@@ -62,7 +65,7 @@ export default function ChatWindow({
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  const pins = useChatStore(s => s.pins[conversation.id] ?? []);
+  const pins = useChatStore(s => s.pins[conversation.id]) ?? EMPTY_PINS;
 
   // ── Pagination ────────────────────────────────────────────────────────────
   const [page, setPage] = useState(0);

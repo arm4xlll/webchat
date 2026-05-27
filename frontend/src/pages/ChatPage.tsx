@@ -24,11 +24,13 @@ export default function ChatPage() {
   const { updateReady, countdown, reloadNow } = useVersionCheck();
   const user = useAuthStore(s => s.user);
   const doLogout = useAuthStore(s => s.logout);
-  const {
-    conversations, activeConversationId,
-    setConversations, setActiveConversation,
-    updateMessage, removeMessage, addConversation,
-  } = useChatStore();
+  const conversations = useChatStore(s => s.conversations);
+  const activeConversationId = useChatStore(s => s.activeConversationId);
+  const setConversations = useChatStore(s => s.setConversations);
+  const setActiveConversation = useChatStore(s => s.setActiveConversation);
+  const updateMessage = useChatStore(s => s.updateMessage);
+  const removeMessage = useChatStore(s => s.removeMessage);
+  const addConversation = useChatStore(s => s.addConversation);
   const { sendMessage, sendTyping, sendReadReceipt, sendReaction, wsStatus } = useEventStream();
   const applyFromServer = useThemeStore(s => s.applyFromServer);
   const [settingsOpen, setSettingsOpen] = useState(false);

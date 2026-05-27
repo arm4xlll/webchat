@@ -26,7 +26,11 @@ function formatTime(iso: string) {
 
 export default function ConversationList() {
   const user = useAuthStore(s => s.user);
-  const { conversations, activeConversationId, setActiveConversation, messages, unreadCounts } = useChatStore();
+  const conversations = useChatStore(s => s.conversations);
+  const activeConversationId = useChatStore(s => s.activeConversationId);
+  const setActiveConversation = useChatStore(s => s.setActiveConversation);
+  const messages = useChatStore(s => s.messages);
+  const unreadCounts = useChatStore(s => s.unreadCounts);
   const presenceStatus = useChatStore(s => s.presenceStatus);
 
   const sorted = useMemo(() => {

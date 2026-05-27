@@ -43,6 +43,7 @@ interface Props {
 }
 
 const EMPTY_MESSAGES: never[] = [];
+const EMPTY_PINS: never[] = [];
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
@@ -161,7 +162,7 @@ export default function MessageList({
 }: Props) {
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
-  const pins = useChatStore(s => s.pins[conversationId] ?? []);
+  const pins = useChatStore(s => s.pins[conversationId]) ?? EMPTY_PINS;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
