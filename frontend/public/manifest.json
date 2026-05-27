@@ -1,6 +1,6 @@
 {
-  "name": "WebChat",
-  "short_name": "WebChat",
+  "name": "darknet",
+  "short_name": "darknet",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#17212b",
