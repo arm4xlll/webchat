@@ -4,6 +4,7 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
+import { useThemeStore, type FontSize } from '../store/themeStore';
 import { getConversations, getMessagesAfter } from '../api/conversations';
 import type { Attachment, Message, MessageEvent, PresenceEvent, ReadReceiptEvent, TypingEvent, User } from '../types';
 
@@ -14,6 +15,7 @@ export function useWebSocket() {
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const { addMessage, updateMessage, addConversation, updateConversationMember, setTyping, clearAllTyping, setLastReadAt, setPresence, conversations } = useChatStore();
+  const applyFromServer = useThemeStore(s => s.applyFromServer);
 
   const subscribeToConversation = useCallback((client: Client, convId: string) => {
     if (subscribedConvsRef.current.has(convId)) return;
@@ -119,7 +121,22 @@ export function useWebSocket() {
           }
         });
 
-        subscriptionsRef.current.push(newConvSub, presenceQueueSub);
+        // Синхронизация темы с другого устройства
+        const settingsQueueSub = client.subscribe('/user/queue/settings', (frame: IMessage) => {
+          try {
+            const user = JSON.parse(frame.body);
+            if (user.settings) {
+              const s = JSON.parse(user.settings);
+              if (s.themeId && s.fontSize) {
+                applyFromServer(s.themeId, s.fontSize as FontSize);
+              }
+            }
+          } catch (e) {
+            console.error('[WS] Failed to parse settings update', e);
+          }
+        });
+
+        subscriptionsRef.current.push(newConvSub, presenceQueueSub, settingsQueueSub);
 
         // Загружаем разговоры, подписываемся на топики, потом запрашиваем presence-снапшот
         getConversations().then(convs => {

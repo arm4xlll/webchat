@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { updateSettings as apiUpdateSettings } from '../api/users';
 
 export interface ThemeColors {
   bg: string;
@@ -18,7 +19,7 @@ export interface ThemeColors {
 export interface AppTheme {
   id: string;
   name: string;
-  emoji: string;
+  icon: string; // lucide icon name — kept for future use
   colors: ThemeColors;
 }
 
@@ -26,7 +27,7 @@ export const THEMES: AppTheme[] = [
   {
     id: 'telegram-dark',
     name: 'Telegram',
-    emoji: '💬',
+    icon: 'MessageCircle',
     colors: {
       bg: '#0e1621',
       sidebarBg: '#17212b',
@@ -43,26 +44,26 @@ export const THEMES: AppTheme[] = [
   },
   {
     id: 'pink',
-    name: 'Роза',
-    emoji: '🌸',
+    name: 'Орхидея',
+    icon: 'Sparkles',
     colors: {
-      bg: '#1a0e14',
-      sidebarBg: '#241218',
-      border: '#160a10',
-      primary: '#e91e8c',
-      text: '#ffe0f0',
-      textSecondary: '#c07898',
-      msgIn: '#2c1520',
-      msgOut: '#8c1e4a',
-      hover: '#2e1822',
-      active: '#8c1e4a',
-      inputBg: '#241218',
+      bg: '#140a1d',
+      sidebarBg: '#1c0e2a',
+      border: '#100819',
+      primary: '#ef87f5',
+      text: '#f3e8ff',
+      textSecondary: '#9b7ab8',
+      msgIn: '#260f3c',
+      msgOut: '#7b2fa8',
+      hover: '#27103e',
+      active: '#7b2fa8',
+      inputBg: '#1c0e2a',
     },
   },
   {
     id: 'midnight',
     name: 'Полночь',
-    emoji: '🌙',
+    icon: 'Moon',
     colors: {
       bg: '#0a0a0f',
       sidebarBg: '#0f0f1a',
@@ -80,7 +81,7 @@ export const THEMES: AppTheme[] = [
   {
     id: 'ocean',
     name: 'Океан',
-    emoji: '🌊',
+    icon: 'Waves',
     colors: {
       bg: '#0a1520',
       sidebarBg: '#0d1e30',
@@ -98,7 +99,7 @@ export const THEMES: AppTheme[] = [
   {
     id: 'forest',
     name: 'Лес',
-    emoji: '🌿',
+    icon: 'TreePine',
     colors: {
       bg: '#0a160d',
       sidebarBg: '#0e1f11',
@@ -140,12 +141,23 @@ function applyTheme(theme: AppTheme, fontSize: FontSize) {
   root.setProperty('--chat-font-size', FONT_SIZE_MAP[fontSize]);
 }
 
+/** Sends settings to server (best-effort, no error thrown to UI). */
+async function syncToServer(themeId: string, fontSize: FontSize) {
+  try {
+    await apiUpdateSettings(themeId, fontSize);
+  } catch (e) {
+    console.warn('[Theme] Failed to sync settings to server', e);
+  }
+}
+
 interface ThemeState {
   themeId: string;
   fontSize: FontSize;
-  setTheme: (id: string) => void;
-  setFontSize: (size: FontSize) => void;
+  setTheme: (id: string, serverSync?: boolean) => void;
+  setFontSize: (size: FontSize, serverSync?: boolean) => void;
   applyCurrentTheme: () => void;
+  /** Apply settings received from server without triggering another server sync */
+  applyFromServer: (themeId: string, fontSize: FontSize) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -154,21 +166,29 @@ export const useThemeStore = create<ThemeState>()(
       themeId: 'telegram-dark',
       fontSize: 'medium',
 
-      setTheme: (id) => {
+      setTheme: (id, serverSync = true) => {
         const theme = THEMES.find(t => t.id === id) ?? THEMES[0];
         set({ themeId: id });
         applyTheme(theme, get().fontSize);
+        if (serverSync) syncToServer(id, get().fontSize);
       },
 
-      setFontSize: (size) => {
+      setFontSize: (size, serverSync = true) => {
         set({ fontSize: size });
         const theme = THEMES.find(t => t.id === get().themeId) ?? THEMES[0];
         applyTheme(theme, size);
+        if (serverSync) syncToServer(get().themeId, size);
       },
 
       applyCurrentTheme: () => {
         const { themeId, fontSize } = get();
         const theme = THEMES.find(t => t.id === themeId) ?? THEMES[0];
+        applyTheme(theme, fontSize);
+      },
+
+      applyFromServer: (themeId, fontSize) => {
+        const theme = THEMES.find(t => t.id === themeId) ?? THEMES[0];
+        set({ themeId: theme.id, fontSize });
         applyTheme(theme, fontSize);
       },
     }),

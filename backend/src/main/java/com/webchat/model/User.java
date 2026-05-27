@@ -34,6 +34,10 @@ public class User {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    /** JSON string, e.g. {"themeId":"pink","fontSize":"medium"} */
+    @Column(columnDefinition = "TEXT")
+    private String settings;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

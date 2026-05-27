@@ -4,6 +4,8 @@ export interface User {
   username: string;
   bio?: string;
   avatarUrl?: string;
+  /** JSON string: {"themeId":"pink","fontSize":"medium"} */
+  settings?: string;
 }
 
 export interface AuthResponse {

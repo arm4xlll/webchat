@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
+import { useThemeStore, type FontSize } from '../store/themeStore';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { getConversations, editMessage as editMessageAPI, deleteMessage as deleteMessageAPI } from '../api/conversations';
+import { getMe } from '../api/users';
 import { logout } from '../api/auth';
 import UserSearch from '../components/sidebar/UserSearch';
 import ConversationList from '../components/sidebar/ConversationList';
@@ -18,9 +20,23 @@ export default function ChatPage() {
   const doLogout = useAuthStore(s => s.logout);
   const { conversations, activeConversationId, setConversations, setActiveConversation, updateMessage, removeMessage } = useChatStore();
   const { sendMessage, sendTyping, sendReadReceipt, wsStatus } = useWebSocket();
+  const applyFromServer = useThemeStore(s => s.applyFromServer);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // Загружаем профиль и применяем серверные настройки темы при входе
   useEffect(() => {
+    getMe().then(me => {
+      if (me.settings) {
+        try {
+          const s = JSON.parse(me.settings);
+          if (s.themeId && s.fontSize) {
+            applyFromServer(s.themeId, s.fontSize as FontSize);
+          }
+        } catch {
+          // ignore malformed settings
+        }
+      }
+    }).catch(console.error);
     getConversations().then(setConversations);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

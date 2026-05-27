@@ -9,9 +9,17 @@ public record UserResponse(
         String name,
         String username,
         String bio,
-        String avatarUrl
+        String avatarUrl,
+        String settings
 ) {
     public static UserResponse from(User user) {
-        return new UserResponse(user.getId(), user.getName(), user.getUsername(), user.getBio(), user.getAvatarUrl());
+        return new UserResponse(
+                user.getId(),
+                user.getName(),
+                user.getUsername(),
+                user.getBio(),
+                user.getAvatarUrl(),
+                user.getSettings()
+        );
     }
 }

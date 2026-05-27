@@ -1,6 +1,7 @@
 package com.webchat.service;
 
 import com.webchat.dto.request.UpdateProfileRequest;
+import com.webchat.dto.request.UpdateSettingsRequest;
 import com.webchat.dto.response.UserResponse;
 import com.webchat.model.User;
 import com.webchat.repository.ConversationMemberRepository;
@@ -90,6 +91,19 @@ public class UserService {
         user.setAvatarUrl("/uploads/avatars/" + userId + "." + extension);
         UserResponse response = UserResponse.from(user);
         publishProfileUpdate(userId, response);
+        return response;
+    }
+
+    @Transactional
+    public UserResponse updateSettings(UUID userId, String username, UpdateSettingsRequest req) {
+        User user = getEntityById(userId);
+        // Serialize as compact JSON (no Jackson dependency needed — it's a simple two-field object)
+        String json = String.format("{\"themeId\":\"%s\",\"fontSize\":\"%s\"}", req.themeId(), req.fontSize());
+        user.setSettings(json);
+        UserResponse response = UserResponse.from(user);
+        // Push to all connected sessions of this user so other devices sync immediately
+        messagingTemplate.convertAndSendToUser(username, "/queue/settings", response);
+        log.debug("Settings update for user={} theme={} fontSize={}", userId, req.themeId(), req.fontSize());
         return response;
     }
 

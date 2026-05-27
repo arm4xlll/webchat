@@ -1,6 +1,7 @@
 package com.webchat.controller;
 
 import com.webchat.dto.request.UpdateProfileRequest;
+import com.webchat.dto.request.UpdateSettingsRequest;
 import com.webchat.dto.response.UserResponse;
 import com.webchat.security.UserPrincipal;
 import com.webchat.service.UserService;
@@ -46,6 +47,13 @@ public class UserController {
             @Valid @RequestBody UpdateProfileRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(userService.updateProfile(principal.getUserId(), req));
+    }
+
+    @PutMapping("/me/settings")
+    public ResponseEntity<UserResponse> updateSettings(
+            @Valid @RequestBody UpdateSettingsRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(userService.updateSettings(principal.getUserId(), principal.getUsername(), req));
     }
 
     @PostMapping("/me/avatar")

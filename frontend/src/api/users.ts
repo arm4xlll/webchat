@@ -13,6 +13,9 @@ export const getUserProfile = (userId: string) =>
 export const updateProfile = (name: string, bio: string) =>
   api.put<User>('/users/me/profile', { name, bio }).then(r => r.data);
 
+export const updateSettings = (themeId: string, fontSize: string) =>
+  api.put<User>('/users/me/settings', { themeId, fontSize }).then(r => r.data);
+
 export const uploadAvatar = (file: File) => {
   const form = new FormData();
   form.append('file', file);
