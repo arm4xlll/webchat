@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File, Bookmark } from 'lucide-react';
+import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File as FileIcon, Bookmark } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Message } from '../../types';
@@ -61,7 +61,7 @@ function docIcon(type?: string, name?: string) {
     return <FileText className="w-8 h-8 text-blue-400 shrink-0" />;
   if (lower.includes('xls') || lower.includes('sheet'))
     return <FileText className="w-8 h-8 text-green-400 shrink-0" />;
-  return <File className="w-8 h-8 text-tg-text-secondary shrink-0" />;
+  return <FileIcon className="w-8 h-8 text-tg-text-secondary shrink-0" />;
 }
 
 const ownText = { color: 'var(--color-tg-msg-out-text)' } as const;

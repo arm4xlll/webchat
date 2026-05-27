@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, Loader2, CornerUpLeft, Pencil, Mic, FileText, FileArchive, File } from 'lucide-react';
+import { Send, Paperclip, X, Loader2, CornerUpLeft, Pencil, Mic, FileText, FileArchive, File as FileIcon } from 'lucide-react';
 import { uploadFile } from '../../api/conversations';
 import type { Attachment, Message } from '../../types';
 
@@ -36,7 +36,7 @@ function getFileIcon(file: File) {
     return <FileText className="w-8 h-8 text-blue-400 shrink-0" />;
   if (t.includes('sheet') || t.includes('excel') || n.endsWith('.xls') || n.endsWith('.xlsx'))
     return <FileText className="w-8 h-8 text-green-400 shrink-0" />;
-  return <File className="w-8 h-8 text-tg-text-secondary shrink-0" />;
+  return <FileIcon className="w-8 h-8 text-tg-text-secondary shrink-0" />;
 }
 
 export default function MessageInput({
