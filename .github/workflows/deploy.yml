@@ -9,10 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── Checkout ──────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Build backend ──────────────────────────────────────────────
+      # ── Build backend ─────────────────────────────────────────────────
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
@@ -26,7 +27,7 @@ jobs:
           chmod +x mvnw
           ./mvnw package -DskipTests -q
 
-      # ── Build frontend ─────────────────────────────────────────────
+      # ── Build frontend ────────────────────────────────────────────────
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
@@ -40,8 +41,8 @@ jobs:
           npm ci
           npm run build
 
-      # ── Deploy to server ───────────────────────────────────────────
-      - name: Copy files to server
+      # ── Upload artefacts to server ────────────────────────────────────
+      - name: Copy artefacts to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -51,7 +52,8 @@ jobs:
           source: "backend/target/webchat-backend-0.0.1-SNAPSHOT.jar,frontend/dist,ecosystem.config.js,nginx.conf"
           target: /opt/webchat/upload
 
-      - name: Restart services
+      # ── Deploy on server ──────────────────────────────────────────────
+      - name: Deploy & restart services
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -59,21 +61,57 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            set -e
+            set -euo pipefail
+            UPLOAD=/opt/webchat/upload
+            APP=/opt/webchat
 
-            # Перекладываем артефакты
-            cp /opt/webchat/upload/backend/target/webchat-backend-0.0.1-SNAPSHOT.jar \
-               /opt/webchat/webchat-backend.jar
-            rsync -a --delete /opt/webchat/upload/frontend/dist/ /opt/webchat/frontend/
-            cp /opt/webchat/upload/ecosystem.config.js /opt/webchat/
-            sudo cp /opt/webchat/upload/nginx.conf /etc/nginx/sites-available/webchat
-            sudo ln -sf /etc/nginx/sites-available/webchat /etc/nginx/sites-enabled/webchat
-            sudo nginx -t && sudo systemctl reload nginx
+            echo "--- [1/5] Move artefacts ---"
+            # JAR — swap atomically: write to .new then rename
+            cp "$UPLOAD/backend/target/webchat-backend-0.0.1-SNAPSHOT.jar" \
+               "$APP/webchat-backend.new.jar"
+            mv "$APP/webchat-backend.new.jar" "$APP/webchat-backend.jar"
 
-            # Рестарт PM2 (env vars из .env попадают в процесс через окружение)
-            cd /opt/webchat
-            set -a; source /opt/webchat/.env; set +a
-            pm2 startOrRestart ecosystem.config.js
+            # Frontend static files
+            rsync -a --delete "$UPLOAD/frontend/dist/" "$APP/frontend/"
+
+            # PM2 ecosystem config
+            cp "$UPLOAD/ecosystem.config.js" "$APP/"
+
+            echo "--- [2/5] Reload nginx ---"
+            sudo cp "$UPLOAD/nginx.conf" /etc/nginx/sites-available/webchat
+            sudo ln -sf /etc/nginx/sites-available/webchat \
+                        /etc/nginx/sites-enabled/webchat
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "--- [3/5] Ensure uploads dir exists ---"
+            mkdir -p "$APP/uploads"
+
+            echo "--- [4/5] Restart backend via PM2 ---"
+            cd "$APP"
+            # Load .env into the current shell so PM2 captures them
+            set -a; source "$APP/.env"; set +a
+            # --update-env ensures new/changed vars are applied even on restartOrRestart
+            pm2 startOrRestart ecosystem.config.js --update-env
             pm2 save
 
-            echo "✓ Deploy complete"
+            echo "--- [5/5] Health check (up to 60 s) ---"
+            for i in $(seq 1 12); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                         --max-time 4 http://localhost:7361/actuator/health || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "Backend healthy after $((i * 5)) s"
+                break
+              fi
+              if [ "$i" = "12" ]; then
+                echo "ERROR: backend did not become healthy within 60 s (last HTTP $STATUS)"
+                echo "=== Last 40 log lines ==="
+                tail -40 /var/log/webchat/pm2-error.log || true
+                pm2 list
+                exit 1
+              fi
+              echo "  waiting... ($i/12, last HTTP $STATUS)"
+              sleep 5
+            done
+
+            echo "Deploy complete"

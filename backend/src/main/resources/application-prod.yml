@@ -45,6 +45,11 @@ app:
   cors:
     allowed-origins: ${CORS_ORIGINS}
 
+vapid:
+  public-key: ${VAPID_PUBLIC_KEY}
+  private-key: ${VAPID_PRIVATE_KEY}
+  subject: ${VAPID_SUBJECT:mailto:admin@webchat.local}
+
 logging:
   level:
     com.webchat: INFO

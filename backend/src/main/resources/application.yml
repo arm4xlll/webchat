@@ -51,6 +51,15 @@ vapid:
   private-key: "NmQH7rTYCVln5M-GWRukUWUgGlcoTgKs6BQXxvg7fhs"
   subject: "mailto:admin@webchat.local"
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 logging:
   level:
     com.webchat: DEBUG
