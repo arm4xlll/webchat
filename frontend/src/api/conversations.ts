@@ -16,6 +16,9 @@ export const getMessages = (conversationId: string, page = 0, size = 50) =>
 export const getMessagesAfter = (conversationId: string, after: string) =>
   api.get<Message[]>(`/conversations/${conversationId}/messages/after?after=${encodeURIComponent(after)}`).then(r => r.data);
 
+export const searchMessages = (conversationId: string, q: string, page = 0, size = 20) =>
+  api.get<Message[]>(`/conversations/${conversationId}/messages/search?q=${encodeURIComponent(q)}&page=${page}&size=${size}`).then(r => r.data);
+
 export const uploadFile = (file: File): Promise<Attachment> => {
   const form = new FormData();
   form.append('file', file);

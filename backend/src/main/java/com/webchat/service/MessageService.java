@@ -144,6 +144,24 @@ public class MessageService {
         return response;
     }
 
+    @Transactional(readOnly = true)
+    public List<MessageResponse> search(UUID conversationId, UUID userId, String q, int page, int size) {
+        if (!conversationService.isMember(conversationId, userId)) {
+            throw new SecurityException("User is not a member of conversation " + conversationId);
+        }
+        List<Message> messages = messageRepository
+                .search(conversationId, userId, q, PageRequest.of(page, size))
+                .stream()
+                .toList();
+
+        List<UUID> ids = messages.stream().map(Message::getId).toList();
+        Map<UUID, Map<String, List<UUID>>> reactionsMap = reactionService.buildReactionsMapForMessages(ids);
+
+        return messages.stream()
+                .map(m -> MessageResponse.from(m, reactionsMap.getOrDefault(m.getId(), Map.of())))
+                .toList();
+    }
+
     @Transactional
     public void deleteMessage(UUID userId, UUID messageId, boolean forEveryone) {
         Message message = messageRepository.findById(messageId)

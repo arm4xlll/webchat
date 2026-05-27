@@ -59,6 +59,16 @@ public class ConversationController {
         return ResponseEntity.ok(messageService.getHistory(id, principal.getUserId(), page, size));
     }
 
+    @GetMapping("/{id}/messages/search")
+    public ResponseEntity<List<MessageResponse>> searchMessages(
+            @PathVariable UUID id,
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(messageService.search(id, principal.getUserId(), q, page, size));
+    }
+
     @GetMapping("/{id}/messages/after")
     public ResponseEntity<List<MessageResponse>> messagesAfter(
             @PathVariable UUID id,

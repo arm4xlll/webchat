@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
-import { getMessages } from '../../api/conversations';
+import { getMessages, searchMessages } from '../../api/conversations';
 import type { Attachment, Conversation, Message } from '../../types';
 import MessageList, { Highlighted } from './MessageList';
 import MessageInput from './MessageInput';
 import UserAvatar from '../common/UserAvatar';
 import UserProfileModal from '../profile/UserProfileModal';
 import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload, Bookmark } from 'lucide-react';
+import PinnedBanner from './PinnedBanner';
+import { removePin } from '../../api/pins';
 
 const PAGE_SIZE = 50;
 
@@ -60,6 +62,7 @@ export default function ChatWindow({
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const pins = useChatStore(s => s.pins[conversation.id] ?? []);
 
   // ── Pagination ────────────────────────────────────────────────────────────
   const [page, setPage] = useState(0);
@@ -97,46 +100,104 @@ export default function ChatWindow({
 
   const convMessages = messages[conversation.id] ?? [];
 
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
+
   useEffect(() => {
-    if (!searchQuery.trim()) { setMatchIds([]); setShowDropdown(false); return; }
-    const q = searchQuery.toLowerCase();
-    const ids = convMessages
-      .filter(m => !m.deleted && m.content.toLowerCase().includes(q))
-      .map(m => m.id)
-      .reverse();
-    setMatchIds(ids);
-    setMatchIndex(0);
-    setShowDropdown(ids.length > 0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, convMessages.length]);
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setMatchIds([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const msgs = await searchMessages(conversation.id, q, 0, 50);
+        setSearchResults(msgs);
+        const ids = msgs.map(m => m.id);
+        setMatchIds(ids);
+        setMatchIndex(0);
+        setShowDropdown(ids.length > 0);
+      } catch (e) {
+        console.error('[Search] Backend search failed', e);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchQuery, conversation.id]);
 
   const scrollToMatch = useCallback((id: string) => {
-    document.querySelector(`[data-msg-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setHighlightedMsgId(id);
-    setTimeout(() => setHighlightedMsgId(null), 2000);
+    const el = document.querySelector(`[data-msg-id="${id}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMsgId(id);
+      setTimeout(() => setHighlightedMsgId(null), 2000);
+    }
   }, []);
+
+  const jumpToMessage = useCallback(async (messageId: string, _messageCreatedAt: string) => {
+    const exists = convMessages.some(m => m.id === messageId);
+    if (exists) {
+      scrollToMatch(messageId);
+      return;
+    }
+
+    let currentPage = page;
+    let found = false;
+    setLoadingMore(true);
+    try {
+      while (currentPage < 10) { // Limit to 10 pages
+        const nextPage = currentPage + 1;
+        const older = await getMessages(conversation.id, nextPage, PAGE_SIZE);
+        if (older.length === 0) break;
+        
+        prependMessages(conversation.id, older);
+        currentPage = nextPage;
+        setPage(nextPage);
+        
+        if (older.some(m => m.id === messageId)) {
+          found = true;
+          break;
+        }
+        if (older.length < PAGE_SIZE) break;
+      }
+      if (found) {
+        setTimeout(() => scrollToMatch(messageId), 100);
+      } else {
+        console.warn('Message not found within loaded pages');
+      }
+    } catch (e) {
+      console.error('[JumpToMessage] failed', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [convMessages, conversation.id, page, prependMessages, scrollToMatch]);
 
   const handleSelectMatch = useCallback((idx: number) => {
     setMatchIndex(idx);
     setShowDropdown(false);
-    scrollToMatch(matchIds[idx]);
-  }, [matchIds, scrollToMatch]);
+    const target = searchResults[idx];
+    if (target) jumpToMessage(target.id, target.createdAt);
+  }, [searchResults, jumpToMessage]);
 
   const goNext = useCallback(() => {
     if (matchIds.length === 0) return;
     const next = (matchIndex + 1) % matchIds.length;
     setMatchIndex(next);
     setShowDropdown(false);
-    scrollToMatch(matchIds[next]);
-  }, [matchIds, matchIndex, scrollToMatch]);
+    const target = searchResults[next];
+    if (target) jumpToMessage(target.id, target.createdAt);
+  }, [matchIds, matchIndex, searchResults, jumpToMessage]);
 
   const goPrev = useCallback(() => {
     if (matchIds.length === 0) return;
     const prev = (matchIndex - 1 + matchIds.length) % matchIds.length;
     setMatchIndex(prev);
     setShowDropdown(false);
-    scrollToMatch(matchIds[prev]);
-  }, [matchIds, matchIndex, scrollToMatch]);
+    const target = searchResults[prev];
+    if (target) jumpToMessage(target.id, target.createdAt);
+  }, [matchIds, matchIndex, searchResults, jumpToMessage]);
 
   const openSearch = () => {
     setSearchOpen(true);
@@ -274,6 +335,21 @@ export default function ChatWindow({
         </button>
       </div>
 
+      {/* Pinned Banner */}
+      <PinnedBanner
+        pins={pins}
+        currentUserId={user?.id}
+        onJumpTo={(msgId) => {
+          const pin = pins.find(p => p.messageId === msgId);
+          if (pin) jumpToMessage(msgId, pin.messageSentAt);
+        }}
+        onUnpin={(pinId) => {
+          removePin(conversation.id, pinId)
+            .then(() => useChatStore.getState().removePin(conversation.id, pinId))
+            .catch(e => console.error('[Unpin] failed', e));
+        }}
+      />
+
       {/* Search bar + dropdown */}
       {searchOpen && (
         <div className="relative z-20 shrink-0">
@@ -315,14 +391,12 @@ export default function ChatWindow({
 
           {showDropdown && searchQuery.trim() && (
             <div className="absolute left-0 right-0 top-full bg-tg-sidebar-bg border-b border-tg-border shadow-xl max-h-72 overflow-y-auto">
-              {matchIds.length === 0 ? (
+              {searchResults.length === 0 ? (
                 <div className="px-4 py-3 text-[13px] text-tg-text-secondary">Ничего не найдено</div>
-              ) : matchIds.map((id, idx) => {
-                const msg = convMessages.find(m => m.id === id);
-                if (!msg) return null;
+              ) : searchResults.map((msg, idx) => {
                 return (
                   <button
-                    key={id}
+                    key={msg.id}
                     onMouseDown={(e) => { e.preventDefault(); handleSelectMatch(idx); }}
                     className={`w-full px-4 py-2.5 flex items-start gap-3 text-left transition-colors hover:bg-tg-hover ${idx === matchIndex ? 'bg-tg-primary/10' : ''}`}
                   >
@@ -357,6 +431,7 @@ export default function ChatWindow({
       />
 
       <MessageInput
+        conversationId={conversation.id}
         onSend={(content, attachment) => {
           if (editingMessage) { onEditMessage(editingMessage.id, content); setEditingMessage(null); }
           else { onSend(content, attachment, replyingTo?.id); setReplyingTo(null); }

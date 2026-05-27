@@ -4,6 +4,7 @@ import { uploadFile } from '../../api/conversations';
 import type { Attachment, Message } from '../../types';
 
 interface Props {
+  conversationId: string;
   onSend: (content: string, attachment?: Attachment) => void;
   onTyping: (typing: boolean) => void;
   replyingTo?: Message | null;
@@ -40,6 +41,7 @@ function getFileIcon(file: File) {
 }
 
 export default function MessageInput({
+  conversationId,
   onSend, onTyping,
   replyingTo, editingMessage,
   onCancelReply, onCancelEdit,
@@ -64,6 +66,12 @@ export default function MessageInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { onTypingRef.current = onTyping; });
+
+  // Load draft when conversationId changes
+  useEffect(() => {
+    const saved = localStorage.getItem(`draft:${conversationId}`) ?? '';
+    setText(saved);
+  }, [conversationId]);
 
   useEffect(() => () => {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -204,7 +212,13 @@ export default function MessageInput({
   // ── Text send ────────────────────────────────────────────────────────────
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
+    const val = e.target.value;
+    setText(val);
+    if (val.trim()) {
+      localStorage.setItem(`draft:${conversationId}`, val);
+    } else {
+      localStorage.removeItem(`draft:${conversationId}`);
+    }
     if (!isTypingRef.current) { isTypingRef.current = true; onTyping(true); }
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => { isTypingRef.current = false; onTyping(false); }, 2500);
@@ -219,6 +233,12 @@ export default function MessageInput({
       if (file) { attachment = await uploadFile(file); removeFile(); }
       onSend(content, attachment);
       setText('');
+      if (!editingMessage) {
+        localStorage.removeItem(`draft:${conversationId}`);
+      } else {
+        const saved = localStorage.getItem(`draft:${conversationId}`) ?? '';
+        setText(saved);
+      }
     } catch (e) {
       console.error('Upload failed', e);
       setUploadError('Ошибка загрузки файла');
@@ -226,8 +246,7 @@ export default function MessageInput({
     finally { setUploading(false); }
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     isTypingRef.current = false; onTyping(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, file, onSend, onTyping]);
+  }, [text, file, onSend, onTyping, conversationId, editingMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -235,7 +254,9 @@ export default function MessageInput({
   };
 
   const handleCancelEdit = () => {
-    onCancelEdit(); setText('');
+    onCancelEdit();
+    const saved = localStorage.getItem(`draft:${conversationId}`) ?? '';
+    setText(saved);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     if (isTypingRef.current) { isTypingRef.current = false; onTyping(false); }
   };

@@ -17,6 +17,27 @@ export interface AuthResponse {
   accessToken: string;
 }
 
+export interface PinnedMessage {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  content: string;
+  senderName: string;
+  messageSentAt: string;
+  pinnedByUserId: string;
+  pinnedByName: string;
+  pinnedForAll: boolean;
+  createdAt: string;
+}
+
+export interface LinkPreviewData {
+  url: string;
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  siteName?: string;
+}
+
 export interface Conversation {
   id: string;
   type: string;
@@ -25,6 +46,7 @@ export interface Conversation {
   lastReadAt?: Record<string, string>;
   lastMessageAt?: string;
   unreadCount?: number;
+  pins?: PinnedMessage[];
 }
 
 export interface Message {

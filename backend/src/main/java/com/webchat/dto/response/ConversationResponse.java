@@ -15,13 +15,18 @@ public record ConversationResponse(
         Instant createdAt,
         Map<UUID, Instant> lastReadAt,
         Instant lastMessageAt,
-        int unreadCount
+        int unreadCount,
+        List<PinnedMessageResponse> pins
 ) {
     public static ConversationResponse from(Conversation conv) {
-        return from(conv, 0);
+        return from(conv, 0, List.of());
     }
 
     public static ConversationResponse from(Conversation conv, int unreadCount) {
+        return from(conv, unreadCount, List.of());
+    }
+
+    public static ConversationResponse from(Conversation conv, int unreadCount, List<PinnedMessageResponse> pins) {
         List<UserResponse> memberList = conv.getMembers().stream()
                 .map(m -> UserResponse.from(m.getUser()))
                 .toList();
@@ -38,7 +43,8 @@ public record ConversationResponse(
                 conv.getCreatedAt(),
                 readAt,
                 conv.getLastMessageAt(),
-                unreadCount
+                unreadCount,
+                pins != null ? pins : List.of()
         );
     }
 }

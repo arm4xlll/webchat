@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Conversation, Message, User } from '../types';
+import type { Conversation, Message, PinnedMessage, User } from '../types';
 
 interface TypingUser {
   userId: string;
@@ -13,6 +13,7 @@ interface ChatState {
   typingUsers: Record<string, TypingUser[]>;
   lastReadAt: Record<string, Record<string, string>>;
   unreadCounts: Record<string, number>;
+  pins: Record<string, PinnedMessage[]>;
 
   setConversations: (convs: Conversation[]) => void;
   addConversation: (conv: Conversation) => void;
@@ -32,6 +33,11 @@ interface ChatState {
   clearUnread: (convId: string) => void;
   presenceStatus: Record<string, { online: boolean; lastSeenAt?: string }>;
   setPresence: (userId: string, online: boolean, lastSeenAt?: string) => void;
+
+  // Pins
+  setPins: (convId: string, pins: PinnedMessage[]) => void;
+  addPin: (pin: PinnedMessage) => void;
+  removePin: (convId: string, pinId: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -42,10 +48,12 @@ export const useChatStore = create<ChatState>((set) => ({
   lastReadAt: {},
   unreadCounts: {},
   presenceStatus: {},
+  pins: {},
 
   setConversations: (convs) => set((state) => {
     const merged = { ...state.lastReadAt };
     const unreadCounts = { ...state.unreadCounts };
+    const pins = { ...state.pins };
     convs.forEach(conv => {
       if (conv.lastReadAt) {
         merged[conv.id] = { ...(merged[conv.id] ?? {}), ...conv.lastReadAt };
@@ -53,18 +61,25 @@ export const useChatStore = create<ChatState>((set) => ({
       if (conv.unreadCount !== undefined) {
         unreadCounts[conv.id] = conv.unreadCount;
       }
+      if (conv.pins && conv.pins.length > 0) {
+        pins[conv.id] = conv.pins;
+      }
     });
-    return { conversations: convs, lastReadAt: merged, unreadCounts };
+    return { conversations: convs, lastReadAt: merged, unreadCounts, pins };
   }),
 
   addConversation: (conv) => set((state) => {
     const exists = state.conversations.some(c => c.id === conv.id);
     if (exists) return state;
     const merged = { ...state.lastReadAt };
+    const pins = { ...state.pins };
     if (conv.lastReadAt) {
       merged[conv.id] = { ...(merged[conv.id] ?? {}), ...conv.lastReadAt };
     }
-    return { conversations: [conv, ...state.conversations], lastReadAt: merged };
+    if (conv.pins && conv.pins.length > 0) {
+      pins[conv.id] = conv.pins;
+    }
+    return { conversations: [conv, ...state.conversations], lastReadAt: merged, pins };
   }),
 
   updateConversationMember: (member) => set((state) => ({
@@ -173,4 +188,21 @@ export const useChatStore = create<ChatState>((set) => ({
   clearUnread: (convId) => set((state) => ({
     unreadCounts: { ...state.unreadCounts, [convId]: 0 },
   })),
+
+  // Pins
+  setPins: (convId, pins) => set((state) => ({
+    pins: { ...state.pins, [convId]: pins },
+  })),
+
+  addPin: (pin) => set((state) => {
+    const prev = state.pins[pin.conversationId] ?? [];
+    const exists = prev.some(p => p.id === pin.id);
+    if (exists) return state;
+    return { pins: { ...state.pins, [pin.conversationId]: [...prev, pin] } };
+  }),
+
+  removePin: (convId, pinId) => set((state) => {
+    const prev = state.pins[convId] ?? [];
+    return { pins: { ...state.pins, [convId]: prev.filter(p => p.id !== pinId) } };
+  }),
 }));

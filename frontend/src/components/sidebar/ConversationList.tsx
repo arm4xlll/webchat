@@ -27,6 +27,7 @@ function formatTime(iso: string) {
 export default function ConversationList() {
   const user = useAuthStore(s => s.user);
   const { conversations, activeConversationId, setActiveConversation, messages, unreadCounts } = useChatStore();
+  const presenceStatus = useChatStore(s => s.presenceStatus);
 
   const sorted = useMemo(() => {
     return [...conversations].sort((a, b) => {
@@ -64,6 +65,8 @@ export default function ConversationList() {
         const lastMsg = convMessages[convMessages.length - 1];
         const isActive = activeConversationId === conv.id;
         const unread = unreadCounts[conv.id] ?? 0;
+        const otherPresence = !isSaved && other ? presenceStatus[other.id] : undefined;
+        const isOnline = otherPresence?.online === true;
 
         // Last message preview
         let lastPreview = '';
@@ -97,7 +100,12 @@ export default function ConversationList() {
                 <Bookmark className="w-5 h-5 text-white" />
               </div>
             ) : (
-              <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="lg" />
+              <div className="relative shrink-0">
+                <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="lg" />
+                {isOnline && (
+                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-400 border-2 border-tg-sidebar-bg" />
+                )}
+              </div>
             )}
 
             <div className="min-w-0 flex-1">

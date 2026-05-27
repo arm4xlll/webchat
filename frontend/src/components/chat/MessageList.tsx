@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
-import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File as FileIcon, Bookmark } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File as FileIcon, Bookmark, Copy, Pin, PinOff, ChevronDown } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Message } from '../../types';
@@ -8,6 +8,9 @@ import MediaViewer from './MediaViewer';
 import VoiceMessage from './VoiceMessage';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import EmojiPicker from './EmojiPicker';
+import { addPin, removePin } from '../../api/pins';
+import LinkPreviewCard from './LinkPreviewCard';
+import { extractFirstUrl } from '../../api/linkPreview';
 
 function formatReadTime(iso: string): string {
   const d = new Date(iso);
@@ -43,6 +46,21 @@ const EMPTY_MESSAGES: never[] = [];
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDividerDate(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === now.toDateString()) return 'Сегодня';
+  if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
+  
+  const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' };
+  if (d.getFullYear() !== now.getFullYear()) {
+    options.year = 'numeric';
+  }
+  return d.toLocaleDateString('ru', options);
 }
 
 function isImage(type?: string) { return !!type?.startsWith('image/'); }
@@ -143,6 +161,7 @@ export default function MessageList({
 }: Props) {
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
+  const pins = useChatStore(s => s.pins[conversationId] ?? []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -152,6 +171,9 @@ export default function MessageList({
   const scrollTopBeforeRef = useRef(0);
   const prevFirstIdRef = useRef<string | null>(null);
   const initialScrollDoneRef = useRef(false);
+
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
 
   // Stable ref for onRead so IntersectionObserver doesn't re-create on every render
   const onReadRef = useRef(onRead);
@@ -186,7 +208,18 @@ export default function MessageList({
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    isAtBottomRef.current = isNearBottom;
+    setShowScrollDown(!isNearBottom);
+    if (isNearBottom) {
+      setNewMessagesCount(0);
+    }
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setNewMessagesCount(0);
+    setShowScrollDown(false);
   }, []);
 
   // Smart scroll + read receipt on new messages
@@ -199,12 +232,24 @@ export default function MessageList({
     // A genuinely new message appended: last id changed and it's not a prepend (load more)
     const isNewTail = !isPrepend && lastId !== lastMsgIdRef.current;
 
+    if (isNewTail && lastMsgIdRef.current !== null) {
+      if (!isAtBottomRef.current) {
+        setNewMessagesCount(c => c + 1);
+      }
+    }
+
     if (isPrepend) {
       // Correct formula: preserve user's visual position relative to their anchor
       // new scrollTop = old scrollTop + (new scrollHeight - old scrollHeight)
       container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
     } else if (!initialScrollDoneRef.current) {
-      container.scrollTop = container.scrollHeight;
+      // Find the first unread message element
+      const firstUnreadEl = container.querySelector('[data-new-messages-sentinel="true"]');
+      if (firstUnreadEl) {
+        firstUnreadEl.scrollIntoView({ block: 'start' });
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
       initialScrollDoneRef.current = true;
       // Initial render: IntersectionObserver fires too, but scheduleRead dedupes via debounce
       scheduleRead();
@@ -287,6 +332,18 @@ export default function MessageList({
     }
   }, []);
 
+  const myUserId = user?.id;
+  const lastReadTimeStr = useChatStore(s => s.lastReadAt[conversationId]?.[myUserId ?? '']);
+  const firstUnreadIdx = useMemo(() => {
+    if (!lastReadTimeStr || !myUserId) return -1;
+    const lastReadTime = new Date(lastReadTimeStr).getTime();
+    return messages.findIndex(m => 
+      m.senderId !== myUserId && 
+      !m.deleted && 
+      new Date(m.createdAt).getTime() > lastReadTime
+    );
+  }, [messages, lastReadTimeStr, myUserId]);
+
   const buildMenuItems = useCallback((msg: Message): ContextMenuItem[] => {
     const isOwn = msg.senderId === user?.id;
     const items: ContextMenuItem[] = [];
@@ -306,6 +363,48 @@ export default function MessageList({
         label: 'Ответить',
         onClick: () => onReply(msg),
       });
+      items.push({
+        icon: <Copy className="w-4 h-4" />,
+        label: 'Копировать текст',
+        onClick: () => {
+          navigator.clipboard.writeText(msg.content);
+        },
+      });
+
+      const existingPin = pins.find(p => p.messageId === msg.id);
+      if (existingPin) {
+        const canUnpin = existingPin.pinnedByUserId === user?.id || !existingPin.pinnedForAll;
+        if (canUnpin) {
+          items.push({
+            icon: <PinOff className="w-4 h-4" />,
+            label: 'Открепить',
+            onClick: () => {
+              removePin(conversationId, existingPin.id)
+                .then(() => useChatStore.getState().removePin(conversationId, existingPin.id))
+                .catch(e => console.error('[Unpin] failed', e));
+            },
+          });
+        }
+      } else {
+        items.push({
+          icon: <Pin className="w-4 h-4" />,
+          label: 'Закрепить для себя',
+          onClick: () => {
+            addPin(conversationId, msg.id, false)
+              .then(pin => useChatStore.getState().addPin(pin))
+              .catch(e => console.error('[Pin] failed', e));
+          },
+        });
+        items.push({
+          icon: <Pin className="w-4 h-4" />,
+          label: 'Закрепить для всех',
+          onClick: () => {
+            addPin(conversationId, msg.id, true)
+              .then(pin => useChatStore.getState().addPin(pin))
+              .catch(e => console.error('[Pin] failed', e));
+          },
+        });
+      }
     }
 
     if (onSaveMessage && !msg.deleted) {
@@ -345,7 +444,7 @@ export default function MessageList({
     }
 
     return items;
-  }, [user?.id, onReply, onEdit, onDelete, onSaveMessage]);
+  }, [user?.id, onReply, onEdit, onDelete, onSaveMessage, conversationId, pins]);
 
   return (
     <>
@@ -384,6 +483,10 @@ export default function MessageList({
           const isFlashing = flashId === msg.id;
           const reactions = msg.reactions ?? {};
           const hasReactions = Object.keys(reactions).length > 0;
+          const firstUrl = !msg.deleted ? extractFirstUrl(msg.content) : null;
+
+          const showDateDivider = !prevMsg || 
+            new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
 
           const bubbleShape = isOwn
             ? isFirst && isLast ? 'rounded-l-2xl rounded-tr-2xl rounded-br-[5px]'
@@ -411,15 +514,33 @@ export default function MessageList({
           );
 
           return (
-            <div
-              key={msg.id}
-              className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
-              data-msg-id={msg.id}
-              onContextMenu={(e) => handleContextMenu(e, msg)}
-              onTouchStart={(e) => handleTouchStart(e, msg)}
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchEnd}
-            >
+            <div key={msg.id} className="contents">
+              {showDateDivider && (
+                <div className="flex justify-center my-3 select-none shrink-0">
+                  <div className="bg-tg-input-bg/70 backdrop-blur-[2px] text-tg-text-secondary text-[12px] font-medium px-3 py-1 rounded-full border border-tg-border/30">
+                    {formatDividerDate(msg.createdAt)}
+                  </div>
+                </div>
+              )}
+
+              {i === firstUnreadIdx && (
+                <div className="flex items-center my-4 select-none shrink-0" data-new-messages-sentinel="true">
+                  <div className="flex-1 h-px bg-rose-500/30" />
+                  <span className="mx-4 text-xs font-semibold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20">
+                    Новые сообщения
+                  </span>
+                  <div className="flex-1 h-px bg-rose-500/30" />
+                </div>
+              )}
+
+              <div
+                className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
+                data-msg-id={msg.id}
+                onContextMenu={(e) => handleContextMenu(e, msg)}
+                onTouchStart={(e) => handleTouchStart(e, msg)}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleTouchEnd}
+              >
               <div className={`max-w-[75%] md:max-w-[65%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                 {showName && (
                   <span className="text-[13px] font-medium text-tg-primary mb-0.5 px-1">{msg.senderName}</span>
@@ -492,10 +613,13 @@ export default function MessageList({
                           </div>
                         </div>
                       )}
-                      <div className="flex flex-wrap items-end gap-2 select-text">
+                      <div className="flex flex-col select-text">
                         <span className="whitespace-pre-wrap max-w-full break-words">
                           <Highlighted text={msg.content} query={searchQuery} />
                         </span>
+                        {firstUrl && (
+                          <LinkPreviewCard url={firstUrl} isOwn={isOwn} />
+                        )}
                         <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
                           {timeNode}
                         </span>
@@ -527,8 +651,9 @@ export default function MessageList({
                 )}
               </div>
             </div>
-          );
-        })}
+          </div>
+        );
+      })}
         <div ref={bottomRef} />
       </div>
 
@@ -552,6 +677,20 @@ export default function MessageList({
 
       {lightbox && (
         <MediaViewer src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />
+      )}
+
+      {showScrollDown && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-6 right-6 w-10 h-10 rounded-full bg-tg-sidebar-bg border border-tg-border text-tg-primary shadow-lg flex items-center justify-center hover:bg-tg-hover hover:scale-105 transition-all cursor-pointer z-20 group"
+        >
+          <ChevronDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
+          {newMessagesCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 bg-tg-primary text-white text-[11px] font-bold h-5 min-w-[20px] px-1 rounded-full flex items-center justify-center border border-tg-sidebar-bg">
+              {newMessagesCount}
+            </span>
+          )}
+        </button>
       )}
     </>
   );

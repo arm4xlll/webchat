@@ -1,6 +1,7 @@
 package com.webchat.service;
 
 import com.webchat.dto.response.ConversationResponse;
+import com.webchat.dto.response.PinnedMessageResponse;
 import com.webchat.dto.response.ReadReceiptEvent;
 import com.webchat.dto.response.UserResponse;
 import com.webchat.model.Conversation;
@@ -12,6 +13,8 @@ import com.webchat.repository.MessageRepository;
 import com.webchat.sse.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +35,10 @@ public class ConversationService {
     private final UserService userService;
     private final EventPublisher eventPublisher;
 
+    @Lazy
+    @Autowired
+    private PinService pinService;
+
     @Transactional(readOnly = true)
     public List<ConversationResponse> getForUser(UUID userId) {
         List<Conversation> convs = conversationRepository.findByMemberUserId(userId);
@@ -43,7 +50,11 @@ public class ConversationService {
                 .forEach(row -> unreadMap.put((UUID) row[0], ((Number) row[1]).intValue()));
 
         return convs.stream()
-                .map(conv -> ConversationResponse.from(conv, unreadMap.getOrDefault(conv.getId(), 0)))
+                .map(conv -> {
+                    int unread = unreadMap.getOrDefault(conv.getId(), 0);
+                    List<PinnedMessageResponse> pins = pinService.getPins(conv.getId(), userId);
+                    return ConversationResponse.from(conv, unread, pins);
+                })
                 .sorted((a, b) -> {
                     Instant at = a.lastMessageAt() != null ? a.lastMessageAt() : a.createdAt();
                     Instant bt = b.lastMessageAt() != null ? b.lastMessageAt() : b.createdAt();
@@ -79,7 +90,8 @@ public class ConversationService {
                             conv.getCreatedAt(),
                             Map.of(),
                             null,
-                            0
+                            0,
+                            List.of()
                     );
 
                     eventPublisher.publishToUser(targetUserId, "conversation.created", response);

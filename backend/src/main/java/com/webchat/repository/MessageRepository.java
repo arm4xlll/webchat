@@ -66,4 +66,17 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
             """)
     List<Object[]> countUnreadByConversations(@Param("convIds") List<UUID> convIds,
                                               @Param("userId") UUID userId);
+
+    @Query("""
+        SELECT m FROM Message m
+        WHERE m.conversation.id = :convId
+          AND m.deleted = false
+          AND NOT (m.deletedForSender = true AND m.sender.id = :userId)
+          AND LOWER(m.content) LIKE LOWER(CONCAT('%', :q, '%'))
+        ORDER BY m.createdAt DESC
+        """)
+    Page<Message> search(@Param("convId") UUID convId,
+                         @Param("userId") UUID userId,
+                         @Param("q") String q,
+                         Pageable pageable);
 }

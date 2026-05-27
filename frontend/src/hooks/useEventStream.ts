@@ -7,7 +7,7 @@ import { getConversations, getMessagesAfter } from '../api/conversations';
 import * as eventsApi from '../api/events';
 import { isNewVersionAvailable } from '../utils/versionCheck';
 import type {
-  Attachment, Conversation, Message, PresenceEvent,
+  Attachment, Conversation, Message, PinnedMessage, PresenceEvent,
   ReadReceiptEvent, TypingEvent, User,
 } from '../types';
 
@@ -122,6 +122,14 @@ export function useEventStream() {
         case 'conversation.created':
           store.addConversation(data as Conversation);
           break;
+        case 'conversation.pin_added':
+          store.addPin(data as PinnedMessage);
+          break;
+        case 'conversation.pin_removed': {
+          const ev = data as { pinId: string; conversationId: string };
+          store.removePin(ev.conversationId, ev.pinId);
+          break;
+        }
         case 'conversation.member_updated':
           store.updateConversationMember(data as User);
           break;
