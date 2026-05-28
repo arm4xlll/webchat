@@ -29,7 +29,7 @@ public class SseEmitterRegistry {
 
     private static final long OFFLINE_GRACE_SECONDS = 5;
 
-    public boolean register(UUID userId, SseEmitter emitter) {
+    public synchronized boolean register(UUID userId, SseEmitter emitter) {
         Set<SseEmitter> set = emitters.computeIfAbsent(userId, k -> new CopyOnWriteArraySet<>());
         boolean first = set.isEmpty();
         set.add(emitter);
@@ -37,7 +37,7 @@ public class SseEmitterRegistry {
         return first;
     }
 
-    public void unregister(UUID userId, SseEmitter emitter, Consumer<UUID> onAllDisconnected) {
+    public synchronized void unregister(UUID userId, SseEmitter emitter, Consumer<UUID> onAllDisconnected) {
         Set<SseEmitter> set = emitters.get(userId);
         if (set == null) return;
         set.remove(emitter);

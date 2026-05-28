@@ -2,6 +2,8 @@ package com.webchat.controller;
 
 import com.webchat.dto.response.UploadResponse;
 import com.webchat.security.UserPrincipal;
+import com.webchat.service.RateLimitService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -13,14 +15,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
+@RequiredArgsConstructor
 @Slf4j
 public class FileController {
 
     private static final long MAX_SIZE = 50L * 1024 * 1024; // 50 MB
+
+    private final RateLimitService rateLimitService;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -30,6 +36,10 @@ public class FileController {
                                                   @AuthenticationPrincipal UserPrincipal principal) throws IOException {
         if (principal == null) {
             return ResponseEntity.status(401).build();
+        }
+        if (!rateLimitService.isAllowed(principal.getUserId(), "upload", 20, Duration.ofMinutes(1))) {
+            log.warn("Upload rate limit exceeded for userId={}", principal.getUserId());
+            return ResponseEntity.status(429).build();
         }
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();

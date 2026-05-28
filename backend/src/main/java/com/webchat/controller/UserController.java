@@ -4,6 +4,7 @@ import com.webchat.dto.request.UpdateProfileRequest;
 import com.webchat.dto.request.UpdateSettingsRequest;
 import com.webchat.dto.response.UserResponse;
 import com.webchat.security.UserPrincipal;
+import com.webchat.service.RateLimitService;
 import com.webchat.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,6 +26,7 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final RateLimitService rateLimitService;
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal UserPrincipal principal) {
@@ -34,6 +37,9 @@ public class UserController {
     public ResponseEntity<List<UserResponse>> search(
             @RequestParam String q,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (!rateLimitService.isAllowed(principal.getUserId(), "user-search", 60, Duration.ofMinutes(1))) {
+            return ResponseEntity.status(429).build();
+        }
         return ResponseEntity.ok(userService.search(q, principal.getUserId()));
     }
 
