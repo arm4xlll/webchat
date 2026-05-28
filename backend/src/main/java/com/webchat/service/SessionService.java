@@ -123,8 +123,15 @@ public class SessionService {
         try {
             return Boolean.TRUE.equals(redis.hasKey(revokedKey(sessionId)));
         } catch (Exception e) {
-            log.warn("Redis error checking session revocation, allowing through: {}", e.getMessage());
-            return false;
+            log.warn("Redis unavailable for revocation check sessionId={}, falling back to DB", sessionId);
+            try {
+                return sessionRepository.findById(sessionId)
+                        .map(s -> s.getRevokedAt() != null)
+                        .orElse(true); // session not found → deny
+            } catch (Exception dbEx) {
+                log.error("DB fallback also failed for revocation check sessionId={}: {}", sessionId, dbEx.getMessage());
+                return true; // fail-closed
+            }
         }
     }
 

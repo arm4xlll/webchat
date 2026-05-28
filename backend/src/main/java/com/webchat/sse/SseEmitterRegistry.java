@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 public class SseEmitterRegistry {
 
     private final Map<UUID, Set<SseEmitter>> emitters = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> {
         Thread t = new Thread(r, "sse-offline-grace");
         t.setDaemon(true);
         return t;

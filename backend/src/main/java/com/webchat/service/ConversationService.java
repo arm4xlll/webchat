@@ -6,19 +6,21 @@ import com.webchat.dto.response.ReadReceiptEvent;
 import com.webchat.dto.response.UserResponse;
 import com.webchat.model.Conversation;
 import com.webchat.model.ConversationMember;
+import com.webchat.model.PinnedMessage;
 import com.webchat.model.User;
 import com.webchat.repository.ConversationMemberRepository;
 import com.webchat.repository.ConversationRepository;
 import com.webchat.repository.MessageRepository;
+import com.webchat.repository.PinnedMessageRepository;
 import com.webchat.sse.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,12 +34,9 @@ public class ConversationService {
     private final ConversationRepository conversationRepository;
     private final ConversationMemberRepository memberRepository;
     private final MessageRepository messageRepository;
+    private final PinnedMessageRepository pinnedMessageRepository;
     private final UserService userService;
     private final EventPublisher eventPublisher;
-
-    @Lazy
-    @Autowired
-    private PinService pinService;
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> getForUser(UUID userId) {
@@ -45,14 +44,28 @@ public class ConversationService {
         if (convs.isEmpty()) return List.of();
 
         List<UUID> convIds = convs.stream().map(Conversation::getId).toList();
+
         Map<UUID, Integer> unreadMap = new HashMap<>();
         messageRepository.countUnreadByConversations(convIds, userId)
                 .forEach(row -> unreadMap.put((UUID) row[0], ((Number) row[1]).intValue()));
 
+        // Batch-load pins: 2 queries total instead of 2 per conversation
+        Map<UUID, List<PinnedMessageResponse>> pinsMap = new HashMap<>();
+        List<PinnedMessage> forAll = pinnedMessageRepository.findByConversationIdInAndPinnedForAllTrue(convIds);
+        List<PinnedMessage> personal = pinnedMessageRepository
+                .findByConversationIdInAndPinnedByIdAndPinnedForAllFalse(convIds, userId);
+        List<PinnedMessage> allPins = new ArrayList<>(forAll);
+        allPins.addAll(personal);
+        allPins.stream()
+                .sorted(Comparator.comparing(PinnedMessage::getCreatedAt))
+                .forEach(pin -> pinsMap
+                        .computeIfAbsent(pin.getConversation().getId(), k -> new ArrayList<>())
+                        .add(PinnedMessageResponse.from(pin)));
+
         return convs.stream()
                 .map(conv -> {
                     int unread = unreadMap.getOrDefault(conv.getId(), 0);
-                    List<PinnedMessageResponse> pins = pinService.getPins(conv.getId(), userId);
+                    List<PinnedMessageResponse> pins = pinsMap.getOrDefault(conv.getId(), List.of());
                     return ConversationResponse.from(conv, unread, pins);
                 })
                 .sorted((a, b) -> {

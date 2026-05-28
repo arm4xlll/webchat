@@ -1,9 +1,11 @@
 package com.webchat.controller;
 
 import com.webchat.dto.response.UploadResponse;
+import com.webchat.security.UserPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,7 +26,11 @@ public class FileController {
     private String uploadDir;
 
     @PostMapping("/upload")
-    public ResponseEntity<UploadResponse> upload(@RequestParam("file") MultipartFile file) throws IOException {
+    public ResponseEntity<UploadResponse> upload(@RequestParam("file") MultipartFile file,
+                                                  @AuthenticationPrincipal UserPrincipal principal) throws IOException {
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }

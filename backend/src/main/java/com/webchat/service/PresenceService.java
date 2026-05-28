@@ -47,26 +47,34 @@ public class PresenceService {
 
     @Transactional(readOnly = true)
     public void setOnline(UUID userId) {
+        boolean redisOk = false;
         try {
             redisTemplate.opsForValue().set(ONLINE_KEY + userId, "1");
+            redisOk = true;
         } catch (RedisConnectionFailureException e) {
             log.warn("Redis unavailable, online presence not set for user={}", userId);
         }
-        broadcastPresence(userId, true, null);
-        log.debug("User online: {}", userId);
+        if (redisOk) {
+            broadcastPresence(userId, true, null);
+        }
+        log.debug("User online: {} redisOk={}", userId, redisOk);
     }
 
     @Transactional(readOnly = true)
     public void setOffline(UUID userId) {
         Instant now = Instant.now();
+        boolean redisOk = false;
         try {
             redisTemplate.delete(ONLINE_KEY + userId);
             redisTemplate.opsForValue().set(LASTSEEN_KEY + userId, now.toString(), Duration.ofDays(30));
+            redisOk = true;
         } catch (RedisConnectionFailureException e) {
             log.warn("Redis unavailable, offline presence not set for user={}", userId);
         }
-        broadcastPresence(userId, false, now);
-        log.debug("User offline: {}", userId);
+        if (redisOk) {
+            broadcastPresence(userId, false, now);
+        }
+        log.debug("User offline: {} redisOk={}", userId, redisOk);
     }
 
     public boolean isOnline(UUID userId) {

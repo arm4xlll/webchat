@@ -67,6 +67,7 @@ public class UserService {
         User user = getEntityById(userId);
         user.setName(req.name());
         user.setBio(req.bio());
+        userRepository.save(user);
         UserResponse response = UserResponse.from(user);
         publishProfileUpdate(userId, response);
         return response;
@@ -89,6 +90,7 @@ public class UserService {
 
         User user = getEntityById(userId);
         user.setAvatarUrl("/uploads/avatars/" + userId + "." + extension);
+        userRepository.save(user);
         UserResponse response = UserResponse.from(user);
         publishProfileUpdate(userId, response);
         return response;
@@ -99,6 +101,7 @@ public class UserService {
         User user = getEntityById(userId);
         String json = String.format("{\"themeId\":\"%s\",\"fontSize\":\"%s\"}", req.themeId(), req.fontSize());
         user.setSettings(json);
+        userRepository.save(user);
         UserResponse response = UserResponse.from(user);
         eventPublisher.publishToUser(userId, "user.settings_updated", response);
         log.debug("Settings update for user={} theme={} fontSize={}", userId, req.themeId(), req.fontSize());

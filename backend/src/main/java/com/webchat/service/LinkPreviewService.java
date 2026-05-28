@@ -43,6 +43,7 @@ public class LinkPreviewService {
             Document doc = Jsoup.connect(url)
                     .userAgent("Mozilla/5.0")
                     .timeout(5000)
+                    .maxBodySize(512 * 1024) // 512 KB — enough for <head> metadata
                     .get();
 
             String title = metaContent(doc, "og:title");

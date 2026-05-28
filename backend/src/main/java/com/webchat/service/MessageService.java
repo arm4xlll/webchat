@@ -50,6 +50,12 @@ public class MessageService {
         Message replyTo = null;
         if (req.replyToId() != null) {
             replyTo = messageRepository.findById(req.replyToId()).orElse(null);
+            if (replyTo != null && !replyTo.getConversation().getId().equals(req.conversationId())) {
+                throw new IllegalArgumentException("Reply target does not belong to this conversation");
+            }
+            if (replyTo != null && replyTo.isDeleted()) {
+                replyTo = null;
+            }
         }
 
         Message message = Message.builder()

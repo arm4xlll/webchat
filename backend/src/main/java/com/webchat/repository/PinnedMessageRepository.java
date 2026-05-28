@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,10 @@ public interface PinnedMessageRepository extends JpaRepository<PinnedMessage, UU
     List<PinnedMessage> findByConversationIdAndPinnedForAllTrue(UUID convId);
 
     List<PinnedMessage> findByConversationIdAndPinnedByIdAndPinnedForAllFalse(UUID convId, UUID userId);
+
+    List<PinnedMessage> findByConversationIdInAndPinnedForAllTrue(Collection<UUID> convIds);
+
+    List<PinnedMessage> findByConversationIdInAndPinnedByIdAndPinnedForAllFalse(Collection<UUID> convIds, UUID userId);
 
     Optional<PinnedMessage> findByConversationIdAndMessageIdAndPinnedById(UUID convId, UUID msgId, UUID userId);
 
