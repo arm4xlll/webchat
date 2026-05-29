@@ -23,6 +23,7 @@ export default function ChatPage() {
   const { showBanner, requestPermission } = usePushNotifications();
   const { updateReady, countdown, reloadNow } = useVersionCheck();
   const user = useAuthStore(s => s.user);
+  const updateUser = useAuthStore(s => s.updateUser);
   const doLogout = useAuthStore(s => s.logout);
   const conversations = useChatStore(s => s.conversations);
   const activeConversationId = useChatStore(s => s.activeConversationId);
@@ -40,6 +41,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     getMe().then(me => {
+      updateUser(me);
       if (me.settings) {
         try {
           const s = JSON.parse(me.settings);
