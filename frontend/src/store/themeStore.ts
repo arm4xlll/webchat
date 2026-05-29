@@ -141,6 +141,8 @@ const FONT_SIZE_MAP: Record<FontSize, string> = {
 function applyTheme(theme: AppTheme, fontSize: FontSize) {
   const root = document.documentElement.style;
   const c = theme.colors;
+
+  // tg-* variables (chat area)
   root.setProperty('--color-tg-bg', c.bg);
   root.setProperty('--color-tg-sidebar-bg', c.sidebarBg);
   root.setProperty('--color-tg-border', c.border);
@@ -155,6 +157,25 @@ function applyTheme(theme: AppTheme, fontSize: FontSize) {
   root.setProperty('--color-tg-msg-out-text', c.msgOutText);
   root.setProperty('--color-tg-msg-out-text-muted', c.msgOutTextMuted);
   root.setProperty('--chat-font-size', FONT_SIZE_MAP[fontSize]);
+
+  // shadcn/ui variables (auth pages, modals, settings, components)
+  root.setProperty('--background', c.bg);
+  root.setProperty('--foreground', c.text);
+  root.setProperty('--card', c.sidebarBg);
+  root.setProperty('--card-foreground', c.text);
+  root.setProperty('--popover', c.sidebarBg);
+  root.setProperty('--popover-foreground', c.text);
+  root.setProperty('--primary', c.primary);
+  root.setProperty('--primary-foreground', c.msgOutText);
+  root.setProperty('--secondary', c.hover);
+  root.setProperty('--secondary-foreground', c.text);
+  root.setProperty('--muted', c.hover);
+  root.setProperty('--muted-foreground', c.textSecondary);
+  root.setProperty('--accent', c.active);
+  root.setProperty('--accent-foreground', c.msgOutText);
+  root.setProperty('--border', c.border);
+  root.setProperty('--input', c.inputBg);
+  root.setProperty('--ring', c.primary);
 }
 
 /** Sends settings to server (best-effort, no error thrown to UI). */
