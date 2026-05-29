@@ -45,6 +45,8 @@ app:
     refresh-token-expiration: 604800000 # 7 days
   cors:
     allowed-origins: "http://localhost:5173"
+  admin:
+    root-username: dimasik
 
 vapid:
   public-key: "BDBsueMyGpOoRpFbNZyukPcqyPVFtaq26O3KQCstlch62QsyTojbbHh-Qka76M20q_4EOxZdmY4yA5Izk9gRzCg"

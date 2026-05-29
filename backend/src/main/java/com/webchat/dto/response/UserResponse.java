@@ -10,7 +10,8 @@ public record UserResponse(
         String username,
         String bio,
         String avatarUrl,
-        String settings
+        String settings,
+        boolean isAdmin
 ) {
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -19,7 +20,8 @@ public record UserResponse(
                 user.getUsername(),
                 user.getBio(),
                 user.getAvatarUrl(),
-                user.getSettings()
+                user.getSettings(),
+                user.isAdmin()
         );
     }
 }

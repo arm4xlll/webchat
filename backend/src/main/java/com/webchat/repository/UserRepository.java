@@ -19,4 +19,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT u FROM User u WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%'))")
     List<User> searchByUsernameOrName(@Param("q") String query, Pageable pageable);
+
+    List<User> findAllByIsAdminTrue();
 }

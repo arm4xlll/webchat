@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         // Actuator health — open for CI/CD deploy health-check
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

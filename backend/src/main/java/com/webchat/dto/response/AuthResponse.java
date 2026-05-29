@@ -8,5 +8,6 @@ public record AuthResponse(
         String name,
         String bio,
         String avatarUrl,
-        String accessToken
+        String accessToken,
+        boolean isAdmin
 ) {}

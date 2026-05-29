@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  X, User, Palette, Smartphone, ChevronLeft,
+  X, User, Palette, Smartphone, ChevronLeft, Shield,
 } from 'lucide-react';
 import ProfileTab from './tabs/ProfileTab';
 import ThemeTab from './tabs/ThemeTab';
 import SessionsTab from './tabs/SessionsTab';
+import { useAuthStore } from '../../store/authStore';
 
 type TabId = 'profile' | 'theme' | 'sessions';
 
@@ -35,8 +37,9 @@ interface Props {
 
 export default function SettingsModal({ onClose }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('profile');
-  // On mobile, show 'nav' pane or 'content' pane
   const [mobilePane, setMobilePane] = useState<'nav' | 'content'>('nav');
+  const isAdmin = useAuthStore(s => s.user?.isAdmin);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -117,6 +120,23 @@ export default function SettingsModal({ onClose }: Props) {
                   </div>
                 );
               })}
+
+              {/* Admin panel button — visible only to admins */}
+              {isAdmin && (
+                <div className="mt-1 pt-2 border-t border-tg-border mx-3">
+                  <button
+                    onClick={() => { onClose(); navigate('/admin'); }}
+                    className="w-full flex items-center gap-3 px-1 py-2.5 text-left transition-colors cursor-pointer rounded-lg text-tg-text hover:bg-tg-hover group"
+                  >
+                    <span className="text-tg-text-secondary group-hover:text-violet-400 transition-colors">
+                      <Shield className="w-4 h-4" />
+                    </span>
+                    <span className="text-[14px] font-medium group-hover:text-violet-400 transition-colors">
+                      Панель администратора
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

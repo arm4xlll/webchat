@@ -27,11 +27,16 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(UUID userId, String username, UUID sessionId) {
+        return generateAccessToken(userId, username, sessionId, false);
+    }
+
+    public String generateAccessToken(UUID userId, String username, UUID sessionId, boolean isAdmin) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessTokenExpiration);
         var builder = Jwts.builder()
                 .subject(userId.toString())
                 .claim("username", username)
+                .claim("isAdmin", isAdmin)
                 .issuedAt(now)
                 .expiration(expiry);
         if (sessionId != null) {
@@ -52,6 +57,11 @@ public class JwtTokenProvider {
     public UUID extractSessionId(String token) {
         String raw = parseClaims(token).get("sessionId", String.class);
         return raw != null ? UUID.fromString(raw) : null;
+    }
+
+    public boolean extractIsAdmin(String token) {
+        Boolean val = parseClaims(token).get("isAdmin", Boolean.class);
+        return Boolean.TRUE.equals(val);
     }
 
     public boolean validateToken(String token) {

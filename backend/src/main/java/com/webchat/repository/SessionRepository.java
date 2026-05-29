@@ -21,4 +21,7 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
     @Modifying
     @Query("UPDATE Session s SET s.lastActiveAt = :now WHERE s.id = :id AND s.revokedAt IS NULL")
     void updateLastActiveAt(@Param("id") UUID id, @Param("now") Instant now);
+
+    @Query("SELECT COUNT(DISTINCT s.user.id) FROM Session s WHERE s.revokedAt IS NULL AND s.lastActiveAt > :since")
+    long countDistinctActiveUsersSince(@Param("since") Instant since);
 }

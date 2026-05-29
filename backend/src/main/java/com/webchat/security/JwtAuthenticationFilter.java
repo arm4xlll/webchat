@@ -14,8 +14,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -35,6 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UUID userId = jwtTokenProvider.extractUserId(token);
             String username = jwtTokenProvider.extractUsername(token);
             UUID sessionId = jwtTokenProvider.extractSessionId(token);
+            boolean isAdmin = jwtTokenProvider.extractIsAdmin(token);
 
             // Check if session was revoked (e.g. kicked from another device)
             if (sessionId != null && sessionService.isRevoked(sessionId)) {
@@ -43,9 +46,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            UserPrincipal principal = new UserPrincipal(userId, username, sessionId);
+            UserPrincipal principal = new UserPrincipal(userId, username, sessionId, isAdmin);
+            List<SimpleGrantedAuthority> authorities = isAdmin
+                    ? List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                    : List.of();
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    principal, null, Collections.emptyList()
+                    principal, null, authorities
             );
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);

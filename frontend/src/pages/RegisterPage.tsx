@@ -19,7 +19,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const data = await register(name, username, password);
-      setAuth({ id: data.userId, name: data.name, username: data.username, bio: data.bio, avatarUrl: data.avatarUrl }, data.accessToken);
+      setAuth({ id: data.userId, name: data.name, username: data.username, bio: data.bio, avatarUrl: data.avatarUrl, isAdmin: data.isAdmin }, data.accessToken);
       navigate('/');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };

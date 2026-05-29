@@ -6,6 +6,7 @@ export interface User {
   avatarUrl?: string;
   /** JSON string: {"themeId":"pink","fontSize":"medium"} */
   settings?: string;
+  isAdmin?: boolean;
 }
 
 export interface AuthResponse {
@@ -15,6 +16,7 @@ export interface AuthResponse {
   bio?: string;
   avatarUrl?: string;
   accessToken: string;
+  isAdmin: boolean;
 }
 
 export interface PinnedMessage {

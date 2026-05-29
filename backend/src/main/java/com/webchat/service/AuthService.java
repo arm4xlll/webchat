@@ -10,6 +10,7 @@ import com.webchat.repository.UserRepository;
 import com.webchat.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,9 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final SessionService sessionService;
 
+    @Value("${app.admin.root-username}")
+    private String rootUsername;
+
     @Transactional
     public AuthResponse register(RegisterRequest req, String userAgent, String ipAddress) {
         if (userRepository.existsByUsername(req.username())) {
@@ -40,11 +44,12 @@ public class AuthService {
         userRepository.save(user);
         log.info("Registered new user: {} ({})", user.getUsername(), user.getId());
 
+        boolean effectiveAdmin = user.isAdmin() || rootUsername.equals(user.getUsername());
         Session session = sessionService.createSession(user, userAgent, ipAddress);
         String accessToken = jwtTokenProvider.generateAccessToken(
-                user.getId(), user.getUsername(), session.getId());
+                user.getId(), user.getUsername(), session.getId(), effectiveAdmin);
         return new AuthResponse(user.getId(), user.getUsername(), user.getName(),
-                user.getBio(), user.getAvatarUrl(), accessToken);
+                user.getBio(), user.getAvatarUrl(), accessToken, effectiveAdmin);
     }
 
     @Transactional
@@ -58,11 +63,12 @@ public class AuthService {
         }
 
         log.info("User logged in: {} ({})", user.getUsername(), user.getId());
+        boolean effectiveAdmin = user.isAdmin() || rootUsername.equals(user.getUsername());
         Session session = sessionService.createSession(user, userAgent, ipAddress);
         String accessToken = jwtTokenProvider.generateAccessToken(
-                user.getId(), user.getUsername(), session.getId());
+                user.getId(), user.getUsername(), session.getId(), effectiveAdmin);
         return new AuthResponse(user.getId(), user.getUsername(), user.getName(),
-                user.getBio(), user.getAvatarUrl(), accessToken);
+                user.getBio(), user.getAvatarUrl(), accessToken, effectiveAdmin);
     }
 
     @Transactional

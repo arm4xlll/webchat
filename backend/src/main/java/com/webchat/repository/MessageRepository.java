@@ -79,4 +79,10 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
                          @Param("userId") UUID userId,
                          @Param("q") String q,
                          Pageable pageable);
+
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.createdAt > :since AND m.deleted = false")
+    long countSince(@Param("since") Instant since);
+
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.createdAt > :since AND m.deleted = false")
+    long countTodayMessages(@Param("since") Instant since);
 }

@@ -38,6 +38,9 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String settings;
 
+    @Column(name = "is_admin", nullable = false)
+    private boolean isAdmin;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
