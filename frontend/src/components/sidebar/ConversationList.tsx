@@ -3,7 +3,7 @@ import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Conversation } from '../../types';
 import UserAvatar from '../common/UserAvatar';
-import { MessageSquare, Bookmark } from 'lucide-react';
+import { MessageSquare, Bookmark, Mic, Image, Video, Paperclip } from 'lucide-react';
 
 const EMPTY_MESSAGES: never[] = [];
 
@@ -24,6 +24,13 @@ function formatTime(iso: string) {
   return d.toLocaleDateString('ru', { day: '2-digit', month: '2-digit' });
 }
 
+function PreviewIcon({ fileType }: { fileType: string }) {
+  if (fileType.startsWith('audio/')) return <Mic className="w-3 h-3 shrink-0" />;
+  if (fileType.startsWith('image/')) return <Image className="w-3 h-3 shrink-0" />;
+  if (fileType.startsWith('video/')) return <Video className="w-3 h-3 shrink-0" />;
+  return <Paperclip className="w-3 h-3 shrink-0" />;
+}
+
 export default function ConversationList() {
   const user = useAuthStore(s => s.user);
   const conversations = useChatStore(s => s.conversations);
@@ -35,12 +42,11 @@ export default function ConversationList() {
 
   const sorted = useMemo(() => {
     return [...conversations].sort((a, b) => {
-      // Saved always on top
       if (a.type === 'saved') return -1;
       if (b.type === 'saved') return 1;
       const at = a.lastMessageAt ?? a.createdAt;
       const bt = b.lastMessageAt ?? b.createdAt;
-      return bt.localeCompare(at); // ISO strings are lexicographically comparable
+      return bt.localeCompare(at);
     });
   }, [conversations]);
 
@@ -48,20 +54,20 @@ export default function ConversationList() {
 
   if (sorted.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-tg-input-bg text-tg-text-secondary mb-3">
-          <MessageSquare className="w-6 h-6" />
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
+        <div className="w-14 h-14 rounded-2xl bg-tg-input-bg flex items-center justify-center mb-3">
+          <MessageSquare className="w-7 h-7 text-tg-text-secondary" />
         </div>
-        <div className="text-sm font-medium text-tg-text">Нет чатов</div>
-        <div className="text-xs text-tg-text-secondary mt-1 max-w-[180px]">
-          Найдите пользователя, чтобы начать диалог
+        <div className="text-[14px] font-semibold text-tg-text mb-1">Нет чатов</div>
+        <div className="text-[12.5px] text-tg-text-secondary max-w-[160px] leading-relaxed">
+          Найдите пользователя через поиск, чтобы начать диалог
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-2 space-y-1">
+    <div className="flex-1 overflow-y-auto py-1 px-2 space-y-0.5">
       {sorted.map(conv => {
         const isSaved = conv.type === 'saved';
         const other = isSaved ? getSelf(conv, user.id) : getOther(conv, user.id);
@@ -72,35 +78,56 @@ export default function ConversationList() {
         const otherPresence = !isSaved && other ? presenceStatus[other.id] : undefined;
         const isOnline = otherPresence?.online === true;
 
-        // Last message preview
-        let lastPreview = '';
+        let previewText = '';
+        let previewFileType: string | null = null;
+        let previewFileName: string | null = null;
+
         if (lastMsg) {
-          if (lastMsg.deleted) lastPreview = 'Сообщение удалено';
-          else if (lastMsg.fileType?.startsWith('audio/')) lastPreview = '🎤 Голосовое';
-          else if (lastMsg.fileType?.startsWith('image/')) lastPreview = '🖼 Фото';
-          else if (lastMsg.fileType?.startsWith('video/')) lastPreview = '🎬 Видео';
-          else if (lastMsg.fileType) lastPreview = `📎 ${lastMsg.fileName ?? 'Файл'}`;
-          else lastPreview = lastMsg.content;
+          if (lastMsg.deleted) {
+            previewText = 'Сообщение удалено';
+          } else if (lastMsg.fileType?.startsWith('audio/')) {
+            previewText = 'Голосовое сообщение';
+            previewFileType = lastMsg.fileType;
+          } else if (lastMsg.fileType?.startsWith('image/')) {
+            previewText = 'Фото';
+            previewFileType = lastMsg.fileType;
+          } else if (lastMsg.fileType?.startsWith('video/')) {
+            previewText = 'Видео';
+            previewFileType = lastMsg.fileType;
+          } else if (lastMsg.fileType) {
+            previewText = lastMsg.fileName ?? 'Файл';
+            previewFileType = lastMsg.fileType;
+            previewFileName = lastMsg.fileName ?? null;
+          } else {
+            previewText = lastMsg.content;
+          }
         } else if (isSaved) {
-          lastPreview = 'Сохраняйте сообщения сюда';
+          previewText = 'Сохраняйте важные сообщения сюда';
         } else {
-          lastPreview = `@${other?.username ?? ''}`;
+          previewText = `@${other?.username ?? ''}`;
         }
 
-        // Time to show: prefer lastMessageAt from conv, fallback to last loaded message
         const timeStr = conv.lastMessageAt ?? lastMsg?.createdAt;
 
         return (
           <div
             key={conv.id}
             onClick={() => setActiveConversation(conv.id)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors duration-150 select-none ${
-              isActive ? 'bg-tg-active' : 'hover:bg-tg-hover text-tg-text-secondary'
+            className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150 select-none overflow-hidden ${
+              isActive
+                ? 'bg-tg-active'
+                : 'hover:bg-tg-hover'
             }`}
             style={isActive ? { color: 'var(--color-tg-msg-out-text)' } : undefined}
           >
+            {/* Active left accent bar */}
+            {isActive && (
+              <div className="absolute left-0 top-[20%] bottom-[20%] w-[3px] bg-tg-primary rounded-r-full" />
+            )}
+
+            {/* Avatar */}
             {isSaved ? (
-              <div className="w-11 h-11 shrink-0 rounded-full bg-tg-primary flex items-center justify-center">
+              <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-tg-primary to-tg-primary/70 flex items-center justify-center shadow-sm">
                 <Bookmark className="w-5 h-5 text-white" />
               </div>
             ) : (
@@ -112,29 +139,45 @@ export default function ConversationList() {
               </div>
             )}
 
+            {/* Content */}
             <div className="min-w-0 flex-1">
-              <div className="flex justify-between items-baseline mb-0.5">
-                <span className={`font-semibold text-[15px] truncate leading-tight ${isActive ? '' : 'text-tg-text'}`}>
+              {/* Top row: name + time */}
+              <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                <span className={`font-semibold text-[14.5px] truncate leading-tight ${isActive ? '' : 'text-tg-text'}`}>
                   {isSaved ? 'Избранное' : (other?.name ?? 'Неизвестно')}
                 </span>
                 {timeStr && (
-                  <span
-                    className={`text-[11.5px] shrink-0 ml-2 leading-none ${!isActive ? (unread > 0 ? 'text-tg-primary font-semibold' : 'text-tg-text-secondary') : ''}`}
-                    style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
+                  <span className={`text-[11px] shrink-0 tabular-nums leading-none ${
+                    isActive
+                      ? ''
+                      : unread > 0
+                        ? 'text-tg-primary font-semibold'
+                        : 'text-tg-text-secondary'
+                  }`}
+                  style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
                   >
                     {formatTime(timeStr)}
                   </span>
                 )}
               </div>
+
+              {/* Bottom row: preview + unread */}
               <div className="flex items-center justify-between gap-2">
-                <div
-                  className={`text-[13.5px] truncate leading-tight mt-0.5 flex-1 ${!isActive ? 'text-tg-text-secondary' : ''}`}
-                  style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
+                <div className={`flex items-center gap-1.5 text-[13px] truncate leading-snug flex-1 min-w-0 ${
+                  isActive ? '' : 'text-tg-text-secondary'
+                }`}
+                style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
                 >
-                  {lastPreview}
+                  {previewFileType && !lastMsg?.deleted && (
+                    <span className={isActive ? '' : 'text-tg-primary'} style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}>
+                      <PreviewIcon fileType={previewFileType} />
+                    </span>
+                  )}
+                  <span className="truncate">{previewText}</span>
                 </div>
+
                 {unread > 0 && !isActive && (
-                  <div className="shrink-0 min-w-[20px] h-5 bg-tg-primary rounded-full flex items-center justify-center px-1.5">
+                  <div className="shrink-0 min-w-[20px] h-5 bg-tg-primary rounded-full flex items-center justify-center px-1.5 shadow-sm">
                     <span className="text-[11px] font-bold text-white leading-none tabular-nums">
                       {unread > 99 ? '99+' : unread}
                     </span>

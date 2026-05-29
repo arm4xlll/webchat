@@ -283,59 +283,85 @@ export default function ChatWindow({
       onDrop={onDrop}
     >
       {/* Header */}
-      <div className="px-4 md:px-5 py-2.5 bg-tg-sidebar-bg border-b border-tg-border flex items-center gap-2.5 relative z-10 safe-top shrink-0">
+      <div
+        className="px-3 md:px-4 py-2 bg-tg-sidebar-bg border-b border-tg-border flex items-center gap-1.5 relative z-10 safe-top shrink-0"
+        style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}
+      >
         {onBack && (
-          <button onClick={onBack} className="md:hidden p-2 -ml-1 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0">
+          <button
+            onClick={onBack}
+            className="md:hidden p-2 -ml-0.5 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
+          >
             <ArrowLeft className="w-5 h-5" />
           </button>
         )}
+
         <button
           onClick={() => !isSaved && other && setProfileOpen(true)}
-          className={`flex items-center gap-3 flex-1 min-w-0 text-left rounded-xl px-2.5 py-1.5 transition-colors ${!isSaved ? 'hover:bg-tg-hover cursor-pointer' : 'cursor-default'}`}
+          className={`flex items-center gap-3 flex-1 min-w-0 text-left rounded-xl px-2 py-1.5 transition-colors ${!isSaved ? 'hover:bg-tg-hover cursor-pointer' : 'cursor-default'}`}
         >
-          {isSaved ? (
-            <div className="w-10 h-10 shrink-0 rounded-full bg-tg-primary flex items-center justify-center">
-              <Bookmark className="w-5 h-5 text-white" />
-            </div>
-          ) : (
-            <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="md" />
-          )}
-          <div className="flex flex-col justify-center min-w-0">
-            <div className="font-semibold text-[15.5px] text-tg-text leading-tight">
+          {/* Avatar */}
+          <div className="relative shrink-0">
+            {isSaved ? (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tg-primary to-tg-primary/70 flex items-center justify-center shadow-sm">
+                <Bookmark className="w-5 h-5 text-white" />
+              </div>
+            ) : (
+              <UserAvatar name={other?.name ?? '?'} avatarUrl={other?.avatarUrl} size="md" />
+            )}
+            {!isSaved && otherPresence?.online && (
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-tg-sidebar-bg" />
+            )}
+          </div>
+
+          {/* Name + status */}
+          <div className="flex flex-col justify-center min-w-0 gap-[1px]">
+            <div className="font-semibold text-[15px] text-tg-text leading-tight truncate">
               {isSaved ? 'Избранное' : (other?.name ?? 'Чат')}
             </div>
+
             {!isSaved && (
               typingUsers.length > 0 ? (
-                <div className="flex items-center gap-1.5 text-[13px] text-tg-primary animate-slide-in mt-0.5">
-                  <span className="flex items-center gap-0.5 shrink-0">
-                    {[0,1,2].map(i => (
-                      <span key={i} className="w-1 h-1 rounded-full bg-tg-primary inline-block"
-                        style={{ animation: 'bounce 1.2s infinite', animationDelay: `${i*0.2}s` }} />
+                <div className="flex items-center gap-1.5 animate-slide-in">
+                  <span className="flex items-center gap-[3px] shrink-0">
+                    {[0, 1, 2].map(i => (
+                      <span key={i} className="w-[5px] h-[5px] rounded-full bg-tg-primary inline-block"
+                        style={{ animation: 'typingDot 1.4s infinite ease-in-out', animationDelay: `${i * 0.2}s` }} />
                     ))}
                   </span>
-                  <span className="truncate">{typingUsers.map(u=>u.username).join(', ')} {typingUsers.length===1?'печатает...':'печатают...'}</span>
-                  <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-2px);opacity:1}}`}</style>
+                  <span className="text-[12.5px] text-tg-primary truncate">
+                    {typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'печатает...' : 'печатают...'}
+                  </span>
+                  <style>{`@keyframes typingDot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-3px);opacity:1}}`}</style>
                 </div>
               ) : otherPresence?.online ? (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-                  <span className="text-[13px] text-green-400">в сети</span>
-                </div>
+                <span className="text-[12.5px] font-medium text-green-400">в сети</span>
               ) : otherPresence?.lastSeenAt ? (
-                <div className="text-[13px] text-tg-text-secondary mt-0.5">был(а) {formatLastSeen(otherPresence.lastSeenAt)}</div>
+                <span className="text-[12.5px] text-tg-text-secondary truncate">
+                  был(а) {formatLastSeen(otherPresence.lastSeenAt)}
+                </span>
               ) : (
-                <div className="text-[13px] text-tg-text-secondary mt-0.5">не в сети</div>
+                <span className="text-[12.5px] text-tg-text-secondary">не в сети</span>
               )
             )}
+
             {isSaved && (
-              <div className="text-[13px] text-tg-text-secondary mt-0.5">Ваши сохранённые сообщения</div>
+              <span className="text-[12.5px] text-tg-text-secondary">Сохранённые сообщения</span>
             )}
           </div>
         </button>
 
-        <button onClick={searchOpen ? closeSearch : openSearch}
-          className={`p-2 rounded-full transition-colors cursor-pointer shrink-0 ${searchOpen ? 'text-tg-primary bg-tg-primary/15' : 'text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover'}`}>
-          <Search className="w-4.5 h-4.5" />
+        {/* Search button */}
+        <button
+          onClick={searchOpen ? closeSearch : openSearch}
+          className={`p-2 rounded-full transition-all cursor-pointer shrink-0 ${
+            searchOpen
+              ? 'text-tg-primary bg-tg-primary/15'
+              : 'text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover'
+          }`}
+          title="Поиск по сообщениям"
+        >
+          <Search className="w-[18px] h-[18px]" />
         </button>
       </div>
 
