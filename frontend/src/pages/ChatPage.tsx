@@ -132,28 +132,32 @@ export default function ChatPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <div className={`${activeConversationId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-[350px] bg-tg-sidebar-bg border-r border-tg-border shrink-0 safe-top`}>
-          <div className="px-3.5 pt-3 pb-2.5 border-b border-tg-border flex items-center gap-2">
+          <div className="px-3 pt-3 pb-2.5 border-b border-tg-border flex items-center gap-1.5">
             <button
               onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer"
+              className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer group"
+              title="Открыть настройки"
             >
               <UserAvatar name={user?.name ?? '?'} avatarUrl={user?.avatarUrl} size="md" />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[14.5px] text-tg-text truncate leading-tight">{user?.name}</div>
                 <div className="text-[12.5px] text-tg-text-secondary truncate mt-0.5">@{user?.username}</div>
               </div>
+              <Settings className="w-3.5 h-3.5 text-tg-text-secondary opacity-0 group-hover:opacity-60 transition-opacity shrink-0 mr-0.5" />
             </button>
-            <button onClick={() => setSettingsOpen(true)} title="Настройки"
-              className="p-2 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full cursor-pointer transition-colors">
-              <Settings className="w-4.5 h-4.5" />
-            </button>
-            <button onClick={handleLogout} title="Выйти"
-              className="p-2 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full cursor-pointer transition-colors">
-              <LogOut className="w-4.5 h-4.5" />
+            <button
+              onClick={handleLogout}
+              title="Выйти из аккаунта"
+              className="p-2 text-tg-text-secondary hover:text-rose-400 hover:bg-rose-400/10 rounded-full cursor-pointer transition-colors shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
 
           <UserSearch />
+          <div className="px-4 pt-2 pb-1 shrink-0">
+            <span className="text-[10.5px] font-semibold text-tg-text-secondary uppercase tracking-wider">Чаты</span>
+          </div>
           <ConversationList />
         </div>
 

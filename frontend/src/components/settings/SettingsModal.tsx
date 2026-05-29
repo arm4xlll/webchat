@@ -5,6 +5,7 @@ import ProfileTab from './tabs/ProfileTab';
 import ThemeTab from './tabs/ThemeTab';
 import SessionsTab from './tabs/SessionsTab';
 import { useAuthStore } from '../../store/authStore';
+import UserAvatar from '../common/UserAvatar';
 import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,7 +42,8 @@ interface Props {
 export default function SettingsModal({ onClose }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [mobilePane, setMobilePane] = useState<'nav' | 'content'>('nav');
-  const isAdmin = useAuthStore(s => s.user?.isAdmin);
+  const user = useAuthStore(s => s.user);
+  const isAdmin = user?.isAdmin;
   const navigate = useNavigate();
 
   const selectTab = (id: TabId) => {
@@ -66,24 +68,33 @@ export default function SettingsModal({ onClose }: Props) {
               mobilePane === 'nav' ? 'flex' : 'hidden',
               'md:flex flex-col w-full md:w-56 border-r border-border bg-card shrink-0',
             )}>
-              <div className="flex items-center justify-between px-4 py-4 border-b border-border shrink-0">
-                <span className="text-sm font-semibold text-foreground">Настройки</span>
-                <button
-                  onClick={onClose}
-                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              <div className="px-4 pt-4 pb-3 border-b border-border shrink-0">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Настройки</span>
+                  <button
+                    onClick={onClose}
+                    className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <UserAvatar name={user?.name ?? '?'} avatarUrl={user?.avatarUrl} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-semibold text-foreground truncate leading-tight">{user?.name}</p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">@{user?.username}</p>
+                  </div>
+                </div>
               </div>
 
               <ScrollArea className="flex-1">
-                <div className="py-2">
+                <div className="py-2 px-2">
                   {SECTION_ORDER.map((section, sectionIdx) => {
                     const items = NAV.filter(n => n.section === section);
                     return (
                       <div key={section}>
-                        {sectionIdx > 0 && <Separator className="my-1 mx-3" />}
-                        <p className="px-4 pt-3 pb-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        {sectionIdx > 0 && <Separator className="my-2" />}
+                        <p className="px-2 pt-2 pb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                           {section}
                         </p>
                         {items.map(item => {
@@ -93,19 +104,16 @@ export default function SettingsModal({ onClose }: Props) {
                               key={item.id}
                               onClick={() => selectTab(item.id)}
                               className={cn(
-                                'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer rounded-none',
+                                'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors cursor-pointer rounded-lg',
                                 isActive
                                   ? 'bg-primary/15 text-primary'
                                   : 'text-foreground hover:bg-secondary',
                               )}
                             >
-                              <span className={isActive ? 'text-primary' : 'text-muted-foreground'}>
+                              <span className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted-foreground')}>
                                 {item.icon}
                               </span>
                               <span className="text-[13.5px] font-medium">{item.label}</span>
-                              {isActive && (
-                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                              )}
                             </button>
                           );
                         })}
@@ -114,12 +122,12 @@ export default function SettingsModal({ onClose }: Props) {
                   })}
 
                   {isAdmin && (
-                    <div className="mt-1 pt-2 border-t border-border mx-3">
+                    <div className="mt-2 pt-2 border-t border-border">
                       <button
                         onClick={() => { onClose(); navigate('/admin'); }}
-                        className="w-full flex items-center gap-3 px-1 py-2.5 text-left transition-colors cursor-pointer rounded-lg text-foreground hover:bg-secondary group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors cursor-pointer rounded-lg text-foreground hover:bg-secondary group"
                       >
-                        <span className="text-muted-foreground group-hover:text-violet-400 transition-colors">
+                        <span className="text-muted-foreground group-hover:text-violet-400 transition-colors shrink-0">
                           <Shield className="w-4 h-4" />
                         </span>
                         <span className="text-[13.5px] font-medium group-hover:text-violet-400 transition-colors">
