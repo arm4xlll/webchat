@@ -3,7 +3,6 @@ package com.webchat.dto.response;
 import com.webchat.model.Sticker;
 import com.webchat.model.StickerType;
 
-import java.util.List;
 import java.util.UUID;
 
 public record StickerResponse(
@@ -12,7 +11,7 @@ public record StickerResponse(
         String contentType,
         StickerType mediaType,
         Long fileSize,
-        List<String> emojis
+        String emojis
 ) {
     public static StickerResponse from(Sticker s) {
         return new StickerResponse(

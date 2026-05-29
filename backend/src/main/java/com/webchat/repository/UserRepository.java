@@ -21,4 +21,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> searchByUsernameOrName(@Param("q") String query, Pageable pageable);
 
     List<User> findAllByIsAdminTrue();
+
+    /** Загружает пользователя вместе с его списком стикерпаков (нужен для addPackToUserCollection). */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.stickerPacks WHERE u.id = :id")
+    Optional<User> findByIdWithStickerPacks(@Param("id") UUID id);
 }

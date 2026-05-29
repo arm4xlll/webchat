@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -40,6 +42,21 @@ public class User {
 
     @Column(name = "is_admin", nullable = false)
     private boolean isAdmin;
+
+    /**
+     * Стикерпаки пользователя в порядке его вкладок (tab_order).
+     * Hibernate ведёт колонку tab_order в таблице user_sticker_packs автоматически.
+     * Чтобы переставить вкладки — переставь элементы списка и сохрани пользователя.
+     */
+    @ManyToMany
+    @JoinTable(
+            name = "user_sticker_packs",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "pack_id")
+    )
+    @OrderColumn(name = "tab_order")
+    @Builder.Default
+    private List<StickerPack> stickerPacks = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

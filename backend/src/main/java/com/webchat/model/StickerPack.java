@@ -25,24 +25,20 @@ public class StickerPack {
     private String slug;
 
     @Column(nullable = false, length = 128)
-    private String name;
-
-    // URL первого стикера пака (обновляется при добавлении первого стикера)
-    @Column(name = "thumbnail_url")
-    private String thumbnailUrl;
+    private String title;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
 
+    /**
+     * Стикеры пака в порядке добавления.
+     * Hibernate сам ведёт колонку position в таблице stickers.
+     */
     @OneToMany(mappedBy = "pack", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderColumn(name = "position")
     @Builder.Default
     private List<Sticker> stickers = new ArrayList<>();
-
-    @Column(name = "is_public", nullable = false)
-    @Builder.Default
-    private boolean isPublic = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

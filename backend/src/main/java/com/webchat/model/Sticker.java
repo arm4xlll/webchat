@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -28,29 +26,30 @@ public class Sticker {
     @Column(name = "file_url", nullable = false)
     private String fileUrl;
 
-    // Исходный MIME-тип файла (например: image/webp, video/mp4)
+    /** MIME-тип оригинального файла: image/webp, video/mp4 и т.д. */
     @Column(name = "content_type", nullable = false, length = 64)
     private String contentType;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "media_type", nullable = false, length = 16)
+    @Column(name = "media_type", nullable = false, length = 8)
     private StickerType mediaType;
 
     @Column(name = "file_size")
     private Long fileSize;
 
-    // position управляется @OrderColumn со стороны StickerPack.stickers
-    @Column(name = "position", nullable = false)
-    private int position;
-
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(
-            name = "sticker_emojis",
-            joinColumns = @JoinColumn(name = "sticker_id")
-    )
-    @Column(name = "emoji", nullable = false, length = 8)
+    /**
+     * Эмодзи через запятую: "😂,🤣,😄"
+     * Нужны для поиска стикера по эмодзи на фронте.
+     */
+    @Column(nullable = false, length = 255)
     @Builder.Default
-    private List<String> emojis = new ArrayList<>();
+    private String emojis = "";
+
+    /**
+     * Порядковая позиция в паке.
+     * Управляется Hibernate через @OrderColumn(name = "position") в StickerPack.
+     * Объявлять отдельным полем не нужно — Hibernate ведёт колонку сам.
+     */
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
