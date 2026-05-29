@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  X, User, Palette, Smartphone, ChevronLeft, Shield,
-} from 'lucide-react';
+import { User, Palette, Smartphone, ChevronLeft, Shield, X } from 'lucide-react';
 import ProfileTab from './tabs/ProfileTab';
 import ThemeTab from './tabs/ThemeTab';
 import SessionsTab from './tabs/SessionsTab';
 import { useAuthStore } from '../../store/authStore';
+import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 type TabId = 'profile' | 'theme' | 'sessions';
 
@@ -41,141 +44,126 @@ export default function SettingsModal({ onClose }: Props) {
   const isAdmin = useAuthStore(s => s.user?.isAdmin);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   const selectTab = (id: TabId) => {
     setActiveTab(id);
     setMobilePane('content');
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          style={{ height: 'min(90dvh, 620px)' }}
+        >
+          <DialogPrimitive.Title className="sr-only">Настройки</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">Настройки аккаунта, темы и сессий</DialogPrimitive.Description>
 
-      <div
-        className="relative z-10 w-full max-w-2xl bg-tg-sidebar-bg border border-tg-border rounded-2xl overflow-hidden shadow-2xl animate-slide-in"
-        style={{ height: 'min(90dvh, 620px)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex h-full">
+          <div className="flex h-full">
+            {/* Sidebar */}
+            <div className={cn(
+              mobilePane === 'nav' ? 'flex' : 'hidden',
+              'md:flex flex-col w-full md:w-56 border-r border-border bg-card shrink-0',
+            )}>
+              <div className="flex items-center justify-between px-4 py-4 border-b border-border shrink-0">
+                <span className="text-sm font-semibold text-foreground">Настройки</span>
+                <button
+                  onClick={onClose}
+                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-          {/* ── Sidebar nav ──────────────────────────────────────────────── */}
-          <div
-            className={`
-              ${mobilePane === 'nav' ? 'flex' : 'hidden'} md:flex
-              flex-col w-full md:w-56 border-r border-tg-border bg-tg-sidebar-bg shrink-0
-            `}
-          >
-            {/* Sidebar header */}
-            <div className="flex items-center justify-between px-4 py-4 border-b border-tg-border">
-              <h2 className="text-base font-semibold text-tg-text">Настройки</h2>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-full text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+              <ScrollArea className="flex-1">
+                <div className="py-2">
+                  {SECTION_ORDER.map((section, sectionIdx) => {
+                    const items = NAV.filter(n => n.section === section);
+                    return (
+                      <div key={section}>
+                        {sectionIdx > 0 && <Separator className="my-1 mx-3" />}
+                        <p className="px-4 pt-3 pb-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          {section}
+                        </p>
+                        {items.map(item => {
+                          const isActive = activeTab === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => selectTab(item.id)}
+                              className={cn(
+                                'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer rounded-none',
+                                isActive
+                                  ? 'bg-primary/15 text-primary'
+                                  : 'text-foreground hover:bg-secondary',
+                              )}
+                            >
+                              <span className={isActive ? 'text-primary' : 'text-muted-foreground'}>
+                                {item.icon}
+                              </span>
+                              <span className="text-[13.5px] font-medium">{item.label}</span>
+                              {isActive && (
+                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
 
-            {/* Nav items grouped by section */}
-            <div className="flex-1 overflow-y-auto py-2">
-              {SECTION_ORDER.map(section => {
-                const items = NAV.filter(n => n.section === section);
-                return (
-                  <div key={section} className="mb-1">
-                    <p className="px-4 py-1.5 text-[11px] font-semibold text-tg-text-secondary uppercase tracking-wider">
-                      {section}
-                    </p>
-                    {items.map(item => {
-                      const isActive = activeTab === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => selectTab(item.id)}
-                          className={`
-                            w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer
-                            ${isActive
-                              ? 'bg-tg-primary/15 text-tg-primary'
-                              : 'text-tg-text hover:bg-tg-hover'
-                            }
-                          `}
-                        >
-                          <span className={isActive ? 'text-tg-primary' : 'text-tg-text-secondary'}>
-                            {item.icon}
-                          </span>
-                          <span className="text-[14px] font-medium">{item.label}</span>
-                          {isActive && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-tg-primary" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-
-              {/* Admin panel button — visible only to admins */}
-              {isAdmin && (
-                <div className="mt-1 pt-2 border-t border-tg-border mx-3">
-                  <button
-                    onClick={() => { onClose(); navigate('/admin'); }}
-                    className="w-full flex items-center gap-3 px-1 py-2.5 text-left transition-colors cursor-pointer rounded-lg text-tg-text hover:bg-tg-hover group"
-                  >
-                    <span className="text-tg-text-secondary group-hover:text-violet-400 transition-colors">
-                      <Shield className="w-4 h-4" />
-                    </span>
-                    <span className="text-[14px] font-medium group-hover:text-violet-400 transition-colors">
-                      Панель администратора
-                    </span>
-                  </button>
+                  {isAdmin && (
+                    <div className="mt-1 pt-2 border-t border-border mx-3">
+                      <button
+                        onClick={() => { onClose(); navigate('/admin'); }}
+                        className="w-full flex items-center gap-3 px-1 py-2.5 text-left transition-colors cursor-pointer rounded-lg text-foreground hover:bg-secondary group"
+                      >
+                        <span className="text-muted-foreground group-hover:text-violet-400 transition-colors">
+                          <Shield className="w-4 h-4" />
+                        </span>
+                        <span className="text-[13.5px] font-medium group-hover:text-violet-400 transition-colors">
+                          Панель администратора
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              </ScrollArea>
+            </div>
+
+            {/* Content panel */}
+            <div className={cn(
+              mobilePane === 'content' ? 'flex' : 'hidden',
+              'md:flex flex-col flex-1 min-w-0',
+            )}>
+              <div className="flex items-center gap-2 px-5 py-4 border-b border-border shrink-0">
+                <button
+                  onClick={() => setMobilePane('nav')}
+                  className="md:hidden p-1.5 -ml-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <h3 className="text-[15px] font-semibold text-foreground">{TAB_TITLES[activeTab]}</h3>
+                <button
+                  onClick={onClose}
+                  className="md:hidden ml-auto p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="px-5 py-5">
+                  {activeTab === 'profile' && <ProfileTab />}
+                  {activeTab === 'theme' && <ThemeTab />}
+                  {activeTab === 'sessions' && <SessionsTab />}
+                </div>
+              </ScrollArea>
             </div>
           </div>
-
-          {/* ── Content panel ────────────────────────────────────────────── */}
-          <div
-            className={`
-              ${mobilePane === 'content' ? 'flex' : 'hidden'} md:flex
-              flex-col flex-1 min-w-0
-            `}
-          >
-            {/* Content header */}
-            <div className="flex items-center gap-2 px-5 py-4 border-b border-tg-border shrink-0">
-              {/* Back button — mobile only */}
-              <button
-                onClick={() => setMobilePane('nav')}
-                className="md:hidden p-1.5 -ml-1 rounded-full text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <h3 className="text-[15px] font-semibold text-tg-text">{TAB_TITLES[activeTab]}</h3>
-              {/* Close on desktop — in the sidebar, but duplicate here for mobile content pane */}
-              <button
-                onClick={onClose}
-                className="md:hidden ml-auto p-1.5 rounded-full text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-5 py-5">
-              {activeTab === 'profile' && <ProfileTab />}
-              {activeTab === 'theme' && <ThemeTab />}
-              {activeTab === 'sessions' && <SessionsTab />}
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    </Dialog>
   );
 }

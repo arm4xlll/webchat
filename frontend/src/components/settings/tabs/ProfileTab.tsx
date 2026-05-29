@@ -3,6 +3,10 @@ import { Camera, Check, Loader2, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { updateProfile, uploadAvatar } from '../../../api/users';
 import UserAvatar from '../../common/UserAvatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function ProfileTab() {
   const user = useAuthStore(s => s.user);
@@ -57,12 +61,12 @@ export default function ProfileTab() {
     <div className="space-y-6">
       {/* Avatar */}
       <div className="flex flex-col items-center pt-2 pb-2">
-        <div className="relative">
+        <div className="relative group">
           <UserAvatar name={user.name} avatarUrl={user.avatarUrl} size="xl" />
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadingAvatar}
-            className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-wait"
+            className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-wait"
           >
             {uploadingAvatar
               ? <Loader2 className="w-7 h-7 text-white animate-spin" />
@@ -70,56 +74,51 @@ export default function ProfileTab() {
             }
           </button>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <p className="mt-2 text-xs text-tg-text-secondary">Нажмите на аватар, чтобы изменить</p>
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        <p className="mt-2 text-xs text-muted-foreground">Нажмите на аватар, чтобы изменить</p>
       </div>
 
       {/* Form */}
       <div className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-tg-text-secondary mb-1.5">Имя</label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-name">Имя</Label>
+          <Input
+            id="profile-name"
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
             maxLength={100}
             placeholder="Ваше имя"
-            className="w-full px-3.5 py-2 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text text-[15px] placeholder:text-tg-text-secondary focus:outline-none focus:border-tg-primary transition-colors"
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-tg-text-secondary mb-1.5">
-            Описание <span className="text-tg-text-secondary/60 font-normal">(необязательно)</span>
-          </label>
-          <textarea
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-bio">
+            Описание{' '}
+            <span className="text-muted-foreground/60 font-normal">(необязательно)</span>
+          </Label>
+          <Textarea
+            id="profile-bio"
             value={bio}
             onChange={e => setBio(e.target.value)}
             maxLength={500}
             rows={3}
             placeholder="Расскажите о себе..."
-            className="w-full px-3.5 py-2 bg-tg-input-bg border border-tg-border rounded-xl text-tg-text text-[15px] placeholder:text-tg-text-secondary focus:outline-none focus:border-tg-primary transition-colors resize-none"
           />
-          <p className="text-right text-xs text-tg-text-secondary mt-1">{bio.length}/500</p>
+          <p className="text-right text-xs text-muted-foreground">{bio.length}/500</p>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl px-3 py-2 text-sm animate-slide-in">
+          <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-red-400 rounded-xl px-3 py-2 text-sm animate-slide-in">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <button
+        <Button
           onClick={handleSave}
           disabled={saving || !isDirty || !name.trim()}
-          className="w-full py-2.5 px-4 bg-tg-primary text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none cursor-pointer hover:opacity-90"
+          className="w-full"
         >
           {saving ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Сохранение...</>
@@ -128,7 +127,7 @@ export default function ProfileTab() {
           ) : (
             'Сохранить'
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

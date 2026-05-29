@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
 import { writeFileSync, mkdirSync } from 'fs'
-import { resolve } from 'path'
+import path, { resolve } from 'path'
 
 // Build-time version: git short SHA, fallback to timestamp
 const buildVersion = (() => {
@@ -27,6 +27,11 @@ writeFileSync(
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
 
   define: {
     // Injected at build time — the version this bundle was built with
