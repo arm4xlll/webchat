@@ -80,7 +80,6 @@ export default function ConversationList() {
 
         let previewText = '';
         let previewFileType: string | null = null;
-        let previewFileName: string | null = null;
 
         if (lastMsg) {
           if (lastMsg.deleted) {
@@ -97,7 +96,6 @@ export default function ConversationList() {
           } else if (lastMsg.fileType) {
             previewText = lastMsg.fileName ?? 'Файл';
             previewFileType = lastMsg.fileType;
-            previewFileName = lastMsg.fileName ?? null;
           } else {
             previewText = lastMsg.content;
           }
