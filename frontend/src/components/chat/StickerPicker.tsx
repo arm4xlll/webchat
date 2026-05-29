@@ -64,21 +64,27 @@ export default function StickerPicker({ onSend, onClose }: Props) {
     }
   }, [loadedSlugs, loadPackStickers]);
 
-  // Close on outside click
+  // Close on outside click (skip when create modal is open)
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      if (createOpen) return;
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  }, [onClose, createOpen]);
 
-  // Close on Escape
+  // Close on Escape (close create modal first if open)
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (createOpen) setCreateOpen(false);
+        else onClose();
+      }
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [onClose, createOpen]);
 
   const handleSend = (sticker: StickerItem) => {
     trackUsed(sticker);
