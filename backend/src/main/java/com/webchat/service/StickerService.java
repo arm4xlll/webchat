@@ -133,6 +133,19 @@ public class StickerService {
         return saved;
     }
 
+    // ── Use Case 0: Список паков пользователя ────────────────────────────────
+
+    /**
+     * Возвращает паки пользователя в порядке его вкладок (без стикеров — только slug/title/id).
+     * Стикеры каждого пака грузятся отдельно через getPackBySlug при открытии вкладки.
+     */
+    @Transactional(readOnly = true)
+    public List<StickerPack> getUserPacks(UUID userId) {
+        return userRepository.findByIdWithStickerPacks(userId)
+                .map(User::getStickerPacks)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+    }
+
     // ── Use Case 2: Получение пака по slug ────────────────────────────────────
 
     /**

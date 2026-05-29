@@ -19,4 +19,9 @@ public record StickerPackResponse(
                 p.getStickers().stream().map(StickerResponse::from).toList()
         );
     }
+
+    /** Без стикеров — для списка вкладок пользователя. */
+    public static StickerPackResponse summary(StickerPack p) {
+        return new StickerPackResponse(p.getId(), p.getSlug(), p.getTitle(), List.of());
+    }
 }

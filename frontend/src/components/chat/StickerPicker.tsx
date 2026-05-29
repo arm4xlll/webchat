@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Clock, Loader2 } from 'lucide-react';
+import { Clock, Loader2, Plus } from 'lucide-react';
 import { useStickerStore } from '../../store/stickerStore';
 import type { StickerItem, StickerPack } from '../../types/sticker';
 import { isStickerVideoType } from '../../types/sticker';
+import CreatePackModal from './CreatePackModal';
 
 interface Props {
   onSend: (sticker: StickerItem) => void;
@@ -18,6 +19,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
     useStickerStore();
 
   const [activeTab, setActiveTab] = useState<string>(RECENT_TAB);
+  const [createOpen, setCreateOpen] = useState(false);
   const [loadingTab, setLoadingTab] = useState(false);
   const [displayedStickers, setDisplayedStickers] = useState<StickerItem[]>([]);
   const [activePack, setActivePack] = useState<StickerPack | null>(null);
@@ -89,6 +91,8 @@ export default function StickerPicker({ onSend, onClose }: Props) {
     activeTab === RECENT_TAB ? 'Недавние' : (activePack?.title ?? activeTab);
 
   return (
+    <>
+    {createOpen && <CreatePackModal onClose={() => setCreateOpen(false)} />}
     <div
       ref={ref}
       className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-tg-sidebar-bg border border-tg-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
@@ -145,6 +149,11 @@ export default function StickerPicker({ onSend, onClose }: Props) {
             <Loader2 className="w-4 h-4 animate-spin text-tg-text-secondary" />
           </div>
         )}
+
+        {/* Кнопка создания нового пака */}
+        <TabButton active={false} onClick={() => setCreateOpen(true)} title="Создать стикерпак">
+          <Plus className="w-4.5 h-4.5" />
+        </TabButton>
       </div>
 
       {/* Pack label */}
@@ -171,6 +180,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
         )}
       </div>
     </div>
+    </>
   );
 }
 
