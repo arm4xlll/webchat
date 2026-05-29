@@ -3,7 +3,7 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 import type { AdminMetricsSnapshot } from '../types/admin';
 import { useAuthStore } from '../store/authStore';
 
-const MAX_HISTORY = 720; // 1 hour at 5s intervals
+const MAX_HISTORY = 3600; // 1 hour at 1s intervals
 
 export function useAdminMetricsSSE() {
   const [latest, setLatest]       = useState<AdminMetricsSnapshot | null>(null);

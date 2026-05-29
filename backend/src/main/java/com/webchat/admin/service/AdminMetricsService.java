@@ -26,8 +26,8 @@ public class AdminMetricsService {
     private final SessionRepository      sessionRepository;
     private final MessageRepository      messageRepository;
 
-    private static final int MAX_HISTORY   = 720; // 1 hour at 5s intervals
-    private static final int INTERVAL_SEC  = 5;
+    private static final int MAX_HISTORY   = 3600; // 1 hour at 1s intervals
+    private static final int INTERVAL_SEC  = 1;
 
     private final Deque<AdminMetricsSnapshot> history = new ConcurrentLinkedDeque<>();
 

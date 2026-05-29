@@ -62,7 +62,7 @@ public class AdminMetricsController {
         return errorLogBuffer.getLast(limit);
     }
 
-    @Scheduled(fixedRate = 5000)
+    @Scheduled(fixedRate = 1000)
     public void pushToAll() {
         if (adminEmitters.isEmpty()) return;
 
