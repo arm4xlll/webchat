@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File as FileIcon, Bookmark, Copy, Pin, PinOff, ChevronDown } from 'lucide-react';
+import { isStickerMessage, isStickerVideoType } from '../../types/sticker';
 import { useChatStore } from '../../store/chatStore';
 import { useAuthStore } from '../../store/authStore';
 import type { Message } from '../../types';
@@ -478,9 +479,10 @@ export default function MessageList({
           const isFirst = !prevMsg || prevMsg.senderId !== msg.senderId;
           const isLast  = !nextMsg || nextMsg.senderId !== msg.senderId;
           const showName = !isOwn && isFirst;
-          const hasMedia = !msg.deleted && (isImage(msg.fileType) || isVideo(msg.fileType));
+          const isSticker = !msg.deleted && isStickerMessage(msg.fileUrl, msg.fileName);
+          const hasMedia = !msg.deleted && !isSticker && (isImage(msg.fileType) || isVideo(msg.fileType));
           const hasAudio = !msg.deleted && isAudio(msg.fileType);
-          const hasDoc   = !msg.deleted && isDocument(msg.fileType);
+          const hasDoc   = !msg.deleted && !isSticker && isDocument(msg.fileType);
           const isFlashing = flashId === msg.id;
           const reactions = msg.reactions ?? {};
           const hasReactions = Object.keys(reactions).length > 0;
@@ -561,6 +563,27 @@ export default function MessageList({
                       <div className="px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1" style={isOwn ? ownTextMuted : undefined}>
                         <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
                         {isOwn && <MessageStatus readAt={msg.readAt} />}
+                      </div>
+                    </div>
+                  ) : isSticker ? (
+                    /* ── Sticker (no bubble) ── */
+                    <div className="relative inline-block group select-none">
+                      {isStickerVideoType(msg.fileType ?? '') ? (
+                        <video
+                          src={msg.fileUrl}
+                          className="w-40 h-40 object-contain"
+                          autoPlay loop muted playsInline preload="metadata"
+                        />
+                      ) : (
+                        <img
+                          src={msg.fileUrl}
+                          alt="sticker"
+                          className="w-40 h-40 object-contain group-hover:scale-105 transition-transform duration-150"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="absolute bottom-1 right-1 bg-black/40 backdrop-blur-[2px] rounded-full px-1.5 py-0.5 flex items-center gap-1 select-none opacity-70 group-hover:opacity-100 transition-opacity">
+                        {timeNode}
                       </div>
                     </div>
                   ) : hasDoc ? (

@@ -5,6 +5,7 @@ import { getMessages, searchMessages } from '../../api/conversations';
 import type { Attachment, Conversation, Message } from '../../types';
 import MessageList, { Highlighted } from './MessageList';
 import MessageInput from './MessageInput';
+import type { StickerItem } from '../../types/sticker';
 import UserAvatar from '../common/UserAvatar';
 import UserProfileModal from '../profile/UserProfileModal';
 import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload, Bookmark } from 'lucide-react';
@@ -438,6 +439,15 @@ export default function ChatWindow({
         onSend={(content, attachment) => {
           if (editingMessage) { onEditMessage(editingMessage.id, content); setEditingMessage(null); }
           else { onSend(content, attachment, replyingTo?.id); setReplyingTo(null); }
+        }}
+        onSendSticker={(sticker: StickerItem) => {
+          onSend('', {
+            fileUrl: sticker.fileUrl,
+            fileName: 'sticker',
+            fileType: sticker.contentType,
+            fileSize: sticker.fileSize,
+          }, replyingTo?.id);
+          setReplyingTo(null);
         }}
         onTyping={onTyping}
         replyingTo={replyingTo}

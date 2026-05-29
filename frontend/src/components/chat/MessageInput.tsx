@@ -1,11 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, Loader2, CornerUpLeft, Pencil, Mic, FileText, FileArchive, File as FileIcon } from 'lucide-react';
+import { Send, Paperclip, X, Loader2, CornerUpLeft, Pencil, Mic, FileText, FileArchive, File as FileIcon, Smile } from 'lucide-react';
 import { uploadFile } from '../../api/conversations';
 import type { Attachment, Message } from '../../types';
+import type { StickerItem } from '../../types/sticker';
+import StickerPicker from './StickerPicker';
 
 interface Props {
   conversationId: string;
   onSend: (content: string, attachment?: Attachment) => void;
+  onSendSticker?: (sticker: StickerItem) => void;
   onTyping: (typing: boolean) => void;
   replyingTo?: Message | null;
   editingMessage?: Message | null;
@@ -46,12 +49,15 @@ export default function MessageInput({
   replyingTo, editingMessage,
   onCancelReply, onCancelEdit,
   externalFile, onExternalFileConsumed,
+  onSendSticker,
 }: Props) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+
+  const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
 
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -268,8 +274,19 @@ export default function MessageInput({
   const isVideoFile = file?.type.startsWith('video/');
   const isMediaFile = isImageFile || isVideoFile;
 
+  const handleStickerSend = useCallback((sticker: StickerItem) => {
+    onSendSticker?.(sticker);
+    setStickerPickerOpen(false);
+  }, [onSendSticker]);
+
   return (
-    <div className="bg-tg-sidebar-bg border-t border-tg-border safe-bottom">
+    <div className="relative bg-tg-sidebar-bg border-t border-tg-border safe-bottom">
+      {stickerPickerOpen && !editingMessage && (
+        <StickerPicker
+          onSend={handleStickerSend}
+          onClose={() => setStickerPickerOpen(false)}
+        />
+      )}
       {/* Reply bar */}
       {replyingTo && !editingMessage && (
         <div className="flex items-center gap-2 px-4 pt-2.5 pb-1">
@@ -359,6 +376,19 @@ export default function MessageInput({
             <button onClick={() => fileInputRef.current?.click()} title="Прикрепить файл (или Ctrl+V)"
               className="p-1.5 text-tg-text-secondary hover:text-tg-primary hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0">
               <Paperclip className="w-5 h-5" />
+            </button>
+          )}
+          {!editingMessage && onSendSticker && (
+            <button
+              onClick={() => setStickerPickerOpen(o => !o)}
+              title="Стикеры"
+              className={`p-1.5 rounded-full transition-colors cursor-pointer shrink-0 ${
+                stickerPickerOpen
+                  ? 'text-tg-primary bg-tg-primary/15'
+                  : 'text-tg-text-secondary hover:text-tg-primary hover:bg-tg-hover'
+              }`}
+            >
+              <Smile className="w-5 h-5" />
             </button>
           )}
           <textarea ref={textareaRef} value={text} onChange={handleChange} onKeyDown={handleKeyDown}
