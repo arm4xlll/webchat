@@ -4,15 +4,13 @@ export interface StickerItem {
   contentType: string;
   mediaType: 'IMAGE' | 'VIDEO';
   fileSize: number;
-  emojis: string[];
+  emojis: string; // comma-separated: "😂,🤣,😄"
 }
 
 export interface StickerPack {
   id: string;
   slug: string;
-  name: string;
-  thumbnailUrl: string | null;
-  isPublic: boolean;
+  title: string; // бэкенд вернул поле title, не name
   stickers: StickerItem[];
 }
 

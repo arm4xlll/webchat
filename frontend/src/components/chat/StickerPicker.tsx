@@ -86,7 +86,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
 
   const hasRecent = recentStickers.length > 0;
   const currentPackName =
-    activeTab === RECENT_TAB ? 'Недавние' : (activePack?.name ?? activeTab);
+    activeTab === RECENT_TAB ? 'Недавние' : (activePack?.title ?? activeTab);
 
   return (
     <div
@@ -106,25 +106,39 @@ export default function StickerPicker({ onSend, onClose }: Props) {
           </TabButton>
         )}
 
-        {packs.map(pack => (
-          <TabButton
-            key={pack.slug}
-            active={activeTab === pack.slug}
-            onClick={() => selectTab(pack.slug)}
-            title={pack.name}
-          >
-            {pack.thumbnailUrl ? (
-              <img
-                src={pack.thumbnailUrl}
-                alt={pack.name}
-                className="w-6 h-6 object-contain"
-                loading="lazy"
-              />
-            ) : (
-              <span className="text-base leading-none">🎭</span>
-            )}
-          </TabButton>
-        ))}
+        {packs.map(pack => {
+          // Если стикеры уже загружены — показываем первый как иконку вкладки
+          const firstSticker = loadedSlugs[pack.slug]?.[0];
+          return (
+            <TabButton
+              key={pack.slug}
+              active={activeTab === pack.slug}
+              onClick={() => selectTab(pack.slug)}
+              title={pack.title}
+            >
+              {firstSticker ? (
+                isStickerVideoType(firstSticker.contentType) ? (
+                  <video
+                    src={firstSticker.fileUrl}
+                    className="w-6 h-6 object-contain"
+                    autoPlay loop muted playsInline preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={firstSticker.fileUrl}
+                    alt={pack.title}
+                    className="w-6 h-6 object-contain"
+                    loading="lazy"
+                  />
+                )
+              ) : (
+                <span className="text-sm font-bold text-tg-text-secondary leading-none select-none">
+                  {pack.title.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </TabButton>
+          );
+        })}
 
         {!packsLoaded && (
           <div className="px-2 py-1.5">
