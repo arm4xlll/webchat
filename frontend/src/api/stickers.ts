@@ -23,5 +23,7 @@ export const createStickerPack = (
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   files.forEach(f => form.append('files', f));
-  return api.post<StickerPack>('/stickers/packs', form).then(r => r.data);
+  return api.post<StickerPack>('/stickers/packs', form, {
+    headers: { 'Content-Type': undefined },
+  }).then(r => r.data);
 };
