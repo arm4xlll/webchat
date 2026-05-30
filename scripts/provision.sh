@@ -22,15 +22,23 @@ fi
 # ── 2. Install LiveKit binary ─────────────────────────────────────────────────
 if ! command -v livekit-server &>/dev/null; then
     log "Installing LiveKit server..."
-    LK_VER=$(curl -sf --connect-timeout 10 \
+    # Get exact asset URL from API — avoids filename format guessing across versions
+    ASSET_URL=$(curl -sf --connect-timeout 10 \
         "https://api.github.com/repos/livekit/livekit/releases/latest" \
-        | grep '"tag_name"' | head -1 | cut -d'"' -f4 || true)
-    [ -z "$LK_VER" ] && LK_VER="v1.8.2"
-    log "Using LiveKit ${LK_VER}"
+        | grep '"browser_download_url"' \
+        | grep 'linux_amd64\.tar\.gz' \
+        | head -1 | cut -d'"' -f4 || true)
 
-    wget -q "https://github.com/livekit/livekit/releases/download/${LK_VER}/livekit_linux_amd64.tar.gz" \
-        -O /tmp/livekit.tar.gz
+    if [ -z "$ASSET_URL" ]; then
+        ASSET_URL="https://github.com/livekit/livekit/releases/download/v1.8.2/livekit_linux_amd64.tar.gz"
+        log "GitHub API unavailable, falling back to v1.8.2"
+    else
+        log "Downloading from ${ASSET_URL}"
+    fi
+
+    wget -q "$ASSET_URL" -O /tmp/livekit.tar.gz
     tar -xzf /tmp/livekit.tar.gz -C /tmp
+    log "Archive contents: $(tar -tzf /tmp/livekit.tar.gz 2>/dev/null | tr '\n' ' ' || true)"
 
     # Binary name differs across versions: livekit-server (older) or livekit (newer)
     if [ -f /tmp/livekit-server ]; then
