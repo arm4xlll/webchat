@@ -49,10 +49,26 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "backend/target/webchat-backend-0.0.1-SNAPSHOT.jar,frontend/dist,ecosystem.config.js,nginx.conf"
+          source: "backend/target/webchat-backend-0.0.1-SNAPSHOT.jar,frontend/dist,ecosystem.config.js,nginx.conf,nginx-livekit.conf,scripts/provision.sh"
           target: /opt/webchat/upload
 
-      # ── Deploy on server ──────────────────────────────────────────────
+      # ── Provision (one-time setup) ────────────────────────────────────
+      # Idempotent: skips steps already done (LiveKit installed, certs exist, etc.)
+      # Remove this step from the workflow once the server is provisioned.
+      - name: Provision server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            export LIVEKIT_API_KEY='${{ secrets.LIVEKIT_API_KEY }}'
+            export LIVEKIT_API_SECRET='${{ secrets.LIVEKIT_API_SECRET }}'
+            export CERTBOT_EMAIL='${{ secrets.CERTBOT_EMAIL }}'
+            bash /opt/webchat/upload/scripts/provision.sh
+
+      # ── Deploy & restart services ─────────────────────────────────────
       - name: Deploy & restart services
         uses: appleboy/ssh-action@v1
         with:
@@ -66,32 +82,28 @@ jobs:
             APP=/opt/webchat
 
             echo "--- [1/5] Move artefacts ---"
-            # JAR — swap atomically: write to .new then rename
             cp "$UPLOAD/backend/target/webchat-backend-0.0.1-SNAPSHOT.jar" \
                "$APP/webchat-backend.new.jar"
             mv "$APP/webchat-backend.new.jar" "$APP/webchat-backend.jar"
 
-            # Frontend static files
             rsync -a --delete "$UPLOAD/frontend/dist/" "$APP/frontend/"
 
-            # PM2 ecosystem config
             cp "$UPLOAD/ecosystem.config.js" "$APP/"
 
             echo "--- [2/5] Reload nginx ---"
-            sudo cp "$UPLOAD/nginx.conf" /etc/nginx/sites-available/webchat
-            sudo ln -sf /etc/nginx/sites-available/webchat \
-                        /etc/nginx/sites-enabled/webchat
+            sudo cp "$UPLOAD/nginx.conf"         /etc/nginx/sites-available/webchat
+            sudo cp "$UPLOAD/nginx-livekit.conf"  /etc/nginx/sites-available/livekit
+            sudo ln -sf /etc/nginx/sites-available/webchat /etc/nginx/sites-enabled/webchat
+            sudo ln -sf /etc/nginx/sites-available/livekit /etc/nginx/sites-enabled/livekit
             sudo nginx -t
             sudo systemctl reload nginx
 
-            echo "--- [3/5] Ensure uploads dir exists ---"
+            echo "--- [3/5] Ensure dirs exist ---"
             mkdir -p "$APP/uploads"
 
-            echo "--- [4/5] Restart backend via PM2 ---"
+            echo "--- [4/5] Restart services via PM2 ---"
             cd "$APP"
-            # Load .env into the current shell so PM2 captures them
             set -a; source "$APP/.env"; set +a
-            # --update-env ensures new/changed vars are applied even on restartOrRestart
             pm2 startOrRestart ecosystem.config.js --update-env
             pm2 save
 

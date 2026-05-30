@@ -45,6 +45,11 @@ app:
   cors:
     allowed-origins: ${CORS_ORIGINS}
 
+livekit:
+  url: ${LIVEKIT_URL}
+  api-key: ${LIVEKIT_API_KEY}
+  api-secret: ${LIVEKIT_API_SECRET}
+
 vapid:
   public-key: ${VAPID_PUBLIC_KEY}
   private-key: ${VAPID_PRIVATE_KEY}

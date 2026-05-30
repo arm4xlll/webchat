@@ -8,7 +8,7 @@ import MessageInput from './MessageInput';
 import type { StickerItem } from '../../types/sticker';
 import UserAvatar from '../common/UserAvatar';
 import UserProfileModal from '../profile/UserProfileModal';
-import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload, Bookmark } from 'lucide-react';
+import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload, Bookmark, Phone } from 'lucide-react';
 import PinnedBanner from './PinnedBanner';
 import { removePin } from '../../api/pins';
 import StickerPackViewModal from './StickerPackViewModal';
@@ -37,6 +37,7 @@ interface Props {
   onReact: (messageId: string, emoji: string) => void;
   onSaveMessage?: (msg: Message) => void;
   onBack?: () => void;
+  onCall?: () => void;
 }
 
 function getOtherMember(conv: Conversation, myId: string) {
@@ -48,7 +49,7 @@ const EMPTY_PINS: never[] = [];
 
 export default function ChatWindow({
   conversation, onSend, onEditMessage, onDeleteMessage,
-  onTyping, onRead, onReact, onSaveMessage, onBack,
+  onTyping, onRead, onReact, onSaveMessage, onBack, onCall,
 }: Props) {
   const user = useAuthStore(s => s.user);
   const setMessages = useChatStore(s => s.setMessages);
@@ -364,6 +365,17 @@ export default function ChatWindow({
             </span>
           </div>
         </button>
+
+        {/* Call button — direct chats only */}
+        {onCall && (
+          <button
+            onClick={onCall}
+            title="Голосовой звонок"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover transition-all cursor-pointer shrink-0"
+          >
+            <Phone className="w-[18px] h-[18px]" />
+          </button>
+        )}
 
         {/* Search button */}
         <button

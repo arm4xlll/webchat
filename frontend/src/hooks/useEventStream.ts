@@ -3,6 +3,7 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { useThemeStore, type FontSize } from '../store/themeStore';
+import { useCallStore } from '../store/callStore';
 import { getConversations, getMessagesAfter } from '../api/conversations';
 import * as eventsApi from '../api/events';
 import { isNewVersionAvailable } from '../utils/versionCheck';
@@ -10,6 +11,7 @@ import type {
   Attachment, Conversation, Message, PinnedMessage, PresenceEvent,
   ReadReceiptEvent, TypingEvent, User,
 } from '../types';
+import type { CallAnsweredEvent, CallEndedEvent, CallIncomingEvent } from '../types/call';
 
 type StreamStatus = 'connecting' | 'connected' | 'disconnected';
 
@@ -149,6 +151,34 @@ export function useEventStream() {
         case 'conversation.member_updated':
           store.updateConversationMember(data as User);
           break;
+        case 'call.incoming': {
+          const ev = data as CallIncomingEvent;
+          const callStore = useCallStore.getState();
+          if (callStore.status === 'idle') {
+            callStore.setIncoming(ev);
+          }
+          break;
+        }
+        case 'call.answered': {
+          const ev = data as CallAnsweredEvent;
+          const callStore = useCallStore.getState();
+          if (callStore.status === 'calling') {
+            if (ev.accepted && callStore.token && callStore.wsUrl) {
+              callStore.activate(callStore.token, callStore.wsUrl);
+            } else {
+              callStore.endCall();
+            }
+          }
+          break;
+        }
+        case 'call.ended': {
+          const ev = data as CallEndedEvent;
+          const callStore = useCallStore.getState();
+          if (callStore.conversationId === ev.conversationId && callStore.status !== 'idle') {
+            callStore.endCall();
+          }
+          break;
+        }
         case 'user.settings_updated': {
           const u = data as User;
           if (u.settings) {

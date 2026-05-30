@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { useThemeStore, type FontSize } from '../store/themeStore';
+import { useCallStore } from '../store/callStore';
 import { useEventStream } from '../hooks/useEventStream';
 import {
   getConversations, editMessage as editMessageAPI, deleteMessage as deleteMessageAPI,
@@ -9,12 +10,15 @@ import {
 } from '../api/conversations';
 import { getMe } from '../api/users';
 import { logout } from '../api/auth';
+import { inviteCall } from '../api/calls';
 import type { Attachment, Message } from '../types';
 import UserSearch from '../components/sidebar/UserSearch';
 import ConversationList from '../components/sidebar/ConversationList';
 import ChatWindow from '../components/chat/ChatWindow';
 import UserAvatar from '../components/common/UserAvatar';
 import SettingsModal from '../components/settings/SettingsModal';
+import ActiveCallBar from '../components/call/ActiveCallBar';
+import IncomingCallModal from '../components/call/IncomingCallModal';
 import { LogOut, MessageSquare, WifiOff, Loader2, Bell, Settings, RefreshCw } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useVersionCheck } from '../hooks/useVersionCheck';
@@ -35,6 +39,23 @@ export default function ChatPage() {
   const { sendMessage, sendTyping, sendReadReceipt, sendReaction, wsStatus } = useEventStream();
   const applyFromServer = useThemeStore(s => s.applyFromServer);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const callStatus = useCallStore(s => s.status);
+  const setCalling = useCallStore(s => s.setCalling);
+  const setCallerToken = useCallStore(s => s.setCallerToken);
+  const endCall = useCallStore(s => s.endCall);
+
+  const handleCallStart = useCallback(async (conversationId: string) => {
+    if (callStatus !== 'idle') return;
+    setCalling(conversationId);
+    try {
+      const { token, wsUrl } = await inviteCall(conversationId);
+      setCallerToken(token, wsUrl);
+    } catch (e) {
+      console.error('[Call] invite failed', e);
+      endCall();
+    }
+  }, [callStatus, setCalling, setCallerToken, endCall]);
 
   // ── Saved conversation ────────────────────────────────────────────────────
   const [savedConvId, setSavedConvId] = useState<string | null>(null);
@@ -93,6 +114,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-tg-bg text-tg-text overflow-hidden" style={{ height: '100dvh' }}>
+      <IncomingCallModal />
       {updateReady && (
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-500/15 text-sm shrink-0">
           <div className="flex items-center gap-2 text-tg-text">
@@ -128,6 +150,8 @@ export default function ChatPage() {
             : <><WifiOff className="w-3 h-3" />Нет соединения — переподключение...</>}
         </div>
       )}
+
+      <ActiveCallBar />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -185,6 +209,9 @@ export default function ChatPage() {
               onReact={(msgId, emoji) => sendReaction(msgId, emoji)}
               onSaveMessage={activeConversation.type !== 'saved' ? handleSaveMessage : undefined}
               onBack={() => setActiveConversation(null)}
+              onCall={activeConversation.type === 'direct' && callStatus === 'idle'
+                ? () => handleCallStart(activeConversationId!)
+                : undefined}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none">

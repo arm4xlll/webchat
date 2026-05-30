@@ -40,7 +40,7 @@ Thumbs.db
 backend/.mvn/wrapper/maven-wrapper.jar
 
 # ── Test / utility scripts ──────────────────────────────────────────────────────
-scripts/
+scripts/node_modules/
 
 # ── Temporary / diff files ──────────────────────────────────────────────────────
 diff.txt

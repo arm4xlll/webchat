@@ -57,6 +57,11 @@ vapid:
   private-key: "NmQH7rTYCVln5M-GWRukUWUgGlcoTgKs6BQXxvg7fhs"
   subject: "mailto:admin@webchat.local"
 
+livekit:
+  url: ws://localhost:7880
+  api-key: devkey
+  api-secret: devsecretkeyforlivekitminimum32ch
+
 management:
   endpoints:
     web:
