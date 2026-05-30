@@ -52,22 +52,6 @@ jobs:
           source: "backend/target/webchat-backend-0.0.1-SNAPSHOT.jar,frontend/dist,ecosystem.config.js,nginx.conf,nginx-livekit.conf,scripts/provision.sh"
           target: /opt/webchat/upload
 
-      # ── Provision (one-time setup) ────────────────────────────────────
-      # Idempotent: skips steps already done (LiveKit installed, certs exist, etc.)
-      # Remove this step from the workflow once the server is provisioned.
-      - name: Provision server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          script: |
-            export LIVEKIT_API_KEY='${{ secrets.LIVEKIT_API_KEY }}'
-            export LIVEKIT_API_SECRET='${{ secrets.LIVEKIT_API_SECRET }}'
-            export CERTBOT_EMAIL='${{ secrets.CERTBOT_EMAIL }}'
-            bash /opt/webchat/upload/scripts/provision.sh
-
       # ── Deploy & restart services ─────────────────────────────────────
       - name: Deploy & restart services
         uses: appleboy/ssh-action@v1
