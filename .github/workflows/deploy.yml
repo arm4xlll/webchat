@@ -85,6 +85,15 @@ jobs:
             echo "--- [3/5] Ensure dirs exist ---"
             mkdir -p "$APP/uploads"
 
+            echo "--- [3.5/5] Ensure LiveKit config has Redis ---"
+            if ! sudo grep -q "^redis:" /etc/livekit/livekit.yaml 2>/dev/null; then
+              printf '\nredis:\n  address: localhost:6379\n' \
+                | sudo tee -a /etc/livekit/livekit.yaml > /dev/null
+              echo "Redis added to LiveKit config"
+            else
+              echo "Redis already in LiveKit config, skipping"
+            fi
+
             echo "--- [4/5] Restart services via PM2 ---"
             cd "$APP"
             set -a; source "$APP/.env"; set +a
