@@ -85,13 +85,18 @@ jobs:
             echo "--- [3/5] Ensure dirs exist ---"
             mkdir -p "$APP/uploads"
 
-            echo "--- [3.5/5] Ensure LiveKit config has Redis ---"
-            if ! sudo grep -q "^redis:" /etc/livekit/livekit.yaml 2>/dev/null; then
-              printf '\nredis:\n  address: localhost:6379\n' \
-                | sudo tee -a /etc/livekit/livekit.yaml > /dev/null
-              echo "Redis added to LiveKit config"
+            echo "--- [3.5/5] Ensure LiveKit config has Redis with port ---"
+            if ! sudo grep -q "address: localhost:6379" /etc/livekit/livekit.yaml 2>/dev/null; then
+              if sudo grep -q "^redis:" /etc/livekit/livekit.yaml 2>/dev/null; then
+                sudo sed -i 's|address: localhost$|address: localhost:6379|' /etc/livekit/livekit.yaml
+                echo "Redis address fixed (added missing port)"
+              else
+                printf '\nredis:\n  address: localhost:6379\n' \
+                  | sudo tee -a /etc/livekit/livekit.yaml > /dev/null
+                echo "Redis added to LiveKit config"
+              fi
             else
-              echo "Redis already in LiveKit config, skipping"
+              echo "Redis config OK"
             fi
             # Reset PM2 restart counter — LiveKit may have hit max_restarts
             pm2 reset livekit 2>/dev/null || true

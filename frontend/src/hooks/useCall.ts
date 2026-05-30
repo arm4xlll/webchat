@@ -32,7 +32,17 @@ export function useCall() {
   useEffect(() => {
     if (status !== 'active' || !token || !wsUrl) return;
 
-    const r = new Room({ adaptiveStream: true, dynacast: true });
+    const r = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      audioCaptureDefaults: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000,
+        channelCount: 1,
+      },
+    });
     room.current = r;
 
     r.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
