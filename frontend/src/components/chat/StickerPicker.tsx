@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Clock, Loader2, Plus } from 'lucide-react';
+import { Clock, Loader2, Plus, Settings } from 'lucide-react';
+import StickerPackViewModal from './StickerPackViewModal';
 import { useStickerStore } from '../../store/stickerStore';
 import type { StickerItem, StickerPack } from '../../types/sticker';
 import { isStickerVideoType } from '../../types/sticker';
@@ -20,6 +21,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
 
   const [activeTab, setActiveTab] = useState<string>(RECENT_TAB);
   const [createOpen, setCreateOpen] = useState(false);
+  const [packViewSlug, setPackViewSlug] = useState<string | null>(null);
   const [loadingTab, setLoadingTab] = useState(false);
   const [displayedStickers, setDisplayedStickers] = useState<StickerItem[]>([]);
   const [activePack, setActivePack] = useState<StickerPack | null>(null);
@@ -64,27 +66,28 @@ export default function StickerPicker({ onSend, onClose }: Props) {
     }
   }, [loadedSlugs, loadPackStickers]);
 
-  // Close on outside click (skip when create modal is open)
+  // Close on outside click (skip when create/packView modal is open)
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (createOpen) return;
+      if (createOpen || packViewSlug) return;
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, createOpen]);
+  }, [onClose, createOpen, packViewSlug]);
 
-  // Close on Escape (close create modal first if open)
+  // Close on Escape (close nested modals first)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (createOpen) setCreateOpen(false);
-        else onClose();
+        if (packViewSlug) { setPackViewSlug(null); return; }
+        if (createOpen) { setCreateOpen(false); return; }
+        onClose();
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onClose, createOpen]);
+  }, [onClose, createOpen, packViewSlug]);
 
   const handleSend = (sticker: StickerItem) => {
     trackUsed(sticker);
@@ -99,6 +102,18 @@ export default function StickerPicker({ onSend, onClose }: Props) {
   return (
     <>
     {createOpen && <CreatePackModal onClose={() => setCreateOpen(false)} />}
+    {packViewSlug && (
+      <StickerPackViewModal
+        slug={packViewSlug}
+        onClose={() => {
+          const slug = packViewSlug;
+          setPackViewSlug(null);
+          // Перезагружаем стикеры пака — создатель мог добавить новые
+          useStickerStore.getState().invalidatePackCache(slug);
+          useStickerStore.getState().loadPackStickers(slug);
+        }}
+      />
+    )}
     <div
       ref={ref}
       className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-tg-sidebar-bg border border-tg-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
@@ -163,8 +178,19 @@ export default function StickerPicker({ onSend, onClose }: Props) {
       </div>
 
       {/* Pack label */}
-      <div className="px-3 py-1.5 text-[11px] font-semibold text-tg-text-secondary uppercase tracking-wide select-none shrink-0">
-        {currentPackName}
+      <div className="px-3 py-1 flex items-center justify-between shrink-0">
+        <span className="text-[11px] font-semibold text-tg-text-secondary uppercase tracking-wide select-none">
+          {currentPackName}
+        </span>
+        {activeTab !== RECENT_TAB && activePack && (
+          <button
+            onClick={() => setPackViewSlug(activePack.slug)}
+            title="Управление паком"
+            className="p-1 rounded-lg hover:bg-tg-hover text-tg-text-secondary hover:text-tg-text transition-colors cursor-pointer"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Sticker grid */}
