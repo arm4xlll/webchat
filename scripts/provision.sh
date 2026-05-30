@@ -22,15 +22,30 @@ fi
 # ── 2. Install LiveKit binary ─────────────────────────────────────────────────
 if ! command -v livekit-server &>/dev/null; then
     log "Installing LiveKit server..."
-    LK_VER=$(curl -sf https://api.github.com/repos/livekit/livekit/releases/latest \
-        | grep '"tag_name"' | cut -d'"' -f4)
+    LK_VER=$(curl -sf --connect-timeout 10 \
+        "https://api.github.com/repos/livekit/livekit/releases/latest" \
+        | grep '"tag_name"' | head -1 | cut -d'"' -f4 || true)
+    [ -z "$LK_VER" ] && LK_VER="v1.8.2"
+    log "Using LiveKit ${LK_VER}"
+
     wget -q "https://github.com/livekit/livekit/releases/download/${LK_VER}/livekit_linux_amd64.tar.gz" \
         -O /tmp/livekit.tar.gz
-    tar -xzf /tmp/livekit.tar.gz -C /tmp livekit-server
-    sudo mv /tmp/livekit-server /usr/local/bin/livekit-server
+    tar -xzf /tmp/livekit.tar.gz -C /tmp
+
+    # Binary name differs across versions: livekit-server (older) or livekit (newer)
+    if [ -f /tmp/livekit-server ]; then
+        sudo mv /tmp/livekit-server /usr/local/bin/livekit-server
+    elif [ -f /tmp/livekit ]; then
+        sudo mv /tmp/livekit /usr/local/bin/livekit-server
+    else
+        echo "ERROR: livekit binary not found in archive (checked livekit-server, livekit)"
+        tar -tzf /tmp/livekit.tar.gz || true
+        exit 1
+    fi
+
     sudo chmod +x /usr/local/bin/livekit-server
     rm /tmp/livekit.tar.gz
-    log "LiveKit $(livekit-server --version 2>&1 || echo '?') installed."
+    log "LiveKit installed."
 else
     log "LiveKit already installed, skipping."
 fi
