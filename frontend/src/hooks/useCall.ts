@@ -68,10 +68,7 @@ export function useCall() {
       });
 
     return () => {
-      r.off(RoomEvent.TrackSubscribed);
-      r.off(RoomEvent.ParticipantDisconnected);
-      r.off(RoomEvent.ParticipantConnected);
-      r.off(RoomEvent.Disconnected);
+      r.removeAllListeners();
       r.disconnect();
       room.current = null;
     };
