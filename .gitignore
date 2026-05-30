@@ -38,3 +38,14 @@ Thumbs.db
 
 # ── Maven wrapper (keep mvnw scripts, ignore downloaded wrapper jar) ────────────
 backend/.mvn/wrapper/maven-wrapper.jar
+
+# ── Test / utility scripts ──────────────────────────────────────────────────────
+scripts/
+
+# ── Temporary / diff files ──────────────────────────────────────────────────────
+diff.txt
+*.patch
+
+# ── Screenshots / misc images at root ──────────────────────────────────────────
+screenshot_*.png
+ss_*.png
