@@ -71,6 +71,8 @@ export interface Message {
   readAt?: string;
   /** emoji → list of userIds who reacted */
   reactions?: Record<string, string[]>;
+  /** true while the message is being sent (optimistic, client-only) */
+  pending?: boolean;
 }
 
 export interface Attachment {

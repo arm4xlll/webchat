@@ -1,13 +1,23 @@
 import { useId } from 'react';
+import { Clock } from 'lucide-react';
 
 interface Props {
   readAt: string | undefined;
+  pending?: boolean;
 }
 
-export default function MessageStatus({ readAt }: Props) {
+export default function MessageStatus({ readAt, pending }: Props) {
   const uid = useId();
   const gradId = `hg-${uid.replace(/:/g, '')}`;
   const isRead = readAt != null;
+
+  if (pending) {
+    return (
+      <span className="inline-flex items-center shrink-0" title="Отправляется...">
+        <Clock className="w-[11px] h-[11px]" style={{ color: 'var(--color-tg-msg-out-text-muted)', opacity: 0.7 }} />
+      </span>
+    );
+  }
 
   return (
     <span className="inline-flex items-center shrink-0" title={isRead ? 'Прочитано' : 'Отправлено'}>

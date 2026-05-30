@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
@@ -15,10 +15,23 @@ type StreamStatus = 'connecting' | 'connected' | 'disconnected';
 
 class FatalError extends Error {}
 
+/** Run `tasks` with at most `limit` in-flight at a time. */
+async function withConcurrency(tasks: (() => Promise<void>)[], limit: number): Promise<void> {
+  let idx = 0;
+  const run = async () => {
+    while (idx < tasks.length) {
+      const i = idx++;
+      await tasks[i]();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, run));
+}
+
 export function useEventStream() {
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<StreamStatus>('connecting');
   const applyFromServer = useThemeStore(s => s.applyFromServer);
+  const reconnectAttempts = useRef(0);
 
   useEffect(() => {
     if (!accessToken) {
@@ -26,6 +39,7 @@ export function useEventStream() {
       return;
     }
 
+    reconnectAttempts.current = 0;
     const ctrl = new AbortController();
     setWsStatus('connecting');
 
@@ -37,6 +51,7 @@ export function useEventStream() {
           openWhenHidden: true,
           async onopen(res) {
             if (res.ok && res.headers.get('content-type')?.includes('text/event-stream')) {
+              reconnectAttempts.current = 0;
               setWsStatus('connected');
               return;
             }
@@ -60,7 +75,10 @@ export function useEventStream() {
           onerror(err) {
             if (err instanceof FatalError) throw err;
             setWsStatus('connecting');
-            return 3000;
+            // Exponential backoff: 2s → 4s → 8s → 16s → 30s max, plus jitter
+            const attempt = reconnectAttempts.current;
+            reconnectAttempts.current = Math.min(attempt + 1, 5);
+            return Math.min(2_000 * 2 ** attempt + Math.random() * 1_000, 30_000);
           },
         });
       } catch (e) {
@@ -76,8 +94,6 @@ export function useEventStream() {
       switch (type) {
         case 'stream.ready':
           onStreamReady();
-          // SSE reconnect = backend restarted = likely a new deploy.
-          // Check version.json; if newer → the update banner will appear.
           isNewVersionAvailable().then(newer => {
             if (newer) window.dispatchEvent(new CustomEvent('app:update-available'));
           });
@@ -152,7 +168,7 @@ export function useEventStream() {
         useChatStore.getState().setConversations(convs);
 
         const cachedMessages = useChatStore.getState().messages;
-        await Promise.all(convs.map(async c => {
+        const tasks = convs.map(c => async () => {
           const msgs = cachedMessages[c.id];
           if (!msgs || msgs.length === 0) return;
           try {
@@ -162,7 +178,9 @@ export function useEventStream() {
           } catch (e) {
             console.error('[SSE] catch-up failed', c.id, e);
           }
-        }));
+        });
+        // Limit to 3 concurrent catch-up requests to avoid flooding on slow networks
+        await withConcurrency(tasks, 3);
       } catch (e) {
         console.error('[SSE] post-ready bootstrap failed', e);
       }
@@ -182,9 +200,51 @@ export function useEventStream() {
     attachment?: Attachment,
     replyToId?: string,
   ) => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+
+    // Optimistic update: show message immediately while it travels over slow net
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const store = useChatStore.getState();
+
+    let replyToContent: string | undefined;
+    let replyToSenderName: string | undefined;
+    if (replyToId) {
+      const replyMsg = (store.messages[conversationId] ?? []).find(m => m.id === replyToId);
+      replyToContent = replyMsg?.content;
+      replyToSenderName = replyMsg?.senderName;
+    }
+
+    const tempMsg: Message = {
+      id: tempId,
+      conversationId,
+      senderId: user.id,
+      senderUsername: user.username,
+      senderName: user.name,
+      content,
+      createdAt: new Date().toISOString(),
+      pending: true,
+      ...(attachment ? {
+        fileUrl: attachment.fileUrl,
+        fileName: attachment.fileName,
+        fileType: attachment.fileType,
+        fileSize: attachment.fileSize,
+      } : {}),
+      ...(replyToId ? { replyToId, replyToContent, replyToSenderName } : {}),
+    };
+
+    store.addMessage(tempMsg);
+    store.updateConversationLastMessage(conversationId, tempMsg.createdAt);
+
     eventsApi.sendMessage(conversationId, content, attachment, replyToId)
-      .then(msg => useChatStore.getState().addMessage(msg))
-      .catch(e => console.error('[Send] failed', e));
+      .then(msg => {
+        useChatStore.getState().removeMessage(conversationId, tempId);
+        useChatStore.getState().addMessage(msg);
+      })
+      .catch(e => {
+        console.error('[Send] failed', e);
+        useChatStore.getState().removeMessage(conversationId, tempId);
+      });
   }, []);
 
   const sendTyping = useCallback((conversationId: string, typing: boolean) => {

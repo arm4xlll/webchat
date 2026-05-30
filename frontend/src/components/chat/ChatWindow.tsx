@@ -253,7 +253,8 @@ export default function ChatWindow({
     setHighlightedMsgId(null);
 
     if (messages[conversation.id] !== undefined) return;
-    getMessages(conversation.id, 0, PAGE_SIZE).then(msgs => {
+    const controller = new AbortController();
+    getMessages(conversation.id, 0, PAGE_SIZE, controller.signal).then(msgs => {
       // Merge with messages already in store (may have arrived via WS while fetch was in-flight)
       const inStore = useChatStore.getState().messages[conversation.id] ?? [];
       if (inStore.length === 0) {
@@ -270,7 +271,8 @@ export default function ChatWindow({
         // else store already has everything (all came via WS) — keep as is
       }
       if (msgs.length < PAGE_SIZE) setHasMore(false);
-    });
+    }).catch(() => {/* cancelled or failed — silent */});
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
 

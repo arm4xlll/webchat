@@ -512,7 +512,7 @@ export default function MessageList({
               >
                 {formatTime(msg.createdAt)}
               </span>
-              {isOwn && <MessageStatus readAt={msg.readAt} />}
+              {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} />}
             </>
           );
 
@@ -562,7 +562,7 @@ export default function MessageList({
                       <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
                       <div className="px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1" style={isOwn ? ownTextMuted : undefined}>
                         <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
-                        {isOwn && <MessageStatus readAt={msg.readAt} />}
+                        {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} />}
                       </div>
                     </div>
                   ) : isSticker ? (
