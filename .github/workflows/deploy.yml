@@ -93,6 +93,8 @@ jobs:
             else
               echo "Redis already in LiveKit config, skipping"
             fi
+            # Reset PM2 restart counter — LiveKit may have hit max_restarts
+            pm2 reset livekit 2>/dev/null || true
 
             echo "--- [4/5] Restart services via PM2 ---"
             cd "$APP"
