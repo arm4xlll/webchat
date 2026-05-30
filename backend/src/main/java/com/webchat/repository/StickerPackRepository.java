@@ -15,7 +15,7 @@ public interface StickerPackRepository extends JpaRepository<StickerPack, UUID> 
     /** Для Use Case 3: addPackToUserCollection — нужен только pack, без стикеров. */
     Optional<StickerPack> findBySlug(String slug);
 
-    /** Для Use Case 2: getPackBySlug — загружает пак вместе со всеми стикерами одним запросом. */
-    @Query("SELECT p FROM StickerPack p LEFT JOIN FETCH p.stickers WHERE p.slug = :slug")
+    /** Для Use Case 2: getPackBySlug — загружает пак вместе со стикерами и создателем. */
+    @Query("SELECT p FROM StickerPack p LEFT JOIN FETCH p.stickers LEFT JOIN FETCH p.creator WHERE p.slug = :slug")
     Optional<StickerPack> findBySlugWithStickers(@Param("slug") String slug);
 }

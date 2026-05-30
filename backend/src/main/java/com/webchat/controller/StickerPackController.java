@@ -66,6 +66,33 @@ public class StickerPackController {
         return ResponseEntity.status(HttpStatus.CREATED).body(StickerPackResponse.from(pack));
     }
 
+    /** Найти пак по fileUrl стикера — используется при клике на стикер в чате. */
+    @GetMapping("/find")
+    public ResponseEntity<StickerPackResponse> findBySticker(@RequestParam String fileUrl) {
+        return ResponseEntity.ok(StickerPackResponse.from(stickerService.findPackBySticker(fileUrl)));
+    }
+
+    /** Добавить стикеры в существующий пак (только для создателя пака). */
+    @PostMapping(value = "/{slug}/stickers", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<StickerPackResponse> addStickers(
+            @PathVariable String slug,
+            @RequestPart("metadata") AddStickersRequest metadata,
+            @RequestPart("files") List<MultipartFile> files,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        List<StickerService.StickerUpload> uploads = IntStream.range(0, files.size())
+                .mapToObj(i -> {
+                    String emojis = (metadata.stickers() != null && i < metadata.stickers().size())
+                            ? metadata.stickers().get(i).emojis()
+                            : "";
+                    return new StickerService.StickerUpload(files.get(i), emojis);
+                })
+                .toList();
+
+        StickerPack pack = stickerService.addStickersToExisting(principal.getUserId(), slug, uploads);
+        return ResponseEntity.ok(StickerPackResponse.from(pack));
+    }
+
     /** Добавить чужой пак в свою коллекцию по slug. */
     @PostMapping("/{slug}/subscribe")
     public ResponseEntity<Void> subscribe(
@@ -82,13 +109,11 @@ public class StickerPackController {
         return ResponseEntity.ok(stickerService.getStickerForMessage(stickerId));
     }
 
-    // ── Request DTO ──────────────────────────────────────────────────────────
+    // ── Request DTOs ─────────────────────────────────────────────────────────
 
-    public record CreatePackRequest(
-            String slug,
-            String title,
-            List<StickerMeta> stickers
-    ) {
-        public record StickerMeta(String emojis) {}
-    }
+    public record StickerMeta(String emojis) {}
+
+    public record CreatePackRequest(String slug, String title, List<StickerMeta> stickers) {}
+
+    public record AddStickersRequest(List<StickerMeta> stickers) {}
 }

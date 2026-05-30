@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { X, Plus, Loader2, Upload } from 'lucide-react';
+import { X, Plus, Loader2, Upload, ChevronDown } from 'lucide-react';
 import { createStickerPack } from '../../api/stickers';
 import { useStickerStore } from '../../store/stickerStore';
 import { isStickerVideoType } from '../../types/sticker';
@@ -16,12 +16,14 @@ interface StickerDraft {
 }
 
 function autoSlug(title: string): string {
-  return title
+  const base = title
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
-    .slice(0, 64);
+    .slice(0, 50);
+  const suffix = Math.random().toString(36).slice(2, 7);
+  return base ? `${base}-${suffix}` : `pack-${suffix}`;
 }
 
 export default function CreatePackModal({ onClose }: Props) {
@@ -31,6 +33,7 @@ export default function CreatePackModal({ onClose }: Props) {
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
+  const [slugExpanded, setSlugExpanded] = useState(false);
   const [stickers, setStickers] = useState<StickerDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -62,24 +65,26 @@ export default function CreatePackModal({ onClose }: Props) {
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
-    if (!slugTouched) setSlug(autoSlug(val));
+    if (!slugTouched && slugExpanded) setSlug(autoSlug(val));
   };
 
   const handleSubmit = async () => {
     if (!title.trim()) { setError('Введите название пака'); return; }
-    if (!slug.trim()) { setError('Введите slug'); return; }
-    if (!/^[a-z0-9_-]{3,64}$/.test(slug)) {
+    if (stickers.length === 0) { setError('Добавьте хотя бы один стикер'); return; }
+
+    // Если slug не задан вручную — генерируем автоматически
+    const effectiveSlug = slug.trim() || autoSlug(title.trim());
+    if (!/^[a-z0-9_-]{3,64}$/.test(effectiveSlug)) {
       setError('Slug: 3-64 символа, только строчные буквы, цифры, _ и -');
       return;
     }
-    if (stickers.length === 0) { setError('Добавьте хотя бы один стикер'); return; }
 
     setError('');
     setSubmitting(true);
     try {
       await createStickerPack(
         {
-          slug,
+          slug: effectiveSlug,
           title,
           stickers: stickers.map(s => ({ emojis: s.emojis })),
         },
@@ -98,7 +103,7 @@ export default function CreatePackModal({ onClose }: Props) {
     }
   };
 
-  const canSubmit = title.trim() && slug.trim() && stickers.length > 0 && !submitting;
+  const canSubmit = title.trim() && stickers.length > 0 && !submitting;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -130,21 +135,30 @@ export default function CreatePackModal({ onClose }: Props) {
             />
           </div>
 
-          {/* Slug */}
+          {/* Slug — скрыт по умолчанию */}
           <div>
-            <label className="text-xs font-semibold text-tg-text-secondary uppercase tracking-wide block mb-1.5">
-              Slug <span className="normal-case font-normal">(уникальный адрес пака)</span>
-            </label>
-            <input
-              value={slug}
-              onChange={e => { setSlug(e.target.value); setSlugTouched(true); }}
-              placeholder="my-stickers"
-              maxLength={64}
-              className="w-full bg-tg-input-bg border border-tg-border rounded-xl px-3.5 py-2 text-[15px] text-tg-text placeholder:text-tg-text-secondary outline-none focus:border-tg-primary transition-colors font-mono"
-            />
-            <p className="text-[11px] text-tg-text-secondary mt-1">
-              Только строчные буквы, цифры, _ и -
-            </p>
+            <button
+              type="button"
+              onClick={() => setSlugExpanded(v => !v)}
+              className="flex items-center gap-1 text-xs text-tg-text-secondary hover:text-tg-text transition-colors cursor-pointer select-none"
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${slugExpanded ? 'rotate-180' : ''}`} />
+              Дополнительно (slug)
+            </button>
+            {slugExpanded && (
+              <div className="mt-2">
+                <input
+                  value={slug}
+                  onChange={e => { setSlug(e.target.value); setSlugTouched(true); }}
+                  placeholder="my-stickers"
+                  maxLength={64}
+                  className="w-full bg-tg-input-bg border border-tg-border rounded-xl px-3.5 py-2 text-[15px] text-tg-text placeholder:text-tg-text-secondary outline-none focus:border-tg-primary transition-colors font-mono"
+                />
+                <p className="text-[11px] text-tg-text-secondary mt-1">
+                  Уникальный адрес пака — только строчные буквы, цифры, _ и -
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Drop zone */}

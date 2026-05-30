@@ -9,6 +9,7 @@ public record StickerPackResponse(
         UUID id,
         String slug,
         String title,
+        UUID creatorId,
         List<StickerResponse> stickers
 ) {
     public static StickerPackResponse from(StickerPack p) {
@@ -16,12 +17,16 @@ public record StickerPackResponse(
                 p.getId(),
                 p.getSlug(),
                 p.getTitle(),
+                p.getCreator() != null ? p.getCreator().getId() : null,
                 p.getStickers().stream().map(StickerResponse::from).toList()
         );
     }
 
     /** Без стикеров — для списка вкладок пользователя. */
     public static StickerPackResponse summary(StickerPack p) {
-        return new StickerPackResponse(p.getId(), p.getSlug(), p.getTitle(), List.of());
+        return new StickerPackResponse(
+                p.getId(), p.getSlug(), p.getTitle(),
+                p.getCreator() != null ? p.getCreator().getId() : null,
+                List.of());
     }
 }

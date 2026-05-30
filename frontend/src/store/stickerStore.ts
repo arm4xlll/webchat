@@ -15,6 +15,7 @@ interface StickerState {
   loadPackStickers: (slug: string) => Promise<StickerItem[]>;
   trackUsed: (sticker: StickerItem) => void;
   invalidate: () => void;
+  invalidatePackCache: (slug: string) => void;
 }
 
 export const useStickerStore = create<StickerState>()(
@@ -47,6 +48,12 @@ export const useStickerStore = create<StickerState>()(
       },
 
       invalidate: () => set({ packsLoaded: false }),
+
+      invalidatePackCache: (slug: string) =>
+        set(s => {
+          const { [slug]: _, ...rest } = s.loadedSlugs;
+          return { loadedSlugs: rest };
+        }),
     }),
     {
       name: 'sticker-store',

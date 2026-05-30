@@ -10,7 +10,8 @@ export interface StickerItem {
 export interface StickerPack {
   id: string;
   slug: string;
-  title: string; // бэкенд вернул поле title, не name
+  title: string;
+  creatorId?: string;
   stickers: StickerItem[];
 }
 

@@ -36,6 +36,7 @@ interface Props {
   onRead: () => void;
   onReact: (messageId: string, emoji: string) => void;
   onSaveMessage?: (msg: Message) => void;
+  onStickerClick?: (fileUrl: string, fileType: string) => void;
   searchQuery?: string;
   highlightedMsgId?: string | null;
   hasMore?: boolean;
@@ -158,7 +159,7 @@ export function Highlighted({ text, query }: { text: string; query: string }) {
 }
 
 export default function MessageList({
-  conversationId, onReply, onEdit, onDelete, onRead, onReact, onSaveMessage,
+  conversationId, onReply, onEdit, onDelete, onRead, onReact, onSaveMessage, onStickerClick,
   searchQuery = '', highlightedMsgId, hasMore, loadingMore, onLoadMore,
 }: Props) {
   const user = useAuthStore(s => s.user);
@@ -567,7 +568,11 @@ export default function MessageList({
                     </div>
                   ) : isSticker ? (
                     /* ── Sticker (no bubble) ── */
-                    <div className="relative inline-block group select-none">
+                    <div
+                      className="relative inline-block group select-none cursor-pointer"
+                      onClick={() => onStickerClick?.(msg.fileUrl!, msg.fileType ?? '')}
+                      title="Посмотреть стикерпак"
+                    >
                       {isStickerVideoType(msg.fileType ?? '') ? (
                         <video
                           src={msg.fileUrl}

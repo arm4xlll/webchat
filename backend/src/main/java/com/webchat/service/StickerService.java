@@ -192,6 +192,76 @@ public class StickerService {
         userRepository.save(user);
     }
 
+    // ── Use Case 5: Найти пак по fileUrl стикера ─────────────────────────────
+
+    /**
+     * Находит стикерпак со всеми стикерами по URL конкретного стикера.
+     * Используется когда пользователь кликает на стикер в чате — фронтенд
+     * знает только fileUrl, но не знает slug пака.
+     */
+    @Transactional(readOnly = true)
+    public StickerPack findPackBySticker(String fileUrl) {
+        Sticker sticker = stickerRepository.findByFileUrlWithPack(fileUrl)
+                .orElseThrow(() -> new IllegalArgumentException("Sticker not found for url: " + fileUrl));
+        // Загружаем полный пак со стикерами
+        return packRepository.findBySlugWithStickers(sticker.getPack().getSlug())
+                .orElseThrow(() -> new IllegalArgumentException("Sticker pack not found"));
+    }
+
+    // ── Use Case 6: Добавить стикеры в существующий пак ─────────────────────
+
+    /**
+     * Добавляет новые стикеры в уже существующий пак.
+     * Только создатель пака может добавлять стикеры.
+     *
+     * @param userId  UUID пользователя (должен быть создателем)
+     * @param slug    slug пака
+     * @param uploads список новых стикеров
+     * @return обновлённый пак со всеми стикерами
+     */
+    @Transactional
+    public StickerPack addStickersToExisting(UUID userId, String slug, List<StickerUpload> uploads) {
+        StickerPack pack = packRepository.findBySlugWithStickers(slug)
+                .orElseThrow(() -> new IllegalArgumentException("Sticker pack not found: " + slug));
+
+        if (!pack.getCreator().getId().equals(userId)) {
+            throw new IllegalArgumentException("Only the creator can add stickers to this pack");
+        }
+        if (uploads == null || uploads.isEmpty()) {
+            throw new IllegalArgumentException("Must provide at least one sticker");
+        }
+
+        // Валидируем MIME заранее
+        for (StickerUpload upload : uploads) {
+            detectType(upload.file());
+        }
+
+        List<String> savedUrls = new ArrayList<>();
+        try {
+            for (StickerUpload upload : uploads) {
+                savedUrls.add(storageService.save(upload.file()));
+            }
+        } catch (IOException e) {
+            savedUrls.forEach(storageService::delete);
+            throw new RuntimeException("Failed to save sticker files", e);
+        }
+
+        for (int i = 0; i < uploads.size(); i++) {
+            MultipartFile file = uploads.get(i).file();
+            Sticker sticker = Sticker.builder()
+                    .pack(pack)
+                    .fileUrl(savedUrls.get(i))
+                    .contentType(file.getContentType())
+                    .mediaType(detectType(file))
+                    .fileSize(file.getSize())
+                    .emojis(uploads.get(i).emojis() != null ? uploads.get(i).emojis() : "")
+                    .build();
+            pack.getStickers().add(sticker);
+        }
+
+        return packRepository.save(pack);
+    }
+
     // ── Use Case 4: Отправка стикера в чат ───────────────────────────────────
 
     /**

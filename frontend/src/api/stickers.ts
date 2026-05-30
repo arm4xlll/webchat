@@ -27,3 +27,21 @@ export const createStickerPack = (
     headers: { 'Content-Type': undefined },
   }).then(r => r.data);
 };
+
+// GET /api/stickers/packs/find?fileUrl=... — найти пак по fileUrl стикера (для клика в чате)
+export const findPackBySticker = (fileUrl: string): Promise<StickerPack> =>
+  api.get<StickerPack>('/stickers/packs/find', { params: { fileUrl } }).then(r => r.data);
+
+// POST /api/stickers/packs/{slug}/stickers (multipart) — добавить стикеры в существующий пак
+export const addStickersToExistingPack = (
+  slug: string,
+  stickers: { emojis: string }[],
+  files: File[]
+): Promise<StickerPack> => {
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({ stickers })], { type: 'application/json' }));
+  files.forEach(f => form.append('files', f));
+  return api.post<StickerPack>(`/stickers/packs/${slug}/stickers`, form, {
+    headers: { 'Content-Type': undefined },
+  }).then(r => r.data);
+};

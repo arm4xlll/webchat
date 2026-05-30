@@ -11,6 +11,7 @@ import UserProfileModal from '../profile/UserProfileModal';
 import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload, Bookmark } from 'lucide-react';
 import PinnedBanner from './PinnedBanner';
 import { removePin } from '../../api/pins';
+import StickerPackViewModal from './StickerPackViewModal';
 
 const PAGE_SIZE = 50;
 
@@ -66,6 +67,7 @@ export default function ChatWindow({
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [stickerView, setStickerView] = useState<{ fileUrl: string; fileType: string } | null>(null);
   const pins = useChatStore(s => s.pins[conversation.id]) ?? EMPTY_PINS;
 
   // ── Pagination ────────────────────────────────────────────────────────────
@@ -470,6 +472,7 @@ export default function ChatWindow({
         onRead={onRead}
         onReact={onReact}
         onSaveMessage={onSaveMessage}
+        onStickerClick={(fileUrl, fileType) => setStickerView({ fileUrl, fileType })}
       />
 
       <MessageInput
@@ -509,6 +512,13 @@ export default function ChatWindow({
 
       {!isSaved && other && (
         <UserProfileModal user={other} presence={otherPresence} isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+      )}
+
+      {stickerView && (
+        <StickerPackViewModal
+          fileUrl={stickerView.fileUrl}
+          onClose={() => setStickerView(null)}
+        />
       )}
     </div>
   );

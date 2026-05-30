@@ -22,7 +22,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     List<User> findAllByIsAdminTrue();
 
-    /** Загружает пользователя вместе с его списком стикерпаков (нужен для addPackToUserCollection). */
-    @Query("SELECT u FROM User u LEFT JOIN FETCH u.stickerPacks WHERE u.id = :id")
+    /** Загружает пользователя вместе с его стикерпаками и создателями паков. */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.stickerPacks sp LEFT JOIN FETCH sp.creator WHERE u.id = :id")
     Optional<User> findByIdWithStickerPacks(@Param("id") UUID id);
 }
