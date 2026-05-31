@@ -113,7 +113,7 @@ export default function ChatPage() {
   }, [savedConvId, sendMessage]);
 
   return (
-    <div className="flex flex-col h-screen w-full bg-tg-bg text-tg-text overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="flex flex-col h-screen w-full bg-tg-bg text-tg-text overflow-hidden safe-top" style={{ height: '100dvh' }}>
       <IncomingCallModal />
       {updateReady && (
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-500/15 text-sm shrink-0">
@@ -155,7 +155,7 @@ export default function ChatPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className={`${activeConversationId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-[350px] bg-tg-sidebar-bg border-r border-tg-border shrink-0 safe-top`}>
+        <div className={`${activeConversationId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-[350px] bg-tg-sidebar-bg border-r border-tg-border shrink-0`}>
           <div className="px-3 pt-3 pb-2.5 border-b border-tg-border flex items-center gap-1.5">
             <button
               onClick={() => setSettingsOpen(true)}

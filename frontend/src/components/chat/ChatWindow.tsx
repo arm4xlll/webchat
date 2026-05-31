@@ -289,7 +289,7 @@ export default function ChatWindow({
     >
       {/* Header */}
       <div
-        className="bg-tg-sidebar-bg border-b border-tg-border relative z-10 safe-top shrink-0 flex items-center gap-1 px-2 h-[60px]"
+        className="bg-tg-sidebar-bg border-b border-tg-border relative z-10 shrink-0 flex items-center gap-1 px-2 h-[60px]"
         style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
       >
         {/* Back — mobile only */}
