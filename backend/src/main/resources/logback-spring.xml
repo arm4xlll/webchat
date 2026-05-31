@@ -27,7 +27,9 @@
         </encoder>
     </appender>
 
-    <!-- Suppress broken pipe / client abort noise from Tomcat -->
+    <!-- Suppress broken pipe / client abort noise -->
+    <!-- dispatcherServlet logs IOException: Broken pipe when SSE client disconnects -->
+    <logger name="org.apache.catalina.core.ContainerBase" level="OFF"/>
     <logger name="org.apache.catalina.connector" level="OFF"/>
     <logger name="org.apache.coyote.http11.Http11Processor" level="WARN"/>
 
