@@ -11,9 +11,12 @@ public record SendMessageRequest(
         String fileName,
         String fileType,
         Long fileSize,
-        UUID replyToId
+        UUID replyToId,
+        /** Optimistic client-side id, echoed back so the sender can reconcile
+         *  its temporary message in place instead of duplicating it. */
+        String clientId
 ) {
     public SendMessageRequest withConversationId(UUID id) {
-        return new SendMessageRequest(id, content, fileUrl, fileName, fileType, fileSize, replyToId);
+        return new SendMessageRequest(id, content, fileUrl, fileName, fileType, fileSize, replyToId, clientId);
     }
 }

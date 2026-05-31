@@ -73,7 +73,7 @@ public class MessageService {
 
         conv.setLastMessageAt(message.getCreatedAt());
 
-        MessageResponse response = MessageResponse.from(message);
+        MessageResponse response = MessageResponse.from(message).withClientId(req.clientId());
         eventPublisher.publishToConversation(conv.getId(), "message.created", response);
         log.info("Message sent: convId={} senderId={} msgId={}", conv.getId(), senderId, message.getId());
 

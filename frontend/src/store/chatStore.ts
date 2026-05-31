@@ -26,7 +26,9 @@ interface ChatState {
   markHistoryLoaded: (convId: string) => void;
   addMessage: (msg: Message) => void;
   updateMessage: (msg: Message) => void;
-  confirmMessage: (convId: string, tempId: string, real: Message) => void;
+  /** Apply a server message, reconciling an optimistic temp in place when the
+   *  echoed clientId matches — so the bubble never gets removed and re-added. */
+  applyServerMessage: (msg: Message) => void;
   failMessage: (convId: string, tempId: string) => void;
   removeMessage: (convId: string, msgId: string) => void;
   setTyping: (convId: string, userId: string, username: string, typing: boolean) => void;
@@ -143,24 +145,23 @@ export const useChatStore = create<ChatState>((set) => ({
     };
   }),
 
-  confirmMessage: (convId, tempId, real) => set((state) => {
-    const prev = state.messages[convId] ?? [];
-    const idx = prev.findIndex(m => m.id === tempId);
-    // Temp already gone (conversation cleared, etc.) — just ensure real exists.
-    if (idx === -1) {
-      if (prev.some(m => m.id === real.id)) return state;
-      return { messages: { ...state.messages, [convId]: [...prev, real] } };
+  applyServerMessage: (msg) => set((state) => {
+    const prev = state.messages[msg.conversationId] ?? [];
+    // Already have the real message (other delivery path won the race) → no-op.
+    if (prev.some(m => m.id === msg.id)) return state;
+    // Echoed clientId matches our optimistic temp → reconcile in place. The
+    // React key (clientId) stays the same, so the bubble is reused: the status
+    // just flips pending → sent, no remove-and-recreate.
+    if (msg.clientId) {
+      const idx = prev.findIndex(m => (m.clientId ?? m.id) === msg.clientId);
+      if (idx !== -1) {
+        const merged = prev.slice();
+        merged[idx] = { ...msg, clientId: msg.clientId };
+        return { messages: { ...state.messages, [msg.conversationId]: merged } };
+      }
     }
-    // The real message already arrived via SSE: drop the temp to avoid a dup.
-    const dupIdx = prev.findIndex(m => m.id === real.id);
-    if (dupIdx !== -1 && dupIdx !== idx) {
-      return { messages: { ...state.messages, [convId]: prev.filter((_, i) => i !== idx) } };
-    }
-    // Replace in place, keeping the stable clientId so React reuses the node —
-    // only the status (pending → sent) changes, no remount, no re-animation.
-    const merged = prev.slice();
-    merged[idx] = { ...real, clientId: prev[idx].clientId ?? tempId };
-    return { messages: { ...state.messages, [convId]: merged } };
+    // Brand-new message.
+    return { messages: { ...state.messages, [msg.conversationId]: [...prev, msg] } };
   }),
 
   failMessage: (convId, tempId) => set((state) => {

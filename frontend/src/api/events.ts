@@ -5,12 +5,14 @@ export const sendMessage = (
   conversationId: string,
   content: string,
   attachment?: Attachment,
-  replyToId?: string
+  replyToId?: string,
+  clientId?: string,
 ): Promise<Message> =>
   api.post<Message>(`/conversations/${conversationId}/messages`, {
     content,
     ...(attachment ?? {}),
     replyToId,
+    clientId,
   }).then(r => r.data);
 
 export const sendTyping = (conversationId: string, typing: boolean): Promise<void> =>

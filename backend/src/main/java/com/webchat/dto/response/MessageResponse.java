@@ -25,11 +25,22 @@ public record MessageResponse(
         String replyToContent,
         String replyToSenderName,
         Instant readAt,
-        Map<String, List<UUID>> reactions
+        Map<String, List<UUID>> reactions,
+        /** Echo of the sender's optimistic client id; null for everyone else. */
+        String clientId
 ) {
     /** Used when reactions are not needed / not yet loaded */
     public static MessageResponse from(Message m) {
         return from(m, Map.of());
+    }
+
+    /** Attach the sender's optimistic client id to the outgoing event/response. */
+    public MessageResponse withClientId(String clientId) {
+        return new MessageResponse(
+                id, conversationId, senderId, senderUsername, senderName, content,
+                fileUrl, fileName, fileType, fileSize, createdAt, editedAt, deleted,
+                replyToId, replyToContent, replyToSenderName, readAt, reactions, clientId
+        );
     }
 
     public static MessageResponse from(Message m, Map<String, List<UUID>> reactions) {
@@ -62,7 +73,8 @@ public record MessageResponse(
                 replyToContent,
                 replyToSenderName,
                 m.getReadAt(),
-                reactions
+                reactions,
+                null
         );
     }
 }

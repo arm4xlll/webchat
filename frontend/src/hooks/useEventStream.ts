@@ -166,7 +166,8 @@ export function useEventStream() {
         case 'message.created': {
           const msg = data as Message;
           const existed = (store.messages[msg.conversationId] ?? []).some(m => m.id === msg.id);
-          store.addMessage(msg);
+          // Reconciles our own optimistic temp in place (by clientId) or appends.
+          store.applyServerMessage(msg);
           store.updateConversationLastMessage(msg.conversationId, msg.createdAt);
           const currentUserId = useAuthStore.getState().user?.id;
           if (!existed && msg.senderId !== currentUserId
@@ -342,10 +343,11 @@ export function useEventStream() {
     store.addMessage(tempMsg);
     store.updateConversationLastMessage(conversationId, tempMsg.createdAt);
 
-    eventsApi.sendMessage(conversationId, content, attachment, replyToId)
+    eventsApi.sendMessage(conversationId, content, attachment, replyToId, tempId)
       .then(msg => {
-        // Reconcile in place (keeps the same node, just flips pending → sent).
-        useChatStore.getState().confirmMessage(conversationId, tempId, msg);
+        // Reconcile in place by clientId (keeps the node, flips pending → sent).
+        // Idempotent with the SSE echo: whichever arrives first wins, the other no-ops.
+        useChatStore.getState().applyServerMessage(msg);
         useChatStore.getState().updateConversationLastMessage(conversationId, msg.createdAt);
       })
       .catch(e => {
