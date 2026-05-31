@@ -515,7 +515,6 @@ export default function MessageList({
           const nextMsg = messages[i + 1];
           const isFirst = !prevMsg || prevMsg.senderId !== msg.senderId;
           const isLast  = !nextMsg || nextMsg.senderId !== msg.senderId;
-          const showName = !isOwn && isFirst;
           const isSticker = !msg.deleted && isStickerMessage(msg.fileUrl, msg.fileName);
           const hasMedia = !msg.deleted && !isSticker && (isImage(msg.fileType) || isVideo(msg.fileType));
           const hasAudio = !msg.deleted && isAudio(msg.fileType);
@@ -582,9 +581,6 @@ export default function MessageList({
                 onTouchMove={handleTouchEnd}
               >
               <div className={`max-w-[75%] md:max-w-[65%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-                {showName && (
-                  <span className="text-[13px] font-medium text-tg-primary mb-0.5 px-1">{msg.senderName}</span>
-                )}
 
                 <div className={`transition-all duration-500 rounded-2xl ${isFlashing ? 'ring-2 ring-tg-primary ring-offset-2 ring-offset-transparent' : ''}`}>
                   {msg.deleted ? (
