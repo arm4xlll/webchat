@@ -2,18 +2,12 @@ import { useEffect } from 'react';
 import { X, AtSign, Info, Clock } from 'lucide-react';
 import type { User } from '../../types';
 import UserAvatar from '../common/UserAvatar';
+import { formatLastSeen } from '../../utils/time';
+import { useNow } from '../../hooks/useNow';
 
 interface PresenceInfo {
   online: boolean;
   lastSeenAt?: string;
-}
-
-function formatLastSeen(iso: string): string {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60) return 'только что';
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
-  return `${Math.floor(diff / 86400)} дн назад`;
 }
 
 interface Props {
@@ -24,6 +18,7 @@ interface Props {
 }
 
 export default function UserProfileModal({ user, presence, isOpen, onClose }: Props) {
+  const now = useNow(30_000);
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -73,7 +68,7 @@ export default function UserProfileModal({ user, presence, isOpen, onClose }: Pr
                 <Clock className="w-3.5 h-3.5 text-tg-text-secondary shrink-0" />
                 <span className="text-sm text-tg-text-secondary">
                   {presence?.lastSeenAt
-                    ? `был(а) ${formatLastSeen(presence.lastSeenAt)}`
+                    ? `был(а) ${formatLastSeen(presence.lastSeenAt, now)}`
                     : 'не в сети'}
                 </span>
               </>
