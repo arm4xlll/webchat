@@ -7,57 +7,52 @@ function ThemePreview({ theme }: { theme: AppTheme }) {
   const c = theme.colors;
   return (
     <div
-      className="rounded-lg overflow-hidden select-none"
-      style={{ background: c.bg, border: `1px solid ${c.border}` }}
+      className="w-full flex flex-col select-none"
+      style={{ background: c.bg }}
     >
       {/* Fake header */}
       <div
-        className="px-2 py-1.5 flex items-center gap-1.5"
-        style={{ background: c.sidebarBg, borderBottom: `1px solid ${c.border}` }}
+        className="px-2 py-2 flex items-center gap-2 border-b"
+        style={{ background: c.sidebarBg, borderColor: c.border }}
       >
-        <div className="w-4 h-4 rounded-full" style={{ background: c.primary, opacity: 0.9 }} />
-        <div className="h-1.5 rounded-full w-12" style={{ background: c.text, opacity: 0.7 }} />
-        <div className="ml-auto h-1.5 rounded-full w-6" style={{ background: c.textSecondary, opacity: 0.5 }} />
+        <div className="w-5 h-5 rounded-full shrink-0" style={{ background: c.primary }} />
+        <div className="flex-1 flex flex-col gap-1">
+          <div className="h-1.5 rounded-full w-12" style={{ background: c.text, opacity: 0.9 }} />
+          <div className="h-1 rounded-full w-8" style={{ background: c.textSecondary, opacity: 0.6 }} />
+        </div>
       </div>
+
       {/* Messages area */}
-      <div className="px-2 py-2 space-y-1.5">
+      <div className="px-2 py-3 flex flex-col gap-2">
         {/* Incoming */}
         <div className="flex justify-start">
           <div
-            className="rounded-xl rounded-tl-sm px-2 py-1"
-            style={{ background: c.msgIn, maxWidth: '70%' }}
+            className="rounded-2xl rounded-tl-sm px-2 py-1.5"
+            style={{ background: c.msgIn, maxWidth: '85%' }}
           >
-            <div className="h-1.5 rounded w-16" style={{ background: c.text, opacity: 0.8 }} />
-            <div className="h-1 rounded w-10 mt-1" style={{ background: c.text, opacity: 0.45 }} />
+            <div className="h-1.5 rounded-full w-16 mb-1.5" style={{ background: c.text, opacity: 0.8 }} />
+            <div className="h-1 rounded-full w-10" style={{ background: c.text, opacity: 0.5 }} />
           </div>
         </div>
         {/* Outgoing */}
         <div className="flex justify-end">
           <div
-            className="rounded-xl rounded-tr-sm px-2 py-1"
-            style={{ background: c.msgOut, maxWidth: '70%' }}
+            className="rounded-2xl rounded-tr-sm px-2 py-1.5"
+            style={{ background: c.msgOut, maxWidth: '85%' }}
           >
-            <div className="h-1.5 rounded w-20" style={{ background: c.text, opacity: 0.85 }} />
-            <div className="h-1 rounded w-8 mt-1 ml-auto" style={{ background: c.text, opacity: 0.5 }} />
-          </div>
-        </div>
-        {/* Incoming 2 */}
-        <div className="flex justify-start">
-          <div
-            className="rounded-xl rounded-tl-sm px-2 py-1"
-            style={{ background: c.msgIn, maxWidth: '70%' }}
-          >
-            <div className="h-1.5 rounded w-12" style={{ background: c.text, opacity: 0.8 }} />
+            <div className="h-1.5 rounded-full w-14 mb-1.5" style={{ background: c.text, opacity: 0.9 }} />
+            <div className="h-1 rounded-full w-6 ml-auto" style={{ background: c.text, opacity: 0.6 }} />
           </div>
         </div>
       </div>
+
       {/* Fake input */}
       <div
-        className="px-2 py-1.5 flex items-center gap-1.5"
-        style={{ background: c.sidebarBg, borderTop: `1px solid ${c.border}` }}
+        className="px-2 py-2 flex items-center gap-1.5 border-t"
+        style={{ background: c.sidebarBg, borderColor: c.border }}
       >
-        <div className="flex-1 h-4 rounded-full" style={{ background: c.inputBg, border: `1px solid ${c.border}` }} />
-        <div className="w-4 h-4 rounded-full" style={{ background: c.primary, opacity: 0.8 }} />
+        <div className="flex-1 h-5 rounded-full border" style={{ background: c.inputBg, borderColor: c.border }} />
+        <div className="w-5 h-5 rounded-full shrink-0" style={{ background: c.primary }} />
       </div>
     </div>
   );
@@ -90,28 +85,26 @@ export default function ThemeTab() {
               <button
                 key={theme.id}
                 onClick={() => setTheme(theme.id)}
-                className="group relative rounded-xl overflow-hidden transition-all duration-200 cursor-pointer"
+                className="group relative rounded-xl overflow-hidden transition-all duration-200 cursor-pointer text-left border flex flex-col"
                 style={{
-                  outline: isActive
-                    ? `2px solid ${theme.colors.primary}`
-                    : '2px solid transparent',
-                  outlineOffset: '2px',
+                  borderColor: isActive ? theme.colors.primary : 'var(--color-tg-border)',
+                  boxShadow: isActive ? `0 0 0 1px ${theme.colors.primary}` : 'none',
                 }}
               >
                 <ThemePreview theme={theme} />
                 <div
-                  className="flex items-center justify-between px-2 py-1.5 rounded-b-xl"
-                  style={{ background: theme.colors.sidebarBg }}
+                  className="flex items-center justify-between w-full px-2.5 py-2 border-t"
+                  style={{ background: theme.colors.sidebarBg, borderColor: theme.colors.border }}
                 >
                   <span
-                    className="text-xs font-medium"
+                    className="text-xs font-semibold"
                     style={{ color: theme.colors.text }}
                   >
                     {theme.name}
                   </span>
                   {isActive && (
                     <Check
-                      className="w-3.5 h-3.5"
+                      className="w-3.5 h-3.5 shrink-0 ml-2"
                       style={{ color: theme.colors.primary }}
                     />
                   )}
@@ -119,7 +112,7 @@ export default function ThemeTab() {
                 {/* Hover overlay */}
                 <div
                   className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                  style={{ background: `${theme.colors.primary}10` }}
+                  style={{ background: `${theme.colors.primary}08` }}
                 />
               </button>
             );
