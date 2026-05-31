@@ -130,11 +130,12 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
         </div>
       )}
       {hasCaption && (
-        <div className="px-3.5 pt-1.5 pb-2 flex flex-wrap items-end gap-2">
-          <span className="chat-text leading-relaxed break-words whitespace-pre-wrap" style={isOwn ? ownText : undefined}>
+        <div className="px-3.5 pt-1.5 pb-2 relative">
+          <span className="chat-text leading-relaxed break-words whitespace-pre-wrap inline" style={isOwn ? ownText : undefined}>
             {msg.content}
           </span>
-          <span className={`ml-auto flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+          <span className="inline-block w-14"></span>
+          <span className={`absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
             {timeNode}
           </span>
         </div>
@@ -493,13 +494,13 @@ export default function MessageList({
             new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
 
           const bubbleShape = isOwn
-            ? isFirst && isLast ? 'rounded-l-2xl rounded-tr-2xl rounded-br-[5px]'
+            ? isFirst && isLast ? 'rounded-2xl msg-tail-out'
             : isFirst           ? 'rounded-l-2xl rounded-tr-2xl rounded-br-[5px]'
-            : isLast            ? 'rounded-l-2xl rounded-tr-[5px] rounded-br-2xl'
+            : isLast            ? 'rounded-l-2xl rounded-tr-[5px] rounded-b-2xl msg-tail-out'
             :                     'rounded-l-2xl rounded-r-[5px]'
-            : isFirst && isLast ? 'rounded-r-2xl rounded-tl-2xl rounded-bl-[5px]'
+            : isFirst && isLast ? 'rounded-2xl msg-tail-in'
             : isFirst           ? 'rounded-r-2xl rounded-tl-2xl rounded-bl-[5px]'
-            : isLast            ? 'rounded-r-2xl rounded-tl-[5px] rounded-bl-2xl'
+            : isLast            ? 'rounded-r-2xl rounded-tl-[5px] rounded-b-2xl msg-tail-in'
             :                     'rounded-r-2xl rounded-l-[5px]';
 
           const timeNode = (
@@ -631,7 +632,7 @@ export default function MessageList({
                     />
                   ) : (
                     <div
-                      className={`relative px-3.5 py-1.5 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in text-tg-text'}`}
+                      className={`relative px-3.5 pt-1.5 pb-2 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in text-tg-text'}`}
                       style={isOwn ? ownText : undefined}
                     >
                       {msg.replyToId && (
@@ -642,14 +643,17 @@ export default function MessageList({
                           </div>
                         </div>
                       )}
-                      <div className="flex flex-col select-text">
-                        <span className="whitespace-pre-wrap max-w-full break-words">
+                      <div className="select-text">
+                        <span className="whitespace-pre-wrap max-w-full break-words inline">
                           <Highlighted text={msg.content} query={searchQuery} />
                         </span>
                         {firstUrl && (
-                          <LinkPreviewCard url={firstUrl} isOwn={isOwn} />
+                          <div className="mt-1 block">
+                            <LinkPreviewCard url={firstUrl} isOwn={isOwn} />
+                          </div>
                         )}
-                        <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+                        <span className="inline-block w-14"></span>
+                        <span className={`absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
                           {timeNode}
                         </span>
                       </div>

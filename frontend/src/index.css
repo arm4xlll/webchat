@@ -121,6 +121,34 @@
   .safe-top {
     padding-top: env(safe-area-inset-top, 0px);
   }
+
+  .msg-tail-out {
+    position: relative;
+    border-bottom-right-radius: 0 !important;
+  }
+  .msg-tail-out::before {
+    content: "";
+    position: absolute;
+    right: -9px;
+    bottom: 0;
+    width: 9px;
+    height: 20px;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 9 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,20 L9,20 C4.5,20 2,13 0,0 L0,20' fill='%232b5278'/%3E%3C/svg%3E");
+  }
+
+  .msg-tail-in {
+    position: relative;
+    border-bottom-left-radius: 0 !important;
+  }
+  .msg-tail-in::before {
+    content: "";
+    position: absolute;
+    left: -9px;
+    bottom: 0;
+    width: 9px;
+    height: 20px;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 9 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M9,20 L0,20 C4.5,20 7,13 9,0 L9,20' fill='%23182533'/%3E%3C/svg%3E");
+  }
 }
 
 @keyframes slideIn {
