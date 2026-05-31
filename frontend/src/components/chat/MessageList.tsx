@@ -174,13 +174,17 @@ export default function MessageList({
   const pins = useChatStore(s => s.pins[conversationId]) ?? EMPTY_PINS;
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const scrollHeightBeforeRef = useRef(0);
   const scrollTopBeforeRef = useRef(0);
   const prevFirstIdRef = useRef<string | null>(null);
-  const initialScrollDoneRef = useRef(false);
+  // Which conversation we last positioned; a mismatch means we just entered a chat.
+  const prevConvIdRef = useRef<string | null>(null);
+  // While Date.now() < this, keep snapping to the bottom (covers late image/media layout).
+  const stickUntilRef = useRef(0);
 
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
@@ -232,54 +236,73 @@ export default function MessageList({
     setShowScrollDown(false);
   }, []);
 
-  // Smart scroll + read receipt on new messages
-  useEffect(() => {
+  // Smart scroll + read receipt. useLayoutEffect so the jump happens before the
+  // browser paints — you never see the chat flash at the top first.
+  useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
-    const firstId = keyOf(messages[0]);
-    const lastId  = keyOf(messages[messages.length - 1]);
-    const isPrepend = prevFirstIdRef.current !== null && firstId !== prevFirstIdRef.current;
-    // A genuinely new message appended: last id changed and it's not a prepend (load more)
-    const isNewTail = !isPrepend && lastId !== lastMsgIdRef.current;
 
-    if (isNewTail && lastMsgIdRef.current !== null) {
-      if (!isAtBottomRef.current) {
+    const firstKey = keyOf(messages[0]);
+    const lastKey  = keyOf(messages[messages.length - 1]);
+
+    // Entered (or returned to) this chat: land on the first unread, else bottom.
+    if (prevConvIdRef.current !== conversationId) {
+      prevConvIdRef.current  = conversationId;
+      prevFirstIdRef.current = firstKey;
+      lastMsgIdRef.current   = lastKey;
+      const firstUnreadEl = container.querySelector('[data-new-messages-sentinel="true"]');
+      if (firstUnreadEl) {
+        firstUnreadEl.scrollIntoView({ block: 'start' });
+        isAtBottomRef.current = false;
+        setShowScrollDown(true);
+      } else {
+        container.scrollTop = container.scrollHeight;
+        isAtBottomRef.current = true;
+        setShowScrollDown(false);
+        // Keep snapping to bottom briefly so late-loading images don't strand us.
+        stickUntilRef.current = Date.now() + 1500;
+      }
+      setNewMessagesCount(0);
+      scheduleRead();
+      return;
+    }
+
+    const isPrepend = prevFirstIdRef.current !== null && firstKey !== prevFirstIdRef.current;
+    const isNewTail = !isPrepend && lastKey !== lastMsgIdRef.current;
+
+    if (isPrepend) {
+      // Preserve the user's visual position: newTop = oldTop + (newHeight - oldHeight)
+      container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
+    } else if (isNewTail) {
+      if (isAtBottomRef.current) {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        scheduleRead();
+      } else {
         setNewMessagesCount(c => c + 1);
       }
     }
 
-    if (isPrepend) {
-      // Correct formula: preserve user's visual position relative to their anchor
-      // new scrollTop = old scrollTop + (new scrollHeight - old scrollHeight)
-      container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
-    } else if (!initialScrollDoneRef.current) {
-      // Find the first unread message element
-      const firstUnreadEl = container.querySelector('[data-new-messages-sentinel="true"]');
-      if (firstUnreadEl) {
-        firstUnreadEl.scrollIntoView({ block: 'start' });
-      } else {
+    prevFirstIdRef.current = firstKey;
+    lastMsgIdRef.current   = lastKey;
+  }, [messages, conversationId, scheduleRead]);
+
+  // Keep pinned to the bottom while content height changes shortly after entering
+  // a chat (images/video/voice waveforms finishing layout).
+  useEffect(() => {
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+    const ro = new ResizeObserver(() => {
+      if (isAtBottomRef.current && Date.now() < stickUntilRef.current) {
         container.scrollTop = container.scrollHeight;
       }
-      initialScrollDoneRef.current = true;
-      // Initial render: IntersectionObserver fires too, but scheduleRead dedupes via debounce
-      scheduleRead();
-    } else if (isAtBottomRef.current && isNewTail) {
-      // New message arrived while user is at the bottom: IntersectionObserver won't fire
-      // because bottomRef was already intersecting — debounce to coalesce rapid bursts.
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-      scheduleRead();
-    }
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [conversationId]);
 
-    prevFirstIdRef.current = firstId;
-    lastMsgIdRef.current   = lastId;
-  }, [messages, scheduleRead]);
-
-  // Reset on conversation switch
-  useEffect(() => {
-    initialScrollDoneRef.current = false;
-    prevFirstIdRef.current = null;
-    lastMsgIdRef.current   = null;
-    isAtBottomRef.current  = true;
+  // Clear any pending read receipt when leaving a conversation.
+  useEffect(() => () => {
     if (readTimerRef.current) clearTimeout(readTimerRef.current);
   }, [conversationId]);
 
@@ -457,13 +480,14 @@ export default function MessageList({
   }, [user?.id, onReply, onEdit, onDelete, onSaveMessage, conversationId, pins]);
 
   return (
-    <>
+    <div className="relative flex-1 flex flex-col min-h-0">
       <div
         ref={containerRef}
         className="flex-1 overflow-y-auto px-4 md:px-8 py-4 flex flex-col bg-transparent"
         style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
         onScroll={handleScroll}
       >
+        <div ref={contentRef} className="flex flex-col min-h-full">
         <div ref={topSentinelRef} className="shrink-0 h-px" />
 
         {loadingMore && (
@@ -694,6 +718,7 @@ export default function MessageList({
         );
       })}
         <div ref={bottomRef} />
+        </div>
       </div>
 
       {contextMenu && (
@@ -731,6 +756,6 @@ export default function MessageList({
           )}
         </button>
       )}
-    </>
+    </div>
   );
 }
