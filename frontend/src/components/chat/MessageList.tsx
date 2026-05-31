@@ -134,7 +134,7 @@ function MediaBubble({ msg, isOwn, bubbleShape, timeNode, onImageClick, replyNod
           <span className="chat-text leading-relaxed break-words whitespace-pre-wrap inline" style={isOwn ? ownText : undefined}>
             {msg.content}
           </span>
-          <span className="inline-block w-14"></span>
+          <span className={`inline-block ${isOwn ? 'w-14' : 'w-10'}`}></span>
           <span className={`absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
             {timeNode}
           </span>
@@ -652,7 +652,7 @@ export default function MessageList({
                             <LinkPreviewCard url={firstUrl} isOwn={isOwn} />
                           </div>
                         )}
-                        <span className="inline-block w-14"></span>
+                        <span className={`inline-block ${isOwn ? 'w-14' : 'w-10'}`}></span>
                         <span className={`absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
                           {timeNode}
                         </span>
