@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
+import Lenis from 'lenis';
+import 'lenis/dist/lenis.css';
 import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File as FileIcon, Bookmark, Copy, Pin, PinOff, ChevronDown } from 'lucide-react';
 import { isStickerMessage, isStickerVideoType } from '../../types/sticker';
 import { useChatStore } from '../../store/chatStore';
@@ -183,6 +185,30 @@ export default function MessageList({
   const prevFirstIdRef = useRef<string | null>(null);
   // Which conversation we last positioned; a mismatch means we just entered a chat.
   const prevConvIdRef = useRef<string | null>(null);
+  const lenisRef = useRef<Lenis | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || !contentRef.current) return;
+    const lenis = new Lenis({
+      wrapper: containerRef.current,
+      content: contentRef.current,
+      lerp: 0.12,
+      wheelMultiplier: 0.9,
+    });
+    lenisRef.current = lenis;
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    const rafId = requestAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, [conversationId]);
 
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
@@ -254,9 +280,13 @@ export default function MessageList({
       const toBottom = () => {
         const c = containerRef.current;
         if (c) {
-          c.style.scrollBehavior = 'auto';
-          c.scrollTop = c.scrollHeight;
-          c.style.scrollBehavior = '';
+          if (lenisRef.current) {
+            lenisRef.current.scrollTo(c.scrollHeight, { immediate: true });
+          } else {
+            c.style.scrollBehavior = 'auto';
+            c.scrollTop = c.scrollHeight;
+            c.style.scrollBehavior = '';
+          }
         }
       };
       toBottom();
@@ -273,9 +303,14 @@ export default function MessageList({
 
     if (isPrepend) {
       // Preserve the user's visual position: newTop = oldTop + (newHeight - oldHeight)
-      container.style.scrollBehavior = 'auto';
-      container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
-      container.style.scrollBehavior = '';
+      const targetScroll = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
+      if (lenisRef.current) {
+        lenisRef.current.scrollTo(targetScroll, { immediate: true });
+      } else {
+        container.style.scrollBehavior = 'auto';
+        container.scrollTop = targetScroll;
+        container.style.scrollBehavior = '';
+      }
     } else if (isNewTail) {
       // Our own message, or we're already at the bottom → follow it down.
       const isOwnTail = messages[messages.length - 1].senderId === user?.id;
@@ -305,9 +340,13 @@ export default function MessageList({
       // content grows (async images/previews/media). This is what guarantees we
       // end up fully at the bottom, not "almost".
       if (isAtBottomRef.current) {
-        container.style.scrollBehavior = 'auto';
-        container.scrollTop = container.scrollHeight;
-        container.style.scrollBehavior = '';
+        if (lenisRef.current) {
+          lenisRef.current.scrollTo(container.scrollHeight, { immediate: true });
+        } else {
+          container.style.scrollBehavior = 'auto';
+          container.scrollTop = container.scrollHeight;
+          container.style.scrollBehavior = '';
+        }
       }
     });
     ro.observe(content);
