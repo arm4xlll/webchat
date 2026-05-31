@@ -22,10 +22,12 @@ import IncomingCallModal from '../components/call/IncomingCallModal';
 import { LogOut, MessageSquare, WifiOff, Loader2, Bell, Settings, RefreshCw } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useVersionCheck } from '../hooks/useVersionCheck';
+import { useFocusReporting } from '../hooks/useFocusReporting';
 
 export default function ChatPage() {
   const { showBanner, requestPermission } = usePushNotifications();
   const { updateReady, countdown, reloadNow } = useVersionCheck();
+  useFocusReporting(activeConversationId ?? null);
   const user = useAuthStore(s => s.user);
   const updateUser = useAuthStore(s => s.updateUser);
   const doLogout = useAuthStore(s => s.logout);

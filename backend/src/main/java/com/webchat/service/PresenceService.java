@@ -25,9 +25,11 @@ public class PresenceService {
     private final EventPublisher eventPublisher;
     private final ConversationMemberRepository memberRepository;
 
-    private static final Duration TYPING_TTL = Duration.ofSeconds(5);
-    private static final String ONLINE_KEY  = "presence:online:";
-    private static final String LASTSEEN_KEY = "presence:lastseen:";
+    private static final Duration TYPING_TTL  = Duration.ofSeconds(5);
+    private static final Duration FOCUS_TTL   = Duration.ofSeconds(35);
+    private static final String ONLINE_KEY    = "presence:online:";
+    private static final String LASTSEEN_KEY  = "presence:lastseen:";
+    private static final String FOCUS_KEY     = "presence:focus:";
 
     public void handleTyping(UUID conversationId, UUID userId, String username, boolean typing) {
         String key = "typing:" + conversationId + ":" + userId;
@@ -107,6 +109,27 @@ public class PresenceService {
 
         eventPublisher.publishToUser(requesterId, "presence.snapshot", snapshot);
         log.debug("[Presence] Sent snapshot ({} contacts) to user={}", snapshot.size(), requesterId);
+    }
+
+    public void setFocus(UUID userId, UUID conversationId) {
+        try {
+            if (conversationId != null) {
+                redisTemplate.opsForValue().set(FOCUS_KEY + userId, conversationId.toString(), FOCUS_TTL);
+            } else {
+                redisTemplate.delete(FOCUS_KEY + userId);
+            }
+        } catch (RedisConnectionFailureException e) {
+            log.warn("Redis unavailable, focus not updated for user={}", userId);
+        }
+    }
+
+    public boolean isFocusedOn(UUID userId, UUID conversationId) {
+        try {
+            String val = redisTemplate.opsForValue().get(FOCUS_KEY + userId);
+            return conversationId.toString().equals(val);
+        } catch (RedisConnectionFailureException e) {
+            return false;
+        }
     }
 
     private void broadcastPresence(UUID userId, boolean online, Instant lastSeenAt) {

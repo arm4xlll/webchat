@@ -79,7 +79,7 @@ public class MessageService {
 
         for (var member : conv.getMembers()) {
             UUID recipientId = member.getUser().getId();
-            if (!recipientId.equals(senderId) && !presenceService.isOnline(recipientId)) {
+            if (!recipientId.equals(senderId) && !presenceService.isFocusedOn(recipientId, conv.getId())) {
                 pushNotificationService.sendPushToUser(
                         recipientId,
                         sender.getName(),

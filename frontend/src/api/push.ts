@@ -13,3 +13,6 @@ export const subscribeToPush = async (subscription: PushSubscription) => {
     auth: subJson.keys?.auth
   });
 };
+
+export const reportFocus = (conversationId: string | null) =>
+  api.post('/presence/focus', { conversationId: conversationId ?? '' }).catch(() => {});
