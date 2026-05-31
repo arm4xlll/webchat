@@ -30,6 +30,7 @@ public class MessageService {
     private final ReactionService reactionService;
     private final EventPublisher eventPublisher;
     private final PushNotificationService pushNotificationService;
+    private final PresenceService presenceService;
 
     @Transactional
     public MessageResponse sendMessage(UUID senderId, SendMessageRequest req) {
@@ -77,9 +78,10 @@ public class MessageService {
         log.info("Message sent: convId={} senderId={} msgId={}", conv.getId(), senderId, message.getId());
 
         for (var member : conv.getMembers()) {
-            if (!member.getUser().getId().equals(senderId)) {
+            UUID recipientId = member.getUser().getId();
+            if (!recipientId.equals(senderId) && !presenceService.isOnline(recipientId)) {
                 pushNotificationService.sendPushToUser(
-                        member.getUser().getId(),
+                        recipientId,
                         sender.getName(),
                         content.isBlank() ? "Вложение" : content,
                         Map.of("conversationId", conv.getId().toString())
