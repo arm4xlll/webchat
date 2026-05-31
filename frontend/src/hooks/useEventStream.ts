@@ -322,6 +322,7 @@ export function useEventStream() {
 
     const tempMsg: Message = {
       id: tempId,
+      clientId: tempId,
       conversationId,
       senderId: user.id,
       senderUsername: user.username,
@@ -343,12 +344,14 @@ export function useEventStream() {
 
     eventsApi.sendMessage(conversationId, content, attachment, replyToId)
       .then(msg => {
-        useChatStore.getState().removeMessage(conversationId, tempId);
-        useChatStore.getState().addMessage(msg);
+        // Reconcile in place (keeps the same node, just flips pending → sent).
+        useChatStore.getState().confirmMessage(conversationId, tempId, msg);
+        useChatStore.getState().updateConversationLastMessage(conversationId, msg.createdAt);
       })
       .catch(e => {
         console.error('[Send] failed', e);
-        useChatStore.getState().removeMessage(conversationId, tempId);
+        // Keep the bubble but mark it failed instead of yanking it out of view.
+        useChatStore.getState().failMessage(conversationId, tempId);
       });
   }, []);
 

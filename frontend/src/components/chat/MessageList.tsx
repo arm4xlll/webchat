@@ -47,6 +47,12 @@ interface Props {
 const EMPTY_MESSAGES: never[] = [];
 const EMPTY_PINS: never[] = [];
 
+/** Stable identity that survives the optimistic pending→sent swap, so React
+ *  keeps the same DOM node (no remount → no flicker / re-animation). */
+function keyOf(msg: Message): string {
+  return msg.clientId ?? msg.id;
+}
+
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 }
@@ -230,8 +236,8 @@ export default function MessageList({
   useEffect(() => {
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
-    const firstId = messages[0].id;
-    const lastId  = messages[messages.length - 1].id;
+    const firstId = keyOf(messages[0]);
+    const lastId  = keyOf(messages[messages.length - 1]);
     const isPrepend = prevFirstIdRef.current !== null && firstId !== prevFirstIdRef.current;
     // A genuinely new message appended: last id changed and it's not a prepend (load more)
     const isNewTail = !isPrepend && lastId !== lastMsgIdRef.current;
@@ -514,12 +520,12 @@ export default function MessageList({
               >
                 {formatTime(msg.createdAt)}
               </span>
-              {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} />}
+              {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} failed={msg.failed} />}
             </>
           );
 
           return (
-            <div key={msg.id} className="contents">
+            <div key={keyOf(msg)} className="contents">
               {showDateDivider && (
                 <div className="flex justify-center my-3 select-none shrink-0">
                   <div className="bg-tg-input-bg/70 backdrop-blur-[2px] text-tg-text-secondary text-[12px] font-medium px-3 py-1 rounded-full border border-tg-border/30">
@@ -564,7 +570,7 @@ export default function MessageList({
                       <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
                       <div className="px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1" style={isOwn ? ownTextMuted : undefined}>
                         <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
-                        {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} />}
+                        {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} failed={msg.failed} />}
                       </div>
                     </div>
                   ) : isSticker ? (

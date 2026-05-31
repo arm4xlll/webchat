@@ -26,6 +26,8 @@ interface ChatState {
   markHistoryLoaded: (convId: string) => void;
   addMessage: (msg: Message) => void;
   updateMessage: (msg: Message) => void;
+  confirmMessage: (convId: string, tempId: string, real: Message) => void;
+  failMessage: (convId: string, tempId: string) => void;
   removeMessage: (convId: string, msgId: string) => void;
   setTyping: (convId: string, userId: string, username: string, typing: boolean) => void;
   clearAllTyping: () => void;
@@ -134,7 +136,39 @@ export const useChatStore = create<ChatState>((set) => ({
     return {
       messages: {
         ...state.messages,
-        [msg.conversationId]: prev.map(m => m.id === msg.id ? msg : m),
+        // Preserve the stable clientId so an edit/reaction/read update on a
+        // just-sent message doesn't change its React key and remount it.
+        [msg.conversationId]: prev.map(m => m.id === msg.id ? { ...msg, clientId: m.clientId ?? msg.clientId } : m),
+      },
+    };
+  }),
+
+  confirmMessage: (convId, tempId, real) => set((state) => {
+    const prev = state.messages[convId] ?? [];
+    const idx = prev.findIndex(m => m.id === tempId);
+    // Temp already gone (conversation cleared, etc.) — just ensure real exists.
+    if (idx === -1) {
+      if (prev.some(m => m.id === real.id)) return state;
+      return { messages: { ...state.messages, [convId]: [...prev, real] } };
+    }
+    // The real message already arrived via SSE: drop the temp to avoid a dup.
+    const dupIdx = prev.findIndex(m => m.id === real.id);
+    if (dupIdx !== -1 && dupIdx !== idx) {
+      return { messages: { ...state.messages, [convId]: prev.filter((_, i) => i !== idx) } };
+    }
+    // Replace in place, keeping the stable clientId so React reuses the node —
+    // only the status (pending → sent) changes, no remount, no re-animation.
+    const merged = prev.slice();
+    merged[idx] = { ...real, clientId: prev[idx].clientId ?? tempId };
+    return { messages: { ...state.messages, [convId]: merged } };
+  }),
+
+  failMessage: (convId, tempId) => set((state) => {
+    const prev = state.messages[convId] ?? [];
+    return {
+      messages: {
+        ...state.messages,
+        [convId]: prev.map(m => m.id === tempId ? { ...m, pending: false, failed: true } : m),
       },
     };
   }),

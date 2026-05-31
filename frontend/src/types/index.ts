@@ -73,6 +73,11 @@ export interface Message {
   reactions?: Record<string, string[]>;
   /** true while the message is being sent (optimistic, client-only) */
   pending?: boolean;
+  /** true if the send failed (client-only) */
+  failed?: boolean;
+  /** stable client-side key kept across the pending→sent swap so React reuses
+   *  the same DOM node and the bubble doesn't flicker/re-animate (client-only) */
+  clientId?: string;
 }
 
 export interface Attachment {
