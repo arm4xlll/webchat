@@ -70,6 +70,10 @@
 }
 
 @layer base {
+  * {
+    scroll-behavior: smooth;
+  }
+
   body {
     font-family: 'Roboto', system-ui, -apple-system, sans-serif;
     background-color: var(--color-tg-bg);

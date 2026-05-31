@@ -253,7 +253,11 @@ export default function MessageList({
       setShowScrollDown(false);
       const toBottom = () => {
         const c = containerRef.current;
-        if (c) c.scrollTop = c.scrollHeight;
+        if (c) {
+          c.style.scrollBehavior = 'auto';
+          c.scrollTop = c.scrollHeight;
+          c.style.scrollBehavior = '';
+        }
       };
       toBottom();
       // Re-assert after the browser finishes the first layout pass. Anything
@@ -269,7 +273,9 @@ export default function MessageList({
 
     if (isPrepend) {
       // Preserve the user's visual position: newTop = oldTop + (newHeight - oldHeight)
+      container.style.scrollBehavior = 'auto';
       container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
+      container.style.scrollBehavior = '';
     } else if (isNewTail) {
       // Our own message, or we're already at the bottom → follow it down.
       const isOwnTail = messages[messages.length - 1].senderId === user?.id;
@@ -299,7 +305,9 @@ export default function MessageList({
       // content grows (async images/previews/media). This is what guarantees we
       // end up fully at the bottom, not "almost".
       if (isAtBottomRef.current) {
+        container.style.scrollBehavior = 'auto';
         container.scrollTop = container.scrollHeight;
+        container.style.scrollBehavior = '';
       }
     });
     ro.observe(content);
