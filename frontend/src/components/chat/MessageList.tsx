@@ -245,24 +245,23 @@ export default function MessageList({
     const firstKey = keyOf(messages[0]);
     const lastKey  = keyOf(messages[messages.length - 1]);
 
-    // Entered (or returned to) this chat: land on the first unread, else bottom.
+    // Entered (or returned to) this chat: always land at the very bottom.
     if (prevConvIdRef.current !== conversationId) {
       prevConvIdRef.current  = conversationId;
       prevFirstIdRef.current = firstKey;
       lastMsgIdRef.current   = lastKey;
-      const firstUnreadEl = container.querySelector('[data-new-messages-sentinel="true"]');
-      if (firstUnreadEl) {
-        firstUnreadEl.scrollIntoView({ block: 'start' });
-        isAtBottomRef.current = false;
-        setShowScrollDown(true);
-      } else {
-        container.scrollTop = container.scrollHeight;
-        isAtBottomRef.current = true;
-        setShowScrollDown(false);
-        // Keep snapping to bottom briefly so late-loading images don't strand us.
-        stickUntilRef.current = Date.now() + 1500;
-      }
+      isAtBottomRef.current  = true;
       setNewMessagesCount(0);
+      setShowScrollDown(false);
+      const toBottom = () => {
+        const c = containerRef.current;
+        if (c) c.scrollTop = c.scrollHeight;
+      };
+      toBottom();
+      // Re-assert after the browser finishes layout (fonts/flex sizing), and
+      // keep snapping briefly so late-loading images/media don't strand us.
+      requestAnimationFrame(toBottom);
+      stickUntilRef.current = Date.now() + 1500;
       scheduleRead();
       return;
     }
