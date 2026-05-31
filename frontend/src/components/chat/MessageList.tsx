@@ -274,7 +274,12 @@ export default function MessageList({
       // Preserve the user's visual position: newTop = oldTop + (newHeight - oldHeight)
       container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
     } else if (isNewTail) {
-      if (isAtBottomRef.current) {
+      // Our own message, or we're already at the bottom → follow it down.
+      const isOwnTail = messages[messages.length - 1].senderId === user?.id;
+      if (isOwnTail || isAtBottomRef.current) {
+        isAtBottomRef.current = true;
+        setNewMessagesCount(0);
+        setShowScrollDown(false);
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
         scheduleRead();
       } else {
@@ -284,7 +289,7 @@ export default function MessageList({
 
     prevFirstIdRef.current = firstKey;
     lastMsgIdRef.current   = lastKey;
-  }, [messages, conversationId, scheduleRead]);
+  }, [messages, conversationId, scheduleRead, user?.id]);
 
   // Keep pinned to the bottom while content height changes shortly after entering
   // a chat (images/video/voice waveforms finishing layout).
