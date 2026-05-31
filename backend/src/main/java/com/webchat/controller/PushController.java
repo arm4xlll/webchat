@@ -63,7 +63,7 @@ public class PushController {
                 .auth(request.auth())
                 .build());
 
-        log.debug("Push subscription saved for user={}", userPrincipal.getUserId());
+        log.info("Push subscription saved for user={} endpoint={}", userPrincipal.getUserId(), request.endpoint());
         return ResponseEntity.ok(Map.of("status", "subscribed"));
     }
 

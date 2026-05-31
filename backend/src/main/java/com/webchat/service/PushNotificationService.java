@@ -53,7 +53,10 @@ public class PushNotificationService {
         if (pushService == null) return;
 
         List<PushSubscription> subs = subscriptionRepository.findByUserId(userId);
-        if (subs.isEmpty()) return;
+        if (subs.isEmpty()) {
+            log.info("Push: no subscriptions for userId={}", userId);
+            return;
+        }
 
         try {
             String payload = objectMapper.writeValueAsString(Map.of(
