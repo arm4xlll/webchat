@@ -72,7 +72,7 @@ public class PushNotificationService {
                     );
                     pushService.send(notification);
                 } catch (Exception e) {
-                    log.warn("Failed to send push notification to endpoint {}. Removing it.", sub.getEndpoint());
+                    log.warn("Push send failed endpoint={} error={}", sub.getEndpoint(), e.getMessage());
                     try {
                         subscriptionRepository.deleteByEndpoint(sub.getEndpoint());
                     } catch (Exception deleteEx) {
