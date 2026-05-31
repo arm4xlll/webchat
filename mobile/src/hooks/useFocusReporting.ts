@@ -19,8 +19,8 @@ export function useFocusReporting(conversationId: string | null) {
     // Initial report
     report();
 
-    // Set up interval for active reporting
-    const interval = setInterval(report, 30000);
+    // Heartbeat every 20s; server TTL is 60s so a missed beat won't lapse focus
+    const interval = setInterval(report, 20000);
 
     // Listen to AppState changes
     const subscription = AppState.addEventListener('change', nextAppState => {

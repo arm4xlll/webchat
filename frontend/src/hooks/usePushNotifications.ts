@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getPublicKey, subscribeToPush } from '../api/push';
 import { useAuthStore } from '../store/authStore';
+import { useChatStore } from '../store/chatStore';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -42,6 +43,24 @@ export function usePushNotifications() {
       }
     }).catch(e => console.error('[Push] SW registration failed', e));
   }, [isSupported, isAuthenticated]);
+
+  // Answer the service worker's real-time "are you viewing this chat?" query.
+  // The SW uses the reply to suppress notifications for a chat that's on screen,
+  // which is the definitive guard against notifying while the user is present.
+  useEffect(() => {
+    if (!isSupported) return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'FOCUS_QUERY') return;
+      const viewing =
+        document.visibilityState === 'visible' &&
+        useChatStore.getState().activeConversationId === event.data.conversationId;
+      event.ports[0]?.postMessage({ viewing });
+    };
+
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [isSupported]);
 
   const requestPermission = async () => {
     setShowBanner(false);

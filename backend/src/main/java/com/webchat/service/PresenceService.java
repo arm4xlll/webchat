@@ -26,7 +26,10 @@ public class PresenceService {
     private final ConversationMemberRepository memberRepository;
 
     private static final Duration TYPING_TTL  = Duration.ofSeconds(5);
-    private static final Duration FOCUS_TTL   = Duration.ofSeconds(35);
+    // Focus heartbeat fires every 20s on the client; a 60s TTL tolerates two
+    // missed/delayed beats (timer throttling, GC pauses, network spikes) so the
+    // key never lapses while the user is actively viewing the chat.
+    private static final Duration FOCUS_TTL   = Duration.ofSeconds(60);
     private static final String ONLINE_KEY    = "presence:online:";
     private static final String LASTSEEN_KEY  = "presence:lastseen:";
     private static final String FOCUS_KEY     = "presence:focus:";
