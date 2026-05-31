@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.stream.Collectors;
@@ -62,6 +63,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneral(Exception ex) {
+        if (isClientDisconnect(ex)) {
+            log.debug("Client disconnected: {}", ex.getMessage());
+            ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+            pd.setDetail("Internal server error");
+            return pd;
+        }
+
         log.error("Unexpected error", ex);
 
         StringWriter sw = new StringWriter();
@@ -71,5 +79,14 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         pd.setDetail("Internal server error");
         return pd;
+    }
+
+    private static boolean isClientDisconnect(Throwable t) {
+        while (t != null) {
+            if (t.getClass().getSimpleName().equals("ClientAbortException")) return true;
+            if (t instanceof IOException && "Broken pipe".equals(t.getMessage())) return true;
+            t = t.getCause();
+        }
+        return false;
     }
 }

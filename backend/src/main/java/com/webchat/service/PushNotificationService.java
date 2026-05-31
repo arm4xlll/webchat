@@ -12,7 +12,6 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Security;
 import java.util.List;
@@ -50,10 +49,9 @@ public class PushNotificationService {
     }
 
     @Async
-    @Transactional
     public void sendPushToUser(UUID userId, String title, String body, Map<String, Object> data) {
         if (pushService == null) return;
-        
+
         List<PushSubscription> subs = subscriptionRepository.findByUserId(userId);
         if (subs.isEmpty()) return;
 

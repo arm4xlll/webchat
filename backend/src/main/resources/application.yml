@@ -13,6 +13,12 @@ spring:
     username: webchat
     password: webchat_pass
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
 
   jpa:
     hibernate:
