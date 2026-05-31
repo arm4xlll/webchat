@@ -183,8 +183,6 @@ export default function MessageList({
   const prevFirstIdRef = useRef<string | null>(null);
   // Which conversation we last positioned; a mismatch means we just entered a chat.
   const prevConvIdRef = useRef<string | null>(null);
-  // While Date.now() < this, keep snapping to the bottom (covers late image/media layout).
-  const stickUntilRef = useRef(0);
 
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
@@ -258,10 +256,10 @@ export default function MessageList({
         if (c) c.scrollTop = c.scrollHeight;
       };
       toBottom();
-      // Re-assert after the browser finishes layout (fonts/flex sizing), and
-      // keep snapping briefly so late-loading images/media don't strand us.
+      // Re-assert after the browser finishes the first layout pass. Anything
+      // that grows the content later (images, link previews, voice waveforms)
+      // is handled by the ResizeObserver below while isAtBottomRef stays true.
       requestAnimationFrame(toBottom);
-      stickUntilRef.current = Date.now() + 1500;
       scheduleRead();
       return;
     }
@@ -290,14 +288,17 @@ export default function MessageList({
     lastMsgIdRef.current   = lastKey;
   }, [messages, conversationId, scheduleRead, user?.id]);
 
-  // Keep pinned to the bottom while content height changes shortly after entering
-  // a chat (images/video/voice waveforms finishing layout).
+  // Stay glued to the bottom whenever content height changes while the user is
+  // at the bottom (images/video/voice waveforms/link previews finishing layout).
   useEffect(() => {
     const container = containerRef.current;
     const content = contentRef.current;
     if (!container || !content) return;
     const ro = new ResizeObserver(() => {
-      if (isAtBottomRef.current && Date.now() < stickUntilRef.current) {
+      // As long as the user hasn't scrolled up, keep glued to the bottom while
+      // content grows (async images/previews/media). This is what guarantees we
+      // end up fully at the bottom, not "almost".
+      if (isAtBottomRef.current) {
         container.scrollTop = container.scrollHeight;
       }
     });
