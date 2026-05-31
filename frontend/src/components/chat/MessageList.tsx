@@ -483,11 +483,14 @@ export default function MessageList({
     <div className="relative flex-1 flex flex-col min-h-0">
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto px-4 md:px-8 py-4 flex flex-col bg-transparent"
+        className="flex-1 overflow-y-auto px-4 md:px-8 pt-4 flex flex-col bg-transparent"
         style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
         onScroll={handleScroll}
       >
-        <div ref={contentRef} className="flex flex-col min-h-full">
+        {/* pb here, not on the scroll container: Chrome drops a scroll
+            container's padding-bottom at scroll-end, so the last bubble would
+            otherwise sit flush against the input. */}
+        <div ref={contentRef} className="flex flex-col min-h-full pb-4">
         <div ref={topSentinelRef} className="shrink-0 h-px" />
 
         {loadingMore && (
