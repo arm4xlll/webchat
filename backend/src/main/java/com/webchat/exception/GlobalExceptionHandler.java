@@ -1,10 +1,12 @@
 package com.webchat.exception;
 
 import com.webchat.admin.metrics.ErrorLogBuffer;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -62,12 +64,20 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleGeneral(Exception ex) {
+    public ResponseEntity<?> handleGeneral(Exception ex, HttpServletRequest request) {
+        // SSE connections have Content-Type: text/event-stream — ProblemDetail can't be serialized into it.
+        // The emitter's onError callback handles cleanup; just return an empty 500.
+        String accept = request.getHeader("Accept");
+        if (accept != null && accept.contains("text/event-stream")) {
+            if (!isClientDisconnect(ex)) {
+                log.warn("Exception in SSE connection: {} {}", ex.getClass().getSimpleName(), ex.getMessage());
+            }
+            return ResponseEntity.internalServerError().build();
+        }
+
         if (isClientDisconnect(ex)) {
             log.debug("Client disconnected: {}", ex.getMessage());
-            ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-            pd.setDetail("Internal server error");
-            return pd;
+            return ResponseEntity.internalServerError().build();
         }
 
         log.error("Unexpected error", ex);
@@ -78,7 +88,7 @@ public class GlobalExceptionHandler {
 
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         pd.setDetail("Internal server error");
-        return pd;
+        return ResponseEntity.internalServerError().body(pd);
     }
 
     private static boolean isClientDisconnect(Throwable t) {
