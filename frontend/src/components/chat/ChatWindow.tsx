@@ -12,16 +12,10 @@ import { ArrowLeft, Search, X, ChevronUp, ChevronDown, Upload, Bookmark, Phone }
 import PinnedBanner from './PinnedBanner';
 import { removePin } from '../../api/pins';
 import StickerPackViewModal from './StickerPackViewModal';
+import { formatLastSeen } from '../../utils/time';
+import { useNow } from '../../hooks/useNow';
 
 const PAGE_SIZE = 50;
-
-function formatLastSeen(iso: string): string {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60) return 'только что';
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
-  return `${Math.floor(diff / 86400)} дн назад`;
-}
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
@@ -64,6 +58,8 @@ export default function ChatWindow({
   const isSaved = conversation.type === 'saved';
   const other = user ? (isSaved ? user : getOtherMember(conversation, user.id)) : null;
   const otherPresence = (other && !isSaved) ? presenceStatus[other.id] : undefined;
+  // Ticks every 30s so the "был(а) N минут назад" label stays current.
+  const now = useNow(30_000);
 
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -255,7 +251,10 @@ export default function ChatWindow({
     setShowDropdown(false);
     setHighlightedMsgId(null);
 
-    if (messages[conversation.id] !== undefined) return;
+    // Guard on a dedicated "history loaded" flag, NOT on messages[id] being
+    // defined: a single message arriving via SSE pre-seeds messages[id] with one
+    // item, which used to make us skip loading the full history until reload.
+    if (useChatStore.getState().historyLoaded[conversation.id]) return;
     const controller = new AbortController();
     getMessages(conversation.id, 0, PAGE_SIZE, controller.signal).then(msgs => {
       // Merge with messages already in store (may have arrived via WS while fetch was in-flight)
@@ -273,6 +272,7 @@ export default function ChatWindow({
         }
         // else store already has everything (all came via WS) — keep as is
       }
+      useChatStore.getState().markHistoryLoaded(conversation.id);
       if (msgs.length < PAGE_SIZE) setHasMore(false);
     }).catch(() => {/* cancelled or failed — silent */});
     return () => controller.abort();
@@ -353,7 +353,7 @@ export default function ChatWindow({
                   <span className="text-[12.5px] font-medium text-green-400">в сети</span>
                 ) : otherPresence?.lastSeenAt ? (
                   <span className="text-[12.5px] text-tg-text-secondary truncate">
-                    был(а) {formatLastSeen(otherPresence.lastSeenAt)}
+                    был(а) {formatLastSeen(otherPresence.lastSeenAt, now)}
                   </span>
                 ) : (
                   <span className="text-[12.5px] text-tg-text-secondary">не в сети</span>

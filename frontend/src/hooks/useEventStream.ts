@@ -29,11 +29,70 @@ async function withConcurrency(tasks: (() => Promise<void>)[], limit: number): P
   await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, run));
 }
 
+/** Heartbeats arrive every 15s; if we see no traffic for this long, the
+ *  connection is assumed dead even if the browser hasn't noticed yet. */
+const STALE_MS = 40_000;
+/** Background safety-net poll interval for reconciling missed messages. */
+const RECONCILE_INTERVAL_MS = 20_000;
+
 export function useEventStream() {
   const accessToken = useAuthStore(s => s.accessToken);
   const [wsStatus, setWsStatus] = useState<StreamStatus>('connecting');
   const applyFromServer = useThemeStore(s => s.applyFromServer);
   const reconnectAttempts = useRef(0);
+  // Timestamp of the last byte received over SSE (events + heartbeats).
+  const lastActivityRef = useRef(Date.now());
+  // Bumping this tears down and re-establishes the SSE connection.
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+
+  /**
+   * Pull any messages the SSE stream may have missed (dropped events, sleep,
+   * silent connection death) for every conversation we already have loaded.
+   * Idempotent — relies on store-level dedup by message id.
+   */
+  const catchUpMessages = useCallback(async () => {
+    const { conversations, messages, activeConversationId } = useChatStore.getState();
+    const currentUserId = useAuthStore.getState().user?.id;
+    const tasks = conversations
+      .filter(c => (messages[c.id]?.length ?? 0) > 0)
+      .map(c => async () => {
+        const list = useChatStore.getState().messages[c.id] ?? [];
+        // Cursor = newest *confirmed* message, so an optimistic temp message's
+        // client clock can't make us skip rows the server actually has.
+        let cursor: string | undefined;
+        for (let i = list.length - 1; i >= 0; i--) {
+          if (!list[i].pending) { cursor = list[i].createdAt; break; }
+        }
+        if (!cursor) return;
+        try {
+          const fresh = await getMessagesAfter(c.id, cursor);
+          for (const m of fresh) {
+            const existed = (useChatStore.getState().messages[c.id] ?? []).some(x => x.id === m.id);
+            if (existed) continue;
+            useChatStore.getState().addMessage(m);
+            useChatStore.getState().updateConversationLastMessage(c.id, m.createdAt);
+            if (m.senderId !== currentUserId && activeConversationId !== c.id) {
+              useChatStore.getState().incrementUnread(c.id);
+            }
+          }
+        } catch (e) {
+          console.error('[Sync] catch-up failed', c.id, e);
+        }
+      });
+    await withConcurrency(tasks, 3);
+  }, []);
+
+  /** Full reconciliation: refresh conversation list (authoritative unread /
+   *  last-message state) then catch up messages for each. */
+  const reconcile = useCallback(async () => {
+    try {
+      const convs = await getConversations();
+      useChatStore.getState().setConversations(convs);
+    } catch (e) {
+      console.error('[Sync] conversations refresh failed', e);
+    }
+    await catchUpMessages();
+  }, [catchUpMessages]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -42,6 +101,7 @@ export function useEventStream() {
     }
 
     reconnectAttempts.current = 0;
+    lastActivityRef.current = Date.now();
     const ctrl = new AbortController();
     setWsStatus('connecting');
 
@@ -54,6 +114,7 @@ export function useEventStream() {
           async onopen(res) {
             if (res.ok && res.headers.get('content-type')?.includes('text/event-stream')) {
               reconnectAttempts.current = 0;
+              lastActivityRef.current = Date.now();
               setWsStatus('connected');
               return;
             }
@@ -63,7 +124,9 @@ export function useEventStream() {
             throw new Error(`SSE open failed: ${res.status}`);
           },
           onmessage(ev) {
-            if (!ev.event || !ev.data) return;
+            // Any traffic (including the `hb` heartbeat) proves the link is alive.
+            lastActivityRef.current = Date.now();
+            if (ev.event === 'hb' || !ev.event || !ev.data) return;
             try {
               dispatch(ev.event, JSON.parse(ev.data));
             } catch (e) {
@@ -95,17 +158,18 @@ export function useEventStream() {
       const store = useChatStore.getState();
       switch (type) {
         case 'stream.ready':
-          onStreamReady();
+          reconcile();
           isNewVersionAvailable().then(newer => {
             if (newer) window.dispatchEvent(new CustomEvent('app:update-available'));
           });
           break;
         case 'message.created': {
           const msg = data as Message;
+          const existed = (store.messages[msg.conversationId] ?? []).some(m => m.id === msg.id);
           store.addMessage(msg);
           store.updateConversationLastMessage(msg.conversationId, msg.createdAt);
           const currentUserId = useAuthStore.getState().user?.id;
-          if (msg.senderId !== currentUserId
+          if (!existed && msg.senderId !== currentUserId
               && store.activeConversationId !== msg.conversationId) {
             store.incrementUnread(msg.conversationId);
           }
@@ -192,37 +256,48 @@ export function useEventStream() {
       }
     };
 
-    const onStreamReady = async () => {
-      try {
-        const convs = await getConversations();
-        useChatStore.getState().setConversations(convs);
-
-        const cachedMessages = useChatStore.getState().messages;
-        const tasks = convs.map(c => async () => {
-          const msgs = cachedMessages[c.id];
-          if (!msgs || msgs.length === 0) return;
-          try {
-            const lastAt = msgs[msgs.length - 1].createdAt;
-            const newMsgs = await getMessagesAfter(c.id, lastAt);
-            newMsgs.forEach(m => useChatStore.getState().addMessage(m));
-          } catch (e) {
-            console.error('[SSE] catch-up failed', c.id, e);
-          }
-        });
-        // Limit to 3 concurrent catch-up requests to avoid flooding on slow networks
-        await withConcurrency(tasks, 3);
-      } catch (e) {
-        console.error('[SSE] post-ready bootstrap failed', e);
-      }
-    };
-
     run();
 
     return () => {
       ctrl.abort();
       setWsStatus('disconnected');
     };
-  }, [accessToken, applyFromServer]);
+  }, [accessToken, applyFromServer, reconnectNonce, reconcile]);
+
+  // ── Liveness watchdog ──────────────────────────────────────────────────────
+  // fetchEventSource won't notice a silently-dead connection (OS sleep, network
+  // change, buffering proxy). If no traffic arrives within STALE_MS, force a
+  // reconnect, which re-fires stream.ready → reconcile() and re-syncs presence.
+  useEffect(() => {
+    if (!accessToken) return;
+    const id = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > STALE_MS) {
+        lastActivityRef.current = Date.now(); // avoid hammering before reconnect
+        setReconnectNonce(n => n + 1);
+      }
+    }, 10_000);
+    return () => clearInterval(id);
+  }, [accessToken]);
+
+  // ── Reconciliation triggers ────────────────────────────────────────────────
+  // Catch up whenever the tab regains attention or the network returns, plus a
+  // slow background poll, so a dropped SSE event can never strand a message.
+  useEffect(() => {
+    if (!accessToken) return;
+    const onVisible = () => { if (document.visibilityState === 'visible') reconcile(); };
+    const onFocus = () => { reconcile(); };
+    const onOnline = () => { setReconnectNonce(n => n + 1); reconcile(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    const poll = setInterval(() => { catchUpMessages(); }, RECONCILE_INTERVAL_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      clearInterval(poll);
+    };
+  }, [accessToken, reconcile, catchUpMessages]);
 
   const sendMessage = useCallback((
     conversationId: string,

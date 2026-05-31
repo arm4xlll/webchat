@@ -22,6 +22,8 @@ interface ChatState {
   setActiveConversation: (id: string | null) => void;
   setMessages: (convId: string, msgs: Message[]) => void;
   prependMessages: (convId: string, msgs: Message[]) => void;
+  historyLoaded: Record<string, boolean>;
+  markHistoryLoaded: (convId: string) => void;
   addMessage: (msg: Message) => void;
   updateMessage: (msg: Message) => void;
   removeMessage: (convId: string, msgId: string) => void;
@@ -44,6 +46,7 @@ export const useChatStore = create<ChatState>((set) => ({
   conversations: [],
   activeConversationId: null,
   messages: {},
+  historyLoaded: {},
   typingUsers: {},
   lastReadAt: {},
   unreadCounts: {},
@@ -103,6 +106,10 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setMessages: (convId, msgs) => set((state) => ({
     messages: { ...state.messages, [convId]: msgs },
+  })),
+
+  markHistoryLoaded: (convId) => set((state) => ({
+    historyLoaded: { ...state.historyLoaded, [convId]: true },
   })),
 
   prependMessages: (convId, msgs) => set((state) => {

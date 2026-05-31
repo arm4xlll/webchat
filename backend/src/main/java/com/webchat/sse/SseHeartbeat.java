@@ -21,7 +21,9 @@ public class SseHeartbeat {
         for (UUID userId : registry.connectedUserIds()) {
             for (SseEmitter emitter : registry.forUser(userId)) {
                 try {
-                    emitter.send(SseEmitter.event().comment("hb"));
+                    // Named event (not a comment) so the browser's EventSource
+                    // dispatches it and the client can detect a live connection.
+                    emitter.send(SseEmitter.event().name("hb").data("1"));
                 } catch (IOException e) {
                     log.debug("Heartbeat failed for user={} — completing emitter", userId);
                     try {
