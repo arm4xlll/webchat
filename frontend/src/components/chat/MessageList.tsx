@@ -230,7 +230,7 @@ export default function MessageList({
   const scrollToBottom = useCallback(() => {
     const c = containerRef.current;
     if (!c) return;
-    c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     setNewMessagesCount(0);
     setShowScrollDown(false);
   }, []);
@@ -250,11 +250,8 @@ export default function MessageList({
       isAtBottomRef.current  = true;
       setNewMessagesCount(0);
       setShowScrollDown(false);
-      container.scrollTop = container.scrollHeight;
-      requestAnimationFrame(() => {
-        const c = containerRef.current;
-        if (c) c.scrollTop = c.scrollHeight;
-      });
+      bottomRef.current?.scrollIntoView();
+      requestAnimationFrame(() => bottomRef.current?.scrollIntoView());
       scheduleRead();
       return;
     }
@@ -270,7 +267,7 @@ export default function MessageList({
         isAtBottomRef.current = true;
         setNewMessagesCount(0);
         setShowScrollDown(false);
-        container.scrollTop = container.scrollHeight;
+        bottomRef.current?.scrollIntoView();
         scheduleRead();
       } else {
         setNewMessagesCount(c => c + 1);
@@ -295,7 +292,7 @@ export default function MessageList({
       const grew = newHeight > prevHeight;
       prevHeight = newHeight;
       if (isAtBottomRef.current && grew) {
-        container.scrollTop = container.scrollHeight;
+        bottomRef.current?.scrollIntoView();
       }
     });
     ro.observe(content);
@@ -321,7 +318,7 @@ export default function MessageList({
       } else if (delta > 80 && wasAtBottom) {
         requestAnimationFrame(() => {
           const c = containerRef.current;
-          if (c) c.scrollTop = c.scrollHeight;
+          if (c) bottomRef.current?.scrollIntoView();
         });
       }
     };
@@ -506,7 +503,7 @@ export default function MessageList({
     <div className="relative flex-1 flex flex-col min-h-0">
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto px-4 md:px-8 pt-4 flex flex-col bg-transparent"
+        className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 pt-4 flex flex-col bg-transparent"
         style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
         onScroll={handleScroll}
       >
