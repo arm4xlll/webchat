@@ -64,7 +64,7 @@ function formatDividerDate(iso: string) {
   yesterday.setDate(now.getDate() - 1);
   if (d.toDateString() === now.toDateString()) return 'Сегодня';
   if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
-  
+
   const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' };
   if (d.getFullYear() !== now.getFullYear()) {
     options.year = 'numeric';
@@ -173,26 +173,40 @@ export default function MessageList({
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
   const pins = useChatStore(s => s.pins[conversationId]) ?? EMPTY_PINS;
 
+  // ── column-reverse layout ──────────────────────────────────────────────────
+  // The container uses flex-direction: column-reverse so that:
+  //   • scrollTop = 0 is always the visual BOTTOM (newest messages)
+  //   • New messages appear at the bottom without any JS scroll manipulation
+  //   • Browser naturally keeps position when user scrolled up and new msg arrives
+  //
+  // DOM order inside the container:
+  //   bottomRef (first = visual bottom)
+  //   → messages rendered NEWEST → OLDEST (reversed array, so first DOM = visual bottom)
+  //   → loadingMore spinner
+  //   → topSentinelRef (last = visual top, triggers infinite scroll)
+  //
+  // Because the array is reversed before rendering, neighbor indices are also
+  // swapped: reversedMessages[i-1] is NEWER, reversedMessages[i+1] is OLDER.
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
+  // Saved before loading older messages so we can restore scroll position after.
   const scrollHeightBeforeRef = useRef(0);
   const scrollTopBeforeRef = useRef(0);
-  const prevFirstIdRef = useRef<string | null>(null);
+  // Track keys to detect what changed in the messages array.
   const prevConvIdRef = useRef<string | null>(null);
+  const prevNewestKeyRef = useRef<string | null>(null);
+  const prevOldestKeyRef = useRef<string | null>(null);
 
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
 
-  // Stable ref for onRead so IntersectionObserver doesn't re-create on every render
   const onReadRef = useRef(onRead);
   useLayoutEffect(() => { onReadRef.current = onRead; });
 
-  // Track the last seen message id to detect actual new messages vs edits/reactions
-  const lastMsgIdRef = useRef<string | null>(null);
-  // Debounce timer: coalesce rapid message bursts into a single read receipt
   const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleRead = useCallback(() => {
@@ -206,7 +220,6 @@ export default function MessageList({
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ctxPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Flash highlight for search
   const [flashId, setFlashId] = useState<string | null>(null);
   useEffect(() => {
     if (!highlightedMsgId) return;
@@ -215,99 +228,84 @@ export default function MessageList({
     return () => clearTimeout(t);
   }, [highlightedMsgId]);
 
-  // Track scroll
+  // With column-reverse, scrollTop = 0 means we're at the visual bottom.
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    const isNearBottom = el.scrollTop < 120;
     isAtBottomRef.current = isNearBottom;
     setShowScrollDown(!isNearBottom);
-    if (isNearBottom) {
-      setNewMessagesCount(0);
-    }
+    if (isNearBottom) setNewMessagesCount(0);
   }, []);
 
   const scrollToBottom = useCallback(() => {
     const c = containerRef.current;
     if (!c) return;
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    c.scrollTo({ top: 0, behavior: 'smooth' });
     setNewMessagesCount(0);
     setShowScrollDown(false);
   }, []);
 
-  // useLayoutEffect fires before paint — sets scrollTop before the browser draws,
-  // so the user never sees the wrong scroll position.
+  // ── Scroll management ──────────────────────────────────────────────────────
+  // With column-reverse we only need JS scroll for:
+  //   1. Conversation switch → snap to bottom (scrollTop = 0)
+  //   2. Own message sent → ensure at bottom
+  //   3. Received message while at bottom → browser keeps us at 0 naturally,
+  //      but we call scheduleRead and ensure state flags are correct
+  //   4. Older messages loaded (prepend) → restore position manually because
+  //      overflow-anchor is disabled (overflowAnchor: 'none' on container)
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
 
-    const firstKey = keyOf(messages[0]);
-    const lastKey  = keyOf(messages[messages.length - 1]);
+    // Key of the newest message (reversedMessages[0])
+    const newestKey = keyOf(reversedMessages[0]);
+    // Key of the oldest message (reversedMessages[last])
+    const oldestKey = keyOf(reversedMessages[reversedMessages.length - 1]);
 
     if (prevConvIdRef.current !== conversationId) {
       prevConvIdRef.current  = conversationId;
-      prevFirstIdRef.current = firstKey;
-      lastMsgIdRef.current   = lastKey;
+      prevNewestKeyRef.current = newestKey;
+      prevOldestKeyRef.current = oldestKey;
       isAtBottomRef.current  = true;
       setNewMessagesCount(0);
       setShowScrollDown(false);
-      // Assign before first paint — no flash, no visibility toggling needed.
-      // scrollHeight is always correct here because useLayoutEffect fires after
-      // React has committed all DOM mutations and the browser has run layout.
-      container.scrollTop = container.scrollHeight;
+      // column-reverse: 0 = visual bottom. No flash, no RAF — fires before paint.
+      container.scrollTop = 0;
       scheduleRead();
       return;
     }
 
-    const isPrepend = prevFirstIdRef.current !== null && firstKey !== prevFirstIdRef.current;
-    const isNewTail = !isPrepend && lastKey !== lastMsgIdRef.current;
+    const isOlderLoaded = oldestKey !== prevOldestKeyRef.current && prevOldestKeyRef.current !== null;
+    const isNewMsg      = !isOlderLoaded && newestKey !== prevNewestKeyRef.current && prevNewestKeyRef.current !== null;
 
-    if (isPrepend) {
-      container.scrollTop = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
-    } else if (isNewTail) {
-      const isOwnTail = messages[messages.length - 1].senderId === user?.id;
-      if (isOwnTail || isAtBottomRef.current) {
+    if (isOlderLoaded) {
+      // Restore scroll position after loading older messages.
+      // overflow-anchor is disabled so we compensate manually.
+      const delta = container.scrollHeight - scrollHeightBeforeRef.current;
+      container.scrollTop = scrollTopBeforeRef.current + delta;
+    } else if (isNewMsg) {
+      const isOwnMsg = reversedMessages[0].senderId === user?.id;
+      if (isOwnMsg || isAtBottomRef.current) {
         isAtBottomRef.current = true;
         setNewMessagesCount(0);
         setShowScrollDown(false);
-        container.scrollTop = container.scrollHeight;
+        container.scrollTop = 0;
         scheduleRead();
       } else {
         setNewMessagesCount(c => c + 1);
       }
     }
 
-    prevFirstIdRef.current = firstKey;
-    lastMsgIdRef.current   = lastKey;
-  }, [messages, conversationId, scheduleRead, user?.id]);
+    prevNewestKeyRef.current = newestKey;
+    prevOldestKeyRef.current = oldestKey;
+  }, [messages, reversedMessages, conversationId, scheduleRead, user?.id]);
 
-  // Glue to bottom when content grows (images / media / link previews load).
-  // prevHeight starts at 0 so the first ResizeObserver callback (fired immediately
-  // on observe) always scrolls to bottom — catches images that loaded between
-  // useLayoutEffect and this useEffect. Skip when height shrinks (mobile keyboard).
-  useEffect(() => {
-    const container = containerRef.current;
-    const content = contentRef.current;
-    if (!container || !content) return;
-    let prevHeight = 0;
-    const ro = new ResizeObserver((entries) => {
-      const newHeight = entries[0]?.contentRect.height ?? 0;
-      const grew = newHeight > prevHeight;
-      prevHeight = newHeight;
-      if (isAtBottomRef.current && grew) {
-        container.scrollTop = container.scrollHeight;
-      }
-    });
-    ro.observe(content);
-    return () => ro.disconnect();
-  }, [conversationId]);
-
-  // Clear any pending read receipt when leaving a conversation.
   useEffect(() => () => {
     if (readTimerRef.current) clearTimeout(readTimerRef.current);
   }, [conversationId]);
 
-  // Mobile keyboard: restore bottom position when keyboard hides.
+  // Mobile keyboard: restore bottom when keyboard hides.
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -320,28 +318,27 @@ export default function MessageList({
         wasAtBottom = isAtBottomRef.current;
       } else if (delta > 80 && wasAtBottom) {
         const c = containerRef.current;
-        if (c) c.scrollTop = c.scrollHeight;
+        if (c) c.scrollTop = 0;
       }
     };
     vv.addEventListener('resize', handler);
     return () => vv.removeEventListener('resize', handler);
   }, []);
 
-  // Infinite scroll sentinel
+  // Infinite scroll sentinel — at visual TOP (last DOM child in column-reverse).
+  // As user scrolls up, sentinel approaches the container's top edge and fires.
   useEffect(() => {
     const sentinel = topSentinelRef.current;
     const container = containerRef.current;
     if (!sentinel || !container || !onLoadMore) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && hasMore && !loadingMore) {
-        // Save both scrollHeight and scrollTop before load so we can restore position accurately
         scrollHeightBeforeRef.current = container.scrollHeight;
         scrollTopBeforeRef.current = container.scrollTop;
         onLoadMore();
       }
     }, {
       root: container,
-      // Trigger 400px before the sentinel becomes visible — preload before user reaches top
       rootMargin: '400px 0px 0px 0px',
       threshold: 0,
     });
@@ -349,8 +346,7 @@ export default function MessageList({
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
 
-  // Read receipt — observer depends only on conversationId, not the callback ref,
-  // so it won't fire a spurious read on every parent re-render.
+  // Read receipt fires when bottomRef (visual BOTTOM) is visible.
   useEffect(() => {
     const el = bottomRef.current;
     if (!el) return;
@@ -388,15 +384,25 @@ export default function MessageList({
 
   const myUserId = user?.id;
   const lastReadTimeStr = useChatStore(s => s.lastReadAt[conversationId]?.[myUserId ?? '']);
+
+  // firstUnreadIdx in original (oldest→newest) order.
   const firstUnreadIdx = useMemo(() => {
     if (!lastReadTimeStr || !myUserId) return -1;
     const lastReadTime = new Date(lastReadTimeStr).getTime();
-    return messages.findIndex(m => 
-      m.senderId !== myUserId && 
-      !m.deleted && 
+    return messages.findIndex(m =>
+      m.senderId !== myUserId &&
+      !m.deleted &&
       new Date(m.createdAt).getTime() > lastReadTime
     );
   }, [messages, lastReadTimeStr, myUserId]);
+
+  // Index of the same boundary in the REVERSED array.
+  // The unread divider is rendered AFTER this item in JSX, which with column-reverse
+  // means it appears ABOVE the item visually (between last-read and first-unread).
+  const reversedUnreadIdx = useMemo(
+    () => firstUnreadIdx === -1 ? -1 : messages.length - 1 - firstUnreadIdx,
+    [firstUnreadIdx, messages.length]
+  );
 
   const buildMenuItems = useCallback((msg: Message): ContextMenuItem[] => {
     const isOwn = msg.senderId === user?.id;
@@ -420,9 +426,7 @@ export default function MessageList({
       items.push({
         icon: <Copy className="w-4 h-4" />,
         label: 'Копировать текст',
-        onClick: () => {
-          navigator.clipboard.writeText(msg.content);
-        },
+        onClick: () => { navigator.clipboard.writeText(msg.content); },
       });
 
       const existingPin = pins.find(p => p.messageId === msg.id);
@@ -502,46 +506,52 @@ export default function MessageList({
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0">
+      {/*
+        flex-col-reverse: items stack bottom→top. First DOM child = visual bottom.
+        overflow-anchor: none: we restore scroll position manually after loading
+        older messages, so we don't want the browser to also compensate.
+        scrollTop = 0 ↔ visual bottom (newest messages).
+      */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 pt-4 flex flex-col bg-transparent"
-        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+        className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 flex flex-col-reverse bg-transparent"
+        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', overflowAnchor: 'none' }}
         onScroll={handleScroll}
       >
-        <div ref={contentRef} className="flex flex-col min-h-full">
-        <div ref={topSentinelRef} className="shrink-0 h-px" />
+        {/* ── Visual BOTTOM anchor (first DOM child) ── */}
+        <div ref={bottomRef} className="h-4 shrink-0" />
 
-        {loadingMore && (
-          <div className="flex justify-center py-3 shrink-0">
-            <div className="w-5 h-5 border-2 border-tg-primary/30 border-t-tg-primary rounded-full animate-spin" />
-          </div>
-        )}
+        {/* ── Messages — newest first in DOM, oldest last ─────────────────────
+            With column-reverse the DOM order is inverted visually:
+              DOM [newest, …, oldest]  →  visual [oldest(top) … newest(bottom)]
+            Neighbor semantics (mirrored from a regular list):
+              reversedMessages[i-1] = NEWER  (visual below)
+              reversedMessages[i+1] = OLDER  (visual above)
+        ── */}
+        {reversedMessages.map((msg, i) => {
+          const newerMsg = reversedMessages[i - 1]; // newer, visual below
+          const olderMsg = reversedMessages[i + 1]; // older, visual above
 
-        {messages.length === 0 && !loadingMore && (
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="bg-tg-input-bg text-tg-text-secondary text-[15px] px-4 py-1.5 rounded-full select-none">
-              Нет сообщений
-            </div>
-          </div>
-        )}
+          const isOwn    = msg.senderId === user?.id;
+          // isFirst = topmost in sender group (oldest in group, no older same-sender)
+          const isFirst  = !olderMsg || olderMsg.senderId !== msg.senderId;
+          // isLast = bottommost in sender group (newest in group, no newer same-sender)
+          const isLast   = !newerMsg || newerMsg.senderId !== msg.senderId;
 
-        {messages.map((msg, i) => {
-          const isOwn = msg.senderId === user?.id;
-          const prevMsg = messages[i - 1];
-          const nextMsg = messages[i + 1];
-          const isFirst = !prevMsg || prevMsg.senderId !== msg.senderId;
-          const isLast  = !nextMsg || nextMsg.senderId !== msg.senderId;
-          const isSticker = !msg.deleted && isStickerMessage(msg.fileUrl, msg.fileName);
-          const hasMedia = !msg.deleted && !isSticker && (isImage(msg.fileType) || isVideo(msg.fileType));
-          const hasAudio = !msg.deleted && isAudio(msg.fileType);
-          const hasDoc   = !msg.deleted && !isSticker && isDocument(msg.fileType);
+          const isSticker  = !msg.deleted && isStickerMessage(msg.fileUrl, msg.fileName);
+          const hasMedia   = !msg.deleted && !isSticker && (isImage(msg.fileType) || isVideo(msg.fileType));
+          const hasAudio   = !msg.deleted && isAudio(msg.fileType);
+          const hasDoc     = !msg.deleted && !isSticker && isDocument(msg.fileType);
           const isFlashing = flashId === msg.id;
-          const reactions = msg.reactions ?? {};
+          const reactions  = msg.reactions ?? {};
           const hasReactions = Object.keys(reactions).length > 0;
-          const firstUrl = !msg.deleted ? extractFirstUrl(msg.content) : null;
+          const firstUrl   = !msg.deleted ? extractFirstUrl(msg.content) : null;
 
-          const showDateDivider = !prevMsg || 
-            new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
+          // Date divider: show when olderMsg is from a different day (or doesn't exist).
+          // Rendered AFTER message in JSX → appears ABOVE it visually (column-reverse).
+          // The divider label is the date of the current message's day.
+          const showDateDivider = !olderMsg ||
+            new Date(olderMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
 
           const bubbleShape = isOwn
             ? isFirst && isLast ? 'rounded-2xl msg-tail-out'
@@ -570,15 +580,151 @@ export default function MessageList({
 
           return (
             <div key={keyOf(msg)} className="contents">
-              {showDateDivider && (
-                <div className="flex justify-center my-3 select-none shrink-0">
-                  <div className="bg-tg-input-bg/70 backdrop-blur-[2px] text-tg-text-secondary text-[12px] font-medium px-3 py-1 rounded-full border border-tg-border/30">
-                    {formatDividerDate(msg.createdAt)}
+              {/* Message bubble — first in contents = visual BOTTOM of this group */}
+              <div
+                className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
+                data-msg-id={msg.id}
+                onContextMenu={(e) => handleContextMenu(e, msg)}
+                onTouchStart={(e) => handleTouchStart(e, msg)}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleTouchEnd}
+              >
+                <div className={`max-w-[75%] md:max-w-[65%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+                  <div className={`transition-all duration-500 rounded-2xl ${isFlashing ? 'ring-2 ring-tg-primary ring-offset-2 ring-offset-transparent' : ''}`}>
+                    {msg.deleted ? (
+                      <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
+                        <div className="flex flex-wrap items-end gap-2">
+                          <span className={!isOwn ? 'text-tg-text-secondary' : ''} style={isOwn ? ownTextMuted : undefined}>Сообщение удалено</span>
+                          <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>{timeNode}</span>
+                        </div>
+                      </div>
+                    ) : hasAudio ? (
+                      <div className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`} style={isOwn ? ownText : undefined}>
+                        <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
+                        <div className="px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1" style={isOwn ? ownTextMuted : undefined}>
+                          <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
+                          {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} failed={msg.failed} />}
+                        </div>
+                      </div>
+                    ) : isSticker ? (
+                      <div
+                        className="relative inline-block group select-none cursor-pointer"
+                        onClick={() => onStickerClick?.(msg.fileUrl!, msg.fileType ?? '')}
+                        title="Посмотреть стикерпак"
+                      >
+                        {isStickerVideoType(msg.fileType ?? '') ? (
+                          <video
+                            src={msg.fileUrl}
+                            className="w-40 h-40 object-contain"
+                            autoPlay loop muted playsInline preload="metadata"
+                          />
+                        ) : (
+                          <img
+                            src={msg.fileUrl}
+                            alt="sticker"
+                            className="w-40 h-40 object-contain group-hover:scale-105 transition-transform duration-150"
+                            loading="lazy"
+                          />
+                        )}
+                        <div className="absolute bottom-1 right-1 bg-black/40 backdrop-blur-[2px] rounded-full px-1.5 py-0.5 flex items-center gap-1 select-none opacity-70 group-hover:opacity-100 transition-opacity">
+                          {timeNode}
+                        </div>
+                      </div>
+                    ) : hasDoc ? (
+                      <a
+                        href={msg.fileUrl}
+                        download={msg.fileName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'} hover:opacity-90 transition-opacity no-underline`}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {docIcon(msg.fileType, msg.fileName)}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium truncate leading-tight" style={isOwn ? ownText : undefined}>
+                            {msg.fileName ?? 'Файл'}
+                          </div>
+                          <div className="text-[11px] mt-0.5" style={isOwn ? ownTextMuted : { color: 'var(--color-tg-text-secondary)' }}>
+                            {formatSize(msg.fileSize)}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0 self-end pb-0.5">
+                          <span className={`flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+                            {timeNode}
+                          </span>
+                        </div>
+                      </a>
+                    ) : hasMedia ? (
+                      <MediaBubble
+                        msg={msg} isOwn={isOwn} bubbleShape={bubbleShape} timeNode={timeNode}
+                        onImageClick={(src, alt) => setLightbox({ src, alt })}
+                        replyNode={msg.replyToId ? (
+                          <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
+                            <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
+                            <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+                              {msg.replyToContent ?? 'Сообщение удалено'}
+                            </div>
+                          </div>
+                        ) : undefined}
+                      />
+                    ) : (
+                      <div
+                        className={`relative px-3.5 pt-1.5 pb-2 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in text-tg-text'}`}
+                        style={isOwn ? ownText : undefined}
+                      >
+                        {msg.replyToId && (
+                          <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
+                            <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
+                            <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+                              {msg.replyToContent ?? 'Сообщение удалено'}
+                            </div>
+                          </div>
+                        )}
+                        <div className="select-text">
+                          <span className="whitespace-pre-wrap max-w-full break-words inline">
+                            <Highlighted text={msg.content} query={searchQuery} />
+                          </span>
+                          {firstUrl && (
+                            <div className="mt-1 block">
+                              <LinkPreviewCard url={firstUrl} isOwn={isOwn} />
+                            </div>
+                          )}
+                          <span className={`inline-block ${isOwn ? 'w-14' : 'w-10'}`}></span>
+                          <span className={`absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+                            {timeNode}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
 
-              {i === firstUnreadIdx && (
+                  {hasReactions && (
+                    <div className={`flex flex-wrap gap-1 mt-1 px-0.5 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                      {Object.entries(reactions).map(([emoji, userIds]) => {
+                        const mine = userIds.includes(user?.id ?? '');
+                        return (
+                          <button
+                            key={emoji}
+                            onClick={() => onReact(msg.id, emoji)}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] transition-colors cursor-pointer border select-none
+                              ${mine
+                                ? 'bg-tg-primary/20 border-tg-primary/60 text-tg-primary'
+                                : 'bg-tg-input-bg border-tg-border text-tg-text hover:bg-tg-hover'}`}
+                          >
+                            <span>{emoji}</span>
+                            <span className="text-[11px] font-semibold tabular-nums">{userIds.length}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* "Новые сообщения" divider — rendered AFTER message in JSX, so it
+                  appears ABOVE the first-unread message visually (column-reverse).
+                  Shows between the last read and the first unread message. */}
+              {i === reversedUnreadIdx && (
                 <div className="flex items-center my-4 select-none shrink-0" data-new-messages-sentinel="true">
                   <div className="flex-1 h-px bg-rose-500/30" />
                   <span className="mx-4 text-xs font-semibold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20">
@@ -588,157 +734,40 @@ export default function MessageList({
                 </div>
               )}
 
-              <div
-                className={`flex w-full animate-slide-in ${isOwn ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-[2px]'}`}
-                data-msg-id={msg.id}
-                onContextMenu={(e) => handleContextMenu(e, msg)}
-                onTouchStart={(e) => handleTouchStart(e, msg)}
-                onTouchEnd={handleTouchEnd}
-                onTouchMove={handleTouchEnd}
-              >
-              <div className={`max-w-[75%] md:max-w-[65%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-
-                <div className={`transition-all duration-500 rounded-2xl ${isFlashing ? 'ring-2 ring-tg-primary ring-offset-2 ring-offset-transparent' : ''}`}>
-                  {msg.deleted ? (
-                    <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
-                      <div className="flex flex-wrap items-end gap-2">
-                        <span className={!isOwn ? 'text-tg-text-secondary' : ''} style={isOwn ? ownTextMuted : undefined}>Сообщение удалено</span>
-                        <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>{timeNode}</span>
-                      </div>
-                    </div>
-                  ) : hasAudio ? (
-                    <div className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`} style={isOwn ? ownText : undefined}>
-                      <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
-                      <div className="px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1" style={isOwn ? ownTextMuted : undefined}>
-                        <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
-                        {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} failed={msg.failed} />}
-                      </div>
-                    </div>
-                  ) : isSticker ? (
-                    /* ── Sticker (no bubble) ── */
-                    <div
-                      className="relative inline-block group select-none cursor-pointer"
-                      onClick={() => onStickerClick?.(msg.fileUrl!, msg.fileType ?? '')}
-                      title="Посмотреть стикерпак"
-                    >
-                      {isStickerVideoType(msg.fileType ?? '') ? (
-                        <video
-                          src={msg.fileUrl}
-                          className="w-40 h-40 object-contain"
-                          autoPlay loop muted playsInline preload="metadata"
-                        />
-                      ) : (
-                        <img
-                          src={msg.fileUrl}
-                          alt="sticker"
-                          className="w-40 h-40 object-contain group-hover:scale-105 transition-transform duration-150"
-                          loading="lazy"
-                        />
-                      )}
-                      <div className="absolute bottom-1 right-1 bg-black/40 backdrop-blur-[2px] rounded-full px-1.5 py-0.5 flex items-center gap-1 select-none opacity-70 group-hover:opacity-100 transition-opacity">
-                        {timeNode}
-                      </div>
-                    </div>
-                  ) : hasDoc ? (
-                    /* ── Document bubble ── */
-                    <a
-                      href={msg.fileUrl}
-                      download={msg.fileName}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'} hover:opacity-90 transition-opacity no-underline`}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {docIcon(msg.fileType, msg.fileName)}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-medium truncate leading-tight" style={isOwn ? ownText : undefined}>
-                          {msg.fileName ?? 'Файл'}
-                        </div>
-                        <div className="text-[11px] mt-0.5" style={isOwn ? ownTextMuted : { color: 'var(--color-tg-text-secondary)' }}>
-                          {formatSize(msg.fileSize)}
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0 self-end pb-0.5">
-                        <span className={`flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
-                          {timeNode}
-                        </span>
-                      </div>
-                    </a>
-                  ) : hasMedia ? (
-                    <MediaBubble
-                      msg={msg} isOwn={isOwn} bubbleShape={bubbleShape} timeNode={timeNode}
-                      onImageClick={(src, alt) => setLightbox({ src, alt })}
-                      replyNode={msg.replyToId ? (
-                        <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
-                          <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                          <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
-                            {msg.replyToContent ?? 'Сообщение удалено'}
-                          </div>
-                        </div>
-                      ) : undefined}
-                    />
-                  ) : (
-                    <div
-                      className={`relative px-3.5 pt-1.5 pb-2 chat-text leading-relaxed break-words shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in text-tg-text'}`}
-                      style={isOwn ? ownText : undefined}
-                    >
-                      {msg.replyToId && (
-                        <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
-                          <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
-                          <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
-                            {msg.replyToContent ?? 'Сообщение удалено'}
-                          </div>
-                        </div>
-                      )}
-                      <div className="select-text">
-                        <span className="whitespace-pre-wrap max-w-full break-words inline">
-                          <Highlighted text={msg.content} query={searchQuery} />
-                        </span>
-                        {firstUrl && (
-                          <div className="mt-1 block">
-                            <LinkPreviewCard url={firstUrl} isOwn={isOwn} />
-                          </div>
-                        )}
-                        <span className={`inline-block ${isOwn ? 'w-14' : 'w-10'}`}></span>
-                        <span className={`absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
-                          {timeNode}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Reaction pills */}
-                {hasReactions && (
-                  <div className={`flex flex-wrap gap-1 mt-1 px-0.5 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                    {Object.entries(reactions).map(([emoji, userIds]) => {
-                      const mine = userIds.includes(user?.id ?? '');
-                      return (
-                        <button
-                          key={emoji}
-                          onClick={() => onReact(msg.id, emoji)}
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] transition-colors cursor-pointer border select-none
-                            ${mine
-                              ? 'bg-tg-primary/20 border-tg-primary/60 text-tg-primary'
-                              : 'bg-tg-input-bg border-tg-border text-tg-text hover:bg-tg-hover'}`}
-                        >
-                          <span>{emoji}</span>
-                          <span className="text-[11px] font-semibold tabular-nums">{userIds.length}</span>
-                        </button>
-                      );
-                    })}
+              {/* Date divider — rendered AFTER message in JSX, so it appears ABOVE
+                  the oldest message of that day visually (column-reverse).
+                  Shows when olderMsg is from a different day (or doesn't exist). */}
+              {showDateDivider && (
+                <div className="flex justify-center my-3 select-none shrink-0">
+                  <div className="bg-tg-input-bg/70 backdrop-blur-[2px] text-tg-text-secondary text-[12px] font-medium px-3 py-1 rounded-full border border-tg-border/30">
+                    {formatDividerDate(msg.createdAt)}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Loading spinner — near visual TOP (before sentinel) */}
+        {loadingMore && (
+          <div className="flex justify-center py-3 shrink-0">
+            <div className="w-5 h-5 border-2 border-tg-primary/30 border-t-tg-primary rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* Empty state */}
+        {messages.length === 0 && !loadingMore && (
+          <div className="flex-1 flex flex-col items-center justify-center py-8">
+            <div className="bg-tg-input-bg text-tg-text-secondary text-[15px] px-4 py-1.5 rounded-full select-none">
+              Нет сообщений
             </div>
           </div>
-        );
-      })}
-        {/* Real spacer that doubles as the scroll-to-bottom target, so the gap
-            between the last message and the input is always visible regardless
-            of whether we scrolled via scrollTop or scrollIntoView. */}
-        <div ref={bottomRef} className="h-4 shrink-0" />
-        </div>
+        )}
+
+        {/* ── Visual TOP sentinel (last DOM child) ─────────────────────────────
+            IntersectionObserver fires when this element approaches the container's
+            top edge as the user scrolls upward → triggers loading older messages. */}
+        <div ref={topSentinelRef} className="shrink-0 h-px" />
       </div>
 
       {contextMenu && (
