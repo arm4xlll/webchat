@@ -182,6 +182,7 @@ export default function MessageList({
   const isAtBottomRef = useRef(true);
   const scrollHeightBeforeRef = useRef(0);
   const scrollTopBeforeRef = useRef(0);
+  const prevContentHeightRef = useRef(0);
   const prevFirstIdRef = useRef<string | null>(null);
   // Which conversation we last positioned; a mismatch means we just entered a chat.
   const prevConvIdRef = useRef<string | null>(null);
@@ -279,15 +280,12 @@ export default function MessageList({
       setShowScrollDown(false);
       const toBottom = () => {
         const c = containerRef.current;
-        if (c) {
-          if (lenisRef.current) {
-            lenisRef.current.scrollTo(c.scrollHeight, { immediate: true });
-          } else {
-            c.style.scrollBehavior = 'auto';
-            c.scrollTop = c.scrollHeight;
-            c.style.scrollBehavior = '';
-          }
-        }
+        if (!c) return;
+        // Bypass Lenis — direct DOM scroll ensures the position is committed
+        // before Lenis is recreated for the new conversation.
+        c.style.scrollBehavior = 'auto';
+        c.scrollTop = c.scrollHeight;
+        c.style.scrollBehavior = '';
       };
       toBottom();
       // Re-assert after the browser finishes the first layout pass. Anything
@@ -304,13 +302,9 @@ export default function MessageList({
     if (isPrepend) {
       // Preserve the user's visual position: newTop = oldTop + (newHeight - oldHeight)
       const targetScroll = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
-      if (lenisRef.current) {
-        lenisRef.current.scrollTo(targetScroll, { immediate: true });
-      } else {
-        container.style.scrollBehavior = 'auto';
-        container.scrollTop = targetScroll;
-        container.style.scrollBehavior = '';
-      }
+      container.style.scrollBehavior = 'auto';
+      container.scrollTop = targetScroll;
+      container.style.scrollBehavior = '';
     } else if (isNewTail) {
       // Our own message, or we're already at the bottom → follow it down.
       const isOwnTail = messages[messages.length - 1].senderId === user?.id;
@@ -329,24 +323,23 @@ export default function MessageList({
     lastMsgIdRef.current   = lastKey;
   }, [messages, conversationId, scheduleRead, user?.id]);
 
-  // Stay glued to the bottom whenever content height changes while the user is
+  // Stay glued to the bottom whenever content height grows while the user is
   // at the bottom (images/video/voice waveforms/link previews finishing layout).
+  // We intentionally skip scrolling when height shrinks — that's the keyboard
+  // appearing and shrinking the flex container via min-h-full, not real content.
   useEffect(() => {
     const container = containerRef.current;
     const content = contentRef.current;
     if (!container || !content) return;
-    const ro = new ResizeObserver(() => {
-      // As long as the user hasn't scrolled up, keep glued to the bottom while
-      // content grows (async images/previews/media). This is what guarantees we
-      // end up fully at the bottom, not "almost".
-      if (isAtBottomRef.current) {
-        if (lenisRef.current) {
-          lenisRef.current.scrollTo(container.scrollHeight, { immediate: true });
-        } else {
-          container.style.scrollBehavior = 'auto';
-          container.scrollTop = container.scrollHeight;
-          container.style.scrollBehavior = '';
-        }
+    prevContentHeightRef.current = content.getBoundingClientRect().height;
+    const ro = new ResizeObserver((entries) => {
+      const newHeight = entries[0]?.contentRect.height ?? 0;
+      const grew = newHeight > prevContentHeightRef.current;
+      prevContentHeightRef.current = newHeight;
+      if (isAtBottomRef.current && grew) {
+        container.style.scrollBehavior = 'auto';
+        container.scrollTop = container.scrollHeight;
+        container.style.scrollBehavior = '';
       }
     });
     ro.observe(content);
@@ -357,6 +350,33 @@ export default function MessageList({
   useEffect(() => () => {
     if (readTimerRef.current) clearTimeout(readTimerRef.current);
   }, [conversationId]);
+
+  // Mobile keyboard: when the virtual viewport shrinks (keyboard appears) we
+  // remember whether the user was at the bottom. When it grows back (keyboard
+  // hides) we restore the bottom position so the chat doesn't stay "scrolled up".
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let wasAtBottom = false;
+    let prevHeight = vv.height;
+    const handler = () => {
+      const delta = vv.height - prevHeight;
+      prevHeight = vv.height;
+      if (delta < -80) {
+        wasAtBottom = isAtBottomRef.current;
+      } else if (delta > 80 && wasAtBottom) {
+        requestAnimationFrame(() => {
+          const c = containerRef.current;
+          if (!c) return;
+          c.style.scrollBehavior = 'auto';
+          c.scrollTop = c.scrollHeight;
+          c.style.scrollBehavior = '';
+        });
+      }
+    };
+    vv.addEventListener('resize', handler);
+    return () => vv.removeEventListener('resize', handler);
+  }, []);
 
   // Infinite scroll sentinel
   useEffect(() => {
