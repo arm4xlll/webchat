@@ -250,8 +250,18 @@ export default function MessageList({
       isAtBottomRef.current  = true;
       setNewMessagesCount(0);
       setShowScrollDown(false);
-      bottomRef.current?.scrollIntoView();
-      requestAnimationFrame(() => bottomRef.current?.scrollIntoView());
+      // Reset scroll and hide until we land at the bottom — prevents the brief
+      // flash of the wrong position while double-RAF waits for flex layout to settle
+      // (iOS Safari computes flex layout lazily, so coordinates aren't ready yet
+      // when useLayoutEffect fires).
+      container.scrollTop = 0;
+      container.style.visibility = 'hidden';
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          bottomRef.current?.scrollIntoView();
+          if (containerRef.current) containerRef.current.style.visibility = '';
+        })
+      );
       scheduleRead();
       return;
     }
@@ -267,7 +277,9 @@ export default function MessageList({
         isAtBottomRef.current = true;
         setNewMessagesCount(0);
         setShowScrollDown(false);
-        bottomRef.current?.scrollIntoView();
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => bottomRef.current?.scrollIntoView())
+        );
         scheduleRead();
       } else {
         setNewMessagesCount(c => c + 1);
@@ -292,7 +304,9 @@ export default function MessageList({
       const grew = newHeight > prevHeight;
       prevHeight = newHeight;
       if (isAtBottomRef.current && grew) {
-        bottomRef.current?.scrollIntoView();
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => bottomRef.current?.scrollIntoView())
+        );
       }
     });
     ro.observe(content);
@@ -318,7 +332,7 @@ export default function MessageList({
       } else if (delta > 80 && wasAtBottom) {
         requestAnimationFrame(() => {
           const c = containerRef.current;
-          if (c) bottomRef.current?.scrollIntoView();
+          if (c) requestAnimationFrame(() => bottomRef.current?.scrollIntoView());
         });
       }
     };
