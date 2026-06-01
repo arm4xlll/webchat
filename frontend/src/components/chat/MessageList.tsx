@@ -235,7 +235,8 @@ export default function MessageList({
     setShowScrollDown(false);
   }, []);
 
-  // useLayoutEffect fires before paint — no flash when entering a chat.
+  // useLayoutEffect fires before paint — sets scrollTop before the browser draws,
+  // so the user never sees the wrong scroll position.
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
@@ -250,18 +251,10 @@ export default function MessageList({
       isAtBottomRef.current  = true;
       setNewMessagesCount(0);
       setShowScrollDown(false);
-      // Reset scroll and hide until we land at the bottom — prevents the brief
-      // flash of the wrong position while double-RAF waits for flex layout to settle
-      // (iOS Safari computes flex layout lazily, so coordinates aren't ready yet
-      // when useLayoutEffect fires).
-      container.scrollTop = 0;
-      container.style.visibility = 'hidden';
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          bottomRef.current?.scrollIntoView();
-          if (containerRef.current) containerRef.current.style.visibility = '';
-        })
-      );
+      // Assign before first paint — no flash, no visibility toggling needed.
+      // scrollHeight is always correct here because useLayoutEffect fires after
+      // React has committed all DOM mutations and the browser has run layout.
+      container.scrollTop = container.scrollHeight;
       scheduleRead();
       return;
     }
@@ -277,9 +270,7 @@ export default function MessageList({
         isAtBottomRef.current = true;
         setNewMessagesCount(0);
         setShowScrollDown(false);
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => bottomRef.current?.scrollIntoView())
-        );
+        container.scrollTop = container.scrollHeight;
         scheduleRead();
       } else {
         setNewMessagesCount(c => c + 1);
@@ -292,7 +283,7 @@ export default function MessageList({
 
   // Glue to bottom when content grows (images / media / link previews load).
   // prevHeight starts at 0 so the first ResizeObserver callback (fired immediately
-  // on observe) always scrolls to bottom — this catches images that loaded between
+  // on observe) always scrolls to bottom — catches images that loaded between
   // useLayoutEffect and this useEffect. Skip when height shrinks (mobile keyboard).
   useEffect(() => {
     const container = containerRef.current;
@@ -304,9 +295,7 @@ export default function MessageList({
       const grew = newHeight > prevHeight;
       prevHeight = newHeight;
       if (isAtBottomRef.current && grew) {
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => bottomRef.current?.scrollIntoView())
-        );
+        container.scrollTop = container.scrollHeight;
       }
     });
     ro.observe(content);
@@ -330,10 +319,8 @@ export default function MessageList({
       if (delta < -80) {
         wasAtBottom = isAtBottomRef.current;
       } else if (delta > 80 && wasAtBottom) {
-        requestAnimationFrame(() => {
-          const c = containerRef.current;
-          if (c) requestAnimationFrame(() => bottomRef.current?.scrollIntoView());
-        });
+        const c = containerRef.current;
+        if (c) c.scrollTop = c.scrollHeight;
       }
     };
     vv.addEventListener('resize', handler);

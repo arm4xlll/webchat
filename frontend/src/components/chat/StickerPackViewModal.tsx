@@ -54,6 +54,10 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
     setError('');
 
     const load = async () => {
+      // Ensure user's pack list is fresh so alreadyInCollection is accurate.
+      // invalidate() may have been called on SSE reconnect, so this will refetch.
+      loadUserPacks().catch(() => {});
+
       try {
         let loaded: StickerPack;
         if (fileUrl) {
@@ -65,9 +69,6 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
         }
         if (!cancelled) {
           setPack(loaded);
-          // Проверяем — есть ли этот пак уже у пользователя
-          const alreadyHave = packs.some(p => p.id === loaded.id);
-          if (alreadyHave) setSubscribed(true);
         }
       } catch {
         if (!cancelled) setError('Не удалось загрузить стикерпак');
@@ -78,8 +79,7 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
 
     load();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileUrl, slug]);
+  }, [fileUrl, slug, loadUserPacks]);
 
   // Escape closes (add mode first)
   useEffect(() => {

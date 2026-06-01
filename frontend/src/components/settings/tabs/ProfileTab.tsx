@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Camera, Check, Loader2, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
+import { useChatStore } from '../../../store/chatStore';
 import { updateProfile, uploadAvatar } from '../../../api/users';
 import UserAvatar from '../../common/UserAvatar';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,11 @@ export default function ProfileTab() {
     setError('');
     try {
       const updated = await uploadAvatar(file);
-      updateUser({ ...user, avatarUrl: updated.avatarUrl ?? undefined });
+      const merged = { ...user, avatarUrl: updated.avatarUrl ?? undefined };
+      updateUser(merged);
+      // Propagate avatar change to all conversation member lists immediately,
+      // without waiting for the server to broadcast conversation.member_updated.
+      useChatStore.getState().updateConversationMember(merged);
     } catch {
       setError('Не удалось загрузить аватар');
     } finally {

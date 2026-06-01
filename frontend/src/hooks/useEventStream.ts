@@ -2,6 +2,7 @@ import { useEffect, useCallback, useState, useRef } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
+import { useStickerStore } from '../store/stickerStore';
 import { useThemeStore, type FontSize } from '../store/themeStore';
 import { useCallStore } from '../store/callStore';
 import { getConversations, getMessagesAfter } from '../api/conversations';
@@ -159,6 +160,8 @@ export function useEventStream() {
       switch (type) {
         case 'stream.ready':
           reconcile();
+          // Force sticker packs to refetch on next open — catches packs added on another device.
+          useStickerStore.getState().invalidate();
           isNewVersionAvailable().then(newer => {
             if (newer) window.dispatchEvent(new CustomEvent('app:update-available'));
           });
@@ -213,9 +216,16 @@ export function useEventStream() {
           store.removePin(ev.conversationId, ev.pinId);
           break;
         }
-        case 'conversation.member_updated':
-          store.updateConversationMember(data as User);
+        case 'conversation.member_updated': {
+          const member = data as User;
+          store.updateConversationMember(member);
+          // If this is our own profile (changed on another device), sync authStore too.
+          const currentUser = useAuthStore.getState().user;
+          if (currentUser && currentUser.id === member.id) {
+            useAuthStore.getState().updateUser({ ...currentUser, ...member });
+          }
           break;
+        }
         case 'call.incoming': {
           const ev = data as CallIncomingEvent;
           const callStore = useCallStore.getState();
