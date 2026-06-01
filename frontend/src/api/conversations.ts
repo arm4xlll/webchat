@@ -22,9 +22,7 @@ export const searchMessages = (conversationId: string, q: string, page = 0, size
 export const uploadFile = (file: File): Promise<Attachment> => {
   const form = new FormData();
   form.append('file', file);
-  return api.post<Attachment>('/upload', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => r.data);
+  return api.post<Attachment>('/upload', form).then(r => r.data);
 };
 
 export const editMessage = (conversationId: string, messageId: string, content: string): Promise<Message> =>

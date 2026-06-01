@@ -14,6 +14,12 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // For FormData, delete Content-Type so the browser sets it with the correct
+  // multipart boundary. Explicit 'multipart/form-data' without a boundary
+  // causes Spring to reject the request as non-multipart.
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 
