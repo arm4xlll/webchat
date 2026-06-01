@@ -256,7 +256,13 @@ export default function MessageList({
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const c = containerRef.current;
+    if (!c) return;
+    if (lenisRef.current) {
+      lenisRef.current.scrollTo(c.scrollHeight);
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
     setNewMessagesCount(0);
     setShowScrollDown(false);
   }, []);
@@ -281,11 +287,12 @@ export default function MessageList({
       const toBottom = () => {
         const c = containerRef.current;
         if (!c) return;
-        // Bypass Lenis — direct DOM scroll ensures the position is committed
-        // before Lenis is recreated for the new conversation.
-        c.style.scrollBehavior = 'auto';
-        c.scrollTop = c.scrollHeight;
-        c.style.scrollBehavior = '';
+        if (lenisRef.current) {
+          // Keep Lenis's targetScroll in sync so its RAF loop doesn't fight us.
+          lenisRef.current.scrollTo(c.scrollHeight, { immediate: true });
+        } else {
+          c.scrollTop = c.scrollHeight;
+        }
       };
       toBottom();
       // Re-assert after the browser finishes the first layout pass. Anything
@@ -302,9 +309,11 @@ export default function MessageList({
     if (isPrepend) {
       // Preserve the user's visual position: newTop = oldTop + (newHeight - oldHeight)
       const targetScroll = scrollTopBeforeRef.current + (container.scrollHeight - scrollHeightBeforeRef.current);
-      container.style.scrollBehavior = 'auto';
-      container.scrollTop = targetScroll;
-      container.style.scrollBehavior = '';
+      if (lenisRef.current) {
+        lenisRef.current.scrollTo(targetScroll, { immediate: true });
+      } else {
+        container.scrollTop = targetScroll;
+      }
     } else if (isNewTail) {
       // Our own message, or we're already at the bottom → follow it down.
       const isOwnTail = messages[messages.length - 1].senderId === user?.id;
@@ -312,7 +321,11 @@ export default function MessageList({
         isAtBottomRef.current = true;
         setNewMessagesCount(0);
         setShowScrollDown(false);
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (lenisRef.current) {
+          lenisRef.current.scrollTo(container.scrollHeight);
+        } else {
+          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
         scheduleRead();
       } else {
         setNewMessagesCount(c => c + 1);
@@ -337,9 +350,11 @@ export default function MessageList({
       const grew = newHeight > prevContentHeightRef.current;
       prevContentHeightRef.current = newHeight;
       if (isAtBottomRef.current && grew) {
-        container.style.scrollBehavior = 'auto';
-        container.scrollTop = container.scrollHeight;
-        container.style.scrollBehavior = '';
+        if (lenisRef.current) {
+          lenisRef.current.scrollTo(container.scrollHeight, { immediate: true });
+        } else {
+          container.scrollTop = container.scrollHeight;
+        }
       }
     });
     ro.observe(content);
@@ -368,9 +383,11 @@ export default function MessageList({
         requestAnimationFrame(() => {
           const c = containerRef.current;
           if (!c) return;
-          c.style.scrollBehavior = 'auto';
-          c.scrollTop = c.scrollHeight;
-          c.style.scrollBehavior = '';
+          if (lenisRef.current) {
+            lenisRef.current.scrollTo(c.scrollHeight, { immediate: true });
+          } else {
+            c.scrollTop = c.scrollHeight;
+          }
         });
       }
     };
