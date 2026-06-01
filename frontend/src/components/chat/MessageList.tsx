@@ -270,7 +270,7 @@ export default function MessageList({
         isAtBottomRef.current = true;
         setNewMessagesCount(0);
         setShowScrollDown(false);
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        container.scrollTop = container.scrollHeight;
         scheduleRead();
       } else {
         setNewMessagesCount(c => c + 1);
@@ -282,12 +282,14 @@ export default function MessageList({
   }, [messages, conversationId, scheduleRead, user?.id]);
 
   // Glue to bottom when content grows (images / media / link previews load).
-  // Skip when height shrinks — that's the mobile keyboard shrinking the flex container.
+  // prevHeight starts at 0 so the first ResizeObserver callback (fired immediately
+  // on observe) always scrolls to bottom — this catches images that loaded between
+  // useLayoutEffect and this useEffect. Skip when height shrinks (mobile keyboard).
   useEffect(() => {
     const container = containerRef.current;
     const content = contentRef.current;
     if (!container || !content) return;
-    let prevHeight = content.getBoundingClientRect().height;
+    let prevHeight = 0;
     const ro = new ResizeObserver((entries) => {
       const newHeight = entries[0]?.contentRect.height ?? 0;
       const grew = newHeight > prevHeight;
