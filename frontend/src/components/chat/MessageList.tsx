@@ -642,7 +642,22 @@ export default function MessageList({
                               <LinkPreviewCard url={firstUrl} isOwn={isOwn} />
                             </div>
                           )}
-                          <span className={`inline-block ${isOwn ? 'w-14' : 'w-10'}`}></span>
+                          <span className={`inline-block ${
+                            (() => {
+                              let w = 10;
+                              if (isOwn) w += 4;
+                              if (language === 'en') w += 8;
+                              if (msg.editedAt && !msg.deleted) w += language === 'ru' ? 8 : 12;
+                              if (w <= 10) return 'w-10';
+                              if (w <= 12) return 'w-12';
+                              if (w <= 14) return 'w-14';
+                              if (w <= 16) return 'w-16';
+                              if (w <= 20) return 'w-20';
+                              if (w <= 24) return 'w-24';
+                              if (w <= 28) return 'w-28';
+                              return 'w-32';
+                            })()
+                          }`}></span>
                           <span className={`absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] select-none ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
                             {timeNode}
                           </span>
