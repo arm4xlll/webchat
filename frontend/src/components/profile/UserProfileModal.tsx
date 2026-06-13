@@ -4,6 +4,7 @@ import type { User } from '../../types';
 import UserAvatar from '../common/UserAvatar';
 import { formatLastSeen } from '../../utils/time';
 import { useNow } from '../../hooks/useNow';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface PresenceInfo {
   online: boolean;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function UserProfileModal({ user, presence, isOpen, onClose }: Props) {
+  const { t } = useTranslation();
   const now = useNow(30_000);
   useEffect(() => {
     if (!isOpen) return;
@@ -61,15 +63,15 @@ export default function UserProfileModal({ user, presence, isOpen, onClose }: Pr
             {isOnline ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
-                <span className="text-sm text-green-400 font-medium">в сети</span>
+                <span className="text-sm text-green-400 font-medium">{t('chat.online')}</span>
               </>
             ) : (
               <>
                 <Clock className="w-3.5 h-3.5 text-tg-text-secondary shrink-0" />
                 <span className="text-sm text-tg-text-secondary">
                   {presence?.lastSeenAt
-                    ? `был(а) ${formatLastSeen(presence.lastSeenAt, now)}`
-                    : 'не в сети'}
+                    ? formatLastSeen(presence.lastSeenAt, now)
+                    : t('chat.offline')}
                 </span>
               </>
             )}
@@ -87,7 +89,7 @@ export default function UserProfileModal({ user, presence, isOpen, onClose }: Pr
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[14.5px] font-medium text-tg-text truncate">@{user.username}</p>
-              <p className="text-xs text-tg-text-secondary mt-0.5">имя пользователя</p>
+              <p className="text-xs text-tg-text-secondary mt-0.5">{t('common.username')}</p>
             </div>
           </div>
 
@@ -98,7 +100,7 @@ export default function UserProfileModal({ user, presence, isOpen, onClose }: Pr
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[14.5px] text-tg-text whitespace-pre-wrap break-words leading-relaxed">{user.bio}</p>
-                <p className="text-xs text-tg-text-secondary mt-0.5">описание</p>
+                <p className="text-xs text-tg-text-secondary mt-0.5">{t('common.bio')}</p>
               </div>
             </div>
           )}

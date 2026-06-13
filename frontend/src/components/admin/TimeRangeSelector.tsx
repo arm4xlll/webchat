@@ -1,3 +1,5 @@
+import { useTranslation } from '../../hooks/useTranslation';
+
 export type TimeRange = '1h' | '24h' | '7d';
 
 interface Props {
@@ -5,16 +7,18 @@ interface Props {
   onChange: (v: TimeRange) => void;
 }
 
-const OPTIONS: { label: string; value: TimeRange }[] = [
-  { label: '1 ч', value: '1h' },
-  { label: '24 ч', value: '24h' },
-  { label: '7 д', value: '7d' },
-];
-
 export default function TimeRangeSelector({ value, onChange }: Props) {
+  const { t } = useTranslation();
+
+  const options: { label: string; value: TimeRange }[] = [
+    { label: t('admin.timeRanges.1h'), value: '1h' },
+    { label: t('admin.timeRanges.24h'), value: '24h' },
+    { label: t('admin.timeRanges.7d'), value: '7d' },
+  ];
+
   return (
     <div className="flex rounded-lg overflow-hidden border border-white/10">
-      {OPTIONS.map(opt => (
+      {options.map(opt => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}

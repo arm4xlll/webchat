@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Pin, ChevronUp, X } from 'lucide-react';
 import type { PinnedMessage } from '../../types';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   pins: PinnedMessage[];
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function PinnedBanner({ pins, onJumpTo, onUnpin, currentUserId }: Props) {
+  const { t } = useTranslation();
   // Current index shown in the banner — clicking cycles through pins (newest first)
   const [idx, setIdx] = useState(0);
 
@@ -37,11 +39,11 @@ export default function PinnedBanner({ pins, onJumpTo, onUnpin, currentUserId }:
       >
         <div className="flex items-center gap-1.5">
           <span className="text-[12px] font-semibold text-tg-primary leading-none shrink-0">
-            {pins.length > 1 ? `Закреплено ${idx + 1}/${pins.length}` : 'Закреплено'}
+            {pins.length > 1 ? t('chat.pinnedCount', { current: idx + 1, total: pins.length }) : t('chat.pinnedSingle')}
           </span>
         </div>
         <div className="text-[13px] text-tg-text truncate mt-0.5">
-          {pin.content || '[медиафайл]'}
+          {pin.content || t('chat.mediaFile')}
         </div>
       </button>
 
@@ -53,7 +55,7 @@ export default function PinnedBanner({ pins, onJumpTo, onUnpin, currentUserId }:
             setIdx(prev => (prev - 1 + pins.length) % pins.length);
           }}
           className="p-1 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
-          title="Предыдущее закреплённое"
+          title={t('chat.prevPinned')}
         >
           <ChevronUp className="w-4 h-4" />
         </button>
@@ -65,11 +67,10 @@ export default function PinnedBanner({ pins, onJumpTo, onUnpin, currentUserId }:
           onClick={(e) => {
             e.stopPropagation();
             onUnpin(pin.id);
-            // Reset index if needed
             if (idx >= pins.length - 1) setIdx(Math.max(0, pins.length - 2));
           }}
           className="p-1 text-tg-text-secondary hover:text-rose-400 hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
-          title="Открепить"
+          title={t('chat.unpin')}
         >
           <X className="w-4 h-4" />
         </button>

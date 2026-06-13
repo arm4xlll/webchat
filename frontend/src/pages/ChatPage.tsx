@@ -23,8 +23,10 @@ import { LogOut, MessageSquare, WifiOff, Loader2, Bell, Settings, RefreshCw } fr
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useVersionCheck } from '../hooks/useVersionCheck';
 import { useFocusReporting } from '../hooks/useFocusReporting';
+import { useTranslation } from '../hooks/useTranslation';
 
 export default function ChatPage() {
+  const { t } = useTranslation();
   const { showBanner, requestPermission } = usePushNotifications();
   const { updateReady, countdown, reloadNow } = useVersionCheck();
   const user = useAuthStore(s => s.user);
@@ -121,11 +123,11 @@ export default function ChatPage() {
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-500/15 text-sm shrink-0">
           <div className="flex items-center gap-2 text-tg-text">
             <RefreshCw className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Доступна новая версия — обновление через {countdown} с</span>
+            <span>{t('updates.newVersion', { countdown })}</span>
           </div>
           <button onClick={reloadNow}
             className="shrink-0 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-medium hover:bg-emerald-400 transition-colors cursor-pointer">
-            Обновить
+            {t('updates.updateBtn')}
           </button>
         </div>
       )}
@@ -134,11 +136,11 @@ export default function ChatPage() {
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-tg-primary/15 text-sm shrink-0">
           <div className="flex items-center gap-2 text-tg-text">
             <Bell className="w-4 h-4 text-tg-primary shrink-0" />
-            <span>Включите уведомления, чтобы не пропускать сообщения</span>
+            <span>{t('updates.notificationsHint')}</span>
           </div>
           <button onClick={requestPermission}
             className="shrink-0 px-3 py-1 rounded-full bg-tg-primary text-white text-xs font-medium hover:bg-tg-primary/80 transition-colors cursor-pointer">
-            Включить
+            {t('updates.enableNotificationsBtn')}
           </button>
         </div>
       )}
@@ -148,8 +150,8 @@ export default function ChatPage() {
           wsStatus === 'connecting' ? 'bg-yellow-500/15 text-yellow-400' : 'bg-rose-500/15 text-rose-400'
         }`}>
           {wsStatus === 'connecting'
-            ? <><Loader2 className="w-3 h-3 animate-spin" />Подключение...</>
-            : <><WifiOff className="w-3 h-3" />Нет соединения — переподключение...</>}
+            ? <><Loader2 className="w-3 h-3 animate-spin" />{t('updates.connecting')}</>
+            : <><WifiOff className="w-3 h-3" />{t('updates.reconnecting')}</>}
         </div>
       )}
 
@@ -162,7 +164,7 @@ export default function ChatPage() {
             <button
               onClick={() => setSettingsOpen(true)}
               className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-tg-hover rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer group"
-              title="Открыть настройки"
+              title={t('settings.title')}
             >
               <UserAvatar name={user?.name ?? '?'} avatarUrl={user?.avatarUrl} size="md" />
               <div className="flex-1 min-w-0">
@@ -173,7 +175,7 @@ export default function ChatPage() {
             </button>
             <button
               onClick={handleLogout}
-              title="Выйти из аккаунта"
+              title={t('common.logout')}
               className="p-2 text-tg-text-secondary hover:text-rose-400 hover:bg-rose-400/10 rounded-full cursor-pointer transition-colors shrink-0"
             >
               <LogOut className="w-4 h-4" />
@@ -182,7 +184,7 @@ export default function ChatPage() {
 
           <UserSearch />
           <div className="px-4 pt-2 pb-1 shrink-0">
-            <span className="text-[10.5px] font-semibold text-tg-text-secondary uppercase tracking-wider">Чаты</span>
+            <span className="text-[10.5px] font-semibold text-tg-text-secondary uppercase tracking-wider">{t('chat.chats')}</span>
           </div>
           <ConversationList />
         </div>
@@ -222,7 +224,7 @@ export default function ChatPage() {
                   <MessageSquare className="w-10 h-10 text-tg-text-secondary" />
                 </div>
                 <p className="text-sm text-tg-text-secondary bg-tg-input-bg px-4 py-1.5 rounded-full">
-                  Выберите чат, чтобы начать общение
+                  {t('chat.selectChat')}
                 </p>
               </div>
             </div>

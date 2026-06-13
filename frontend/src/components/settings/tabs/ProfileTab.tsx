@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 export default function ProfileTab() {
+  const { t } = useTranslation();
   const user = useAuthStore(s => s.user);
   const updateUser = useAuthStore(s => s.updateUser);
 
@@ -36,7 +38,7 @@ export default function ProfileTab() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
-      setError('Не удалось сохранить изменения');
+      setError(t('settings.profile.saveError'));
     } finally {
       setSaving(false);
     }
@@ -51,11 +53,9 @@ export default function ProfileTab() {
       const updated = await uploadAvatar(file);
       const merged = { ...user, avatarUrl: updated.avatarUrl ?? undefined };
       updateUser(merged);
-      // Propagate avatar change to all conversation member lists immediately,
-      // without waiting for the server to broadcast conversation.member_updated.
       useChatStore.getState().updateConversationMember(merged);
     } catch {
-      setError('Не удалось загрузить аватар');
+      setError(t('settings.profile.avatarUploadError'));
     } finally {
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -80,37 +80,38 @@ export default function ProfileTab() {
           </button>
         </div>
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-        <p className="mt-2 text-xs text-muted-foreground">Нажмите на аватар, чтобы изменить</p>
+        <p className="mt-2 text-xs text-muted-foreground">{t('settings.profile.avatarHint')}</p>
       </div>
 
       {/* Form */}
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="profile-name">Имя</Label>
+          <Label htmlFor="profile-name">{t('common.name')}</Label>
           <Input
             id="profile-name"
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
             maxLength={100}
-            placeholder="Ваше имя"
+            placeholder={t('settings.profile.namePlaceholder')}
           />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="profile-bio">
-            Описание{' '}
-            <span className="text-muted-foreground/60 font-normal">(необязательно)</span>
+            {t('common.bio')}{' '}
+            <span className="text-muted-foreground/60 font-normal">{t('settings.profile.optional')}</span>
           </Label>
+          <Label className="sr-only">Описание профиля</Label>
           <Textarea
             id="profile-bio"
             value={bio}
             onChange={e => setBio(e.target.value)}
             maxLength={500}
             rows={3}
-            placeholder="Расскажите о себе..."
+            placeholder={t('settings.profile.bioHint')}
           />
-          <p className="text-right text-xs text-muted-foreground">{bio.length}/500</p>
+          <p className="text-right text-xs text-muted-foreground">{t('settings.profile.bioLimit', { length: bio.length })}</p>
         </div>
 
         {error && (
@@ -126,11 +127,11 @@ export default function ProfileTab() {
           className="w-full"
         >
           {saving ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Сохранение...</>
+            <><Loader2 className="w-4 h-4 animate-spin" /> {t('common.saving')}</>
           ) : saved ? (
-            <><Check className="w-4 h-4" /> Сохранено</>
+            <><Check className="w-4 h-4" /> {t('common.saved')}</>
           ) : (
-            'Сохранить'
+            t('common.save')
           )}
         </Button>
       </div>

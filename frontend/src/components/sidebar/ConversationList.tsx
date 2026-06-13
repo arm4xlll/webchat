@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import type { Conversation } from '../../types';
 import UserAvatar from '../common/UserAvatar';
 import { MessageSquare, Bookmark, Mic, Image, Video, Paperclip } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 const EMPTY_MESSAGES: never[] = [];
 
@@ -15,13 +16,13 @@ function getOther(conv: Conversation, myId: string) {
   return conv.members.find(m => m.id !== myId) ?? conv.members[0];
 }
 
-function formatTime(iso: string) {
+function formatTime(iso: string, lang: string) {
   const d = new Date(iso);
   const now = new Date();
   if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
   }
-  return d.toLocaleDateString('ru', { day: '2-digit', month: '2-digit' });
+  return d.toLocaleDateString(lang, { day: '2-digit', month: '2-digit' });
 }
 
 function PreviewIcon({ fileType }: { fileType: string }) {
@@ -32,6 +33,7 @@ function PreviewIcon({ fileType }: { fileType: string }) {
 }
 
 export default function ConversationList() {
+  const { t, language } = useTranslation();
   const user = useAuthStore(s => s.user);
   const conversations = useChatStore(s => s.conversations);
   const activeConversationId = useChatStore(s => s.activeConversationId);
@@ -58,9 +60,9 @@ export default function ConversationList() {
         <div className="w-14 h-14 rounded-2xl bg-tg-input-bg flex items-center justify-center mb-3">
           <MessageSquare className="w-7 h-7 text-tg-text-secondary" />
         </div>
-        <div className="text-[14px] font-semibold text-tg-text mb-1">Нет чатов</div>
+        <div className="text-[14px] font-semibold text-tg-text mb-1">{t('chat.noChats')}</div>
         <div className="text-[12.5px] text-tg-text-secondary max-w-[160px] leading-relaxed">
-          Найдите пользователя через поиск, чтобы начать диалог
+          {t('chat.searchToStart')}
         </div>
       </div>
     );
@@ -83,24 +85,24 @@ export default function ConversationList() {
 
         if (lastMsg) {
           if (lastMsg.deleted) {
-            previewText = 'Сообщение удалено';
+            previewText = t('chat.messageDeleted');
           } else if (lastMsg.fileType?.startsWith('audio/')) {
-            previewText = 'Голосовое сообщение';
+            previewText = t('chat.voiceMessage');
             previewFileType = lastMsg.fileType;
           } else if (lastMsg.fileType?.startsWith('image/')) {
-            previewText = 'Фото';
+            previewText = t('chat.photo');
             previewFileType = lastMsg.fileType;
           } else if (lastMsg.fileType?.startsWith('video/')) {
-            previewText = 'Видео';
+            previewText = t('chat.video');
             previewFileType = lastMsg.fileType;
           } else if (lastMsg.fileType) {
-            previewText = lastMsg.fileName ?? 'Файл';
+            previewText = lastMsg.fileName ?? t('chat.file');
             previewFileType = lastMsg.fileType;
           } else {
             previewText = lastMsg.content;
           }
         } else if (isSaved) {
-          previewText = 'Сохраняйте важные сообщения сюда';
+          previewText = t('chat.savedMessagesHint');
         } else {
           previewText = `@${other?.username ?? ''}`;
         }
@@ -142,7 +144,7 @@ export default function ConversationList() {
               {/* Top row: name + time */}
               <div className="flex items-baseline justify-between gap-2 mb-0.5">
                 <span className={`font-semibold text-[14.5px] truncate leading-tight ${isActive ? '' : 'text-tg-text'}`}>
-                  {isSaved ? 'Избранное' : (other?.name ?? 'Неизвестно')}
+                  {isSaved ? t('common.savedMessages') : (other?.name ?? t('chat.unknownUser'))}
                 </span>
                 {timeStr && (
                   <span className={`text-[11px] shrink-0 tabular-nums leading-none ${
@@ -154,7 +156,7 @@ export default function ConversationList() {
                   }`}
                   style={isActive ? { color: 'var(--color-tg-msg-out-text-muted)' } : undefined}
                   >
-                    {formatTime(timeStr)}
+                    {formatTime(timeStr, language)}
                   </span>
                 )}
               </div>

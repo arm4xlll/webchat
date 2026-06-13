@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Palette, Smartphone, ChevronLeft, Shield, X } from 'lucide-react';
+import { User, Palette, Smartphone, ChevronLeft, Shield, X, Globe } from 'lucide-react';
 import ProfileTab from './tabs/ProfileTab';
 import ThemeTab from './tabs/ThemeTab';
 import SessionsTab from './tabs/SessionsTab';
+import LanguageTab from './tabs/LanguageTab';
 import { useAuthStore } from '../../store/authStore';
 import UserAvatar from '../common/UserAvatar';
 import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
@@ -11,35 +12,31 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '../../hooks/useTranslation';
 
-type TabId = 'profile' | 'theme' | 'sessions';
+type TabId = 'profile' | 'theme' | 'language' | 'sessions';
 
 interface NavItem {
   id: TabId;
-  label: string;
   icon: React.ReactNode;
-  section: string;
+  section: 'account' | 'sessions';
 }
 
 const NAV: NavItem[] = [
-  { id: 'profile', label: 'Профиль', icon: <User className="w-4 h-4" />, section: 'Аккаунт' },
-  { id: 'theme', label: 'Тема', icon: <Palette className="w-4 h-4" />, section: 'Аккаунт' },
-  { id: 'sessions', label: 'Сессии', icon: <Smartphone className="w-4 h-4" />, section: 'Сессии' },
+  { id: 'profile', icon: <User className="w-4 h-4" />, section: 'account' },
+  { id: 'theme', icon: <Palette className="w-4 h-4" />, section: 'account' },
+  { id: 'language', icon: <Globe className="w-4 h-4" />, section: 'account' },
+  { id: 'sessions', icon: <Smartphone className="w-4 h-4" />, section: 'sessions' },
 ];
 
-const SECTION_ORDER = ['Аккаунт', 'Сессии'];
-
-const TAB_TITLES: Record<TabId, string> = {
-  profile: 'Профиль',
-  theme: 'Тема',
-  sessions: 'Активные сессии',
-};
+const SECTION_ORDER = ['account', 'sessions'] as const;
 
 interface Props {
   onClose: () => void;
 }
 
 export default function SettingsModal({ onClose }: Props) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [mobilePane, setMobilePane] = useState<'nav' | 'content'>('nav');
   const user = useAuthStore(s => s.user);
@@ -51,6 +48,19 @@ export default function SettingsModal({ onClose }: Props) {
     setMobilePane('content');
   };
 
+  const getTabTitle = (id: TabId) => {
+    switch (id) {
+      case 'profile':
+        return t('settings.nav.profile');
+      case 'theme':
+        return t('settings.nav.theme');
+      case 'language':
+        return t('settings.language.title');
+      case 'sessions':
+        return t('settings.sessionsSection');
+    }
+  };
+
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogPortal>
@@ -59,8 +69,8 @@ export default function SettingsModal({ onClose }: Props) {
           className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
           style={{ height: 'min(90dvh, 620px)' }}
         >
-          <DialogPrimitive.Title className="sr-only">Настройки</DialogPrimitive.Title>
-          <DialogPrimitive.Description className="sr-only">Настройки аккаунта, темы и сессий</DialogPrimitive.Description>
+          <DialogPrimitive.Title className="sr-only">{t('settings.title')}</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">{t('settings.description')}</DialogPrimitive.Description>
 
           <div className="flex h-full">
             {/* Sidebar */}
@@ -70,7 +80,7 @@ export default function SettingsModal({ onClose }: Props) {
             )}>
               <div className="px-4 pt-4 pb-3 border-b border-border shrink-0">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Настройки</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('settings.title')}</span>
                   <button
                     onClick={onClose}
                     className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
@@ -95,7 +105,7 @@ export default function SettingsModal({ onClose }: Props) {
                       <div key={section}>
                         {sectionIdx > 0 && <Separator className="my-2" />}
                         <p className="px-2 pt-2 pb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          {section}
+                          {t(`settings.${section}Section`)}
                         </p>
                         {items.map(item => {
                           const isActive = activeTab === item.id;
@@ -113,7 +123,7 @@ export default function SettingsModal({ onClose }: Props) {
                               <span className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted-foreground')}>
                                 {item.icon}
                               </span>
-                              <span className="text-[13.5px] font-medium">{item.label}</span>
+                              <span className="text-[13.5px] font-medium">{t(`settings.nav.${item.id}`)}</span>
                             </button>
                           );
                         })}
@@ -131,7 +141,7 @@ export default function SettingsModal({ onClose }: Props) {
                           <Shield className="w-4 h-4" />
                         </span>
                         <span className="text-[13.5px] font-medium group-hover:text-violet-400 transition-colors">
-                          Панель администратора
+                          {t('settings.adminPanel')}
                         </span>
                       </button>
                     </div>
@@ -152,7 +162,7 @@ export default function SettingsModal({ onClose }: Props) {
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <h3 className="text-[15px] font-semibold text-foreground">{TAB_TITLES[activeTab]}</h3>
+                <h3 className="text-[15px] font-semibold text-foreground">{getTabTitle(activeTab)}</h3>
                 <button
                   onClick={onClose}
                   className="md:hidden ml-auto p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
@@ -165,6 +175,7 @@ export default function SettingsModal({ onClose }: Props) {
                 <div className="px-5 py-5">
                   {activeTab === 'profile' && <ProfileTab />}
                   {activeTab === 'theme' && <ThemeTab />}
+                  {activeTab === 'language' && <LanguageTab />}
                   {activeTab === 'sessions' && <SessionsTab />}
                 </div>
               </ScrollArea>

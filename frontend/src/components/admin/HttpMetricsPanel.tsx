@@ -5,15 +5,16 @@ import {
 import { Zap, Timer, AlertTriangle } from 'lucide-react';
 import MetricCard from './MetricCard';
 import type { AdminMetricsSnapshot } from '../../types/admin';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   latest: AdminMetricsSnapshot | null;
   history: AdminMetricsSnapshot[];
 }
 
-function latencyData(history: AdminMetricsSnapshot[]) {
+function latencyData(history: AdminMetricsSnapshot[], language: string) {
   return history.map(s => ({
-    t: new Date(s.timestamp).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }),
+    t: new Date(s.timestamp).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }),
     p50: s.http.p50Ms,
     p95: s.http.p95Ms,
     p99: s.http.p99Ms,
@@ -31,8 +32,9 @@ function statusData(latest: AdminMetricsSnapshot | null) {
 }
 
 export default function HttpMetricsPanel({ latest, history }: Props) {
+  const { t, language } = useTranslation();
   const h = latest?.http;
-  const lData = latencyData(history);
+  const lData = latencyData(history, language);
   const sData = statusData(latest);
 
   return (
@@ -41,28 +43,28 @@ export default function HttpMetricsPanel({ latest, history }: Props) {
         <MetricCard
           label="RPS"
           value={h ? h.rps.toFixed(2) : '—'}
-          sub="запросов / сек"
+          sub={t('admin.http.rps')}
           accent="green"
           icon={<Zap className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="Латентность p50"
-          value={h ? `${h.p50Ms} мс` : '—'}
-          sub={`p95: ${h?.p95Ms ?? '—'} мс`}
+          label={t('admin.http.p50')}
+          value={h ? `${h.p50Ms} ${t('admin.http.latencyUnit').trim()}` : '—'}
+          sub={t('admin.http.p95', { ms: h?.p95Ms ?? '—' })}
           accent="blue"
           icon={<Timer className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="Латентность p99"
-          value={h ? `${h.p99Ms} мс` : '—'}
-          sub="99-й перцентиль"
+          label={t('admin.http.p99')}
+          value={h ? `${h.p99Ms} ${t('admin.http.latencyUnit').trim()}` : '—'}
+          sub={t('admin.http.p99Desc')}
           accent={h && h.p99Ms > 500 ? 'red' : 'yellow'}
           icon={<Timer className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="Ошибки 5xx"
+          label={t('admin.http.errors5xx')}
           value={h?.count5xx ?? '—'}
-          sub={`4xx: ${h?.count4xx ?? '—'}`}
+          sub={t('admin.http.errors4xx', { count: h?.count4xx ?? '—' })}
           accent={h && h.count5xx > 0 ? 'red' : 'green'}
           icon={<AlertTriangle className="w-3.5 h-3.5" />}
         />
@@ -72,12 +74,12 @@ export default function HttpMetricsPanel({ latest, history }: Props) {
         {/* Latency chart */}
         {lData.length > 1 && (
           <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-xl p-4">
-            <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">Латентность (мс)</p>
+            <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">{t('admin.http.latencyChart')}</p>
             <ResponsiveContainer width="100%" height={150}>
               <LineChart data={lData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey="t" tick={{ fontSize: 10, fill: '#6b7280' }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} unit=" мс" />
+                <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} unit={t('admin.http.latencyUnit')} />
                 <Tooltip
                   contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
                 />
@@ -92,7 +94,7 @@ export default function HttpMetricsPanel({ latest, history }: Props) {
 
         {/* Status codes */}
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">Статус-коды (период)</p>
+          <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">{t('admin.http.statusCodes')}</p>
           <ResponsiveContainer width="100%" height={150}>
             <BarChart data={sData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -101,7 +103,7 @@ export default function HttpMetricsPanel({ latest, history }: Props) {
               <Tooltip
                 contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
               />
-              <Bar dataKey="value" name="Запросов" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="value" name={t('admin.http.requestsName')} radius={[0, 4, 4, 0]}>
                 {sData.map((entry, i) => (
                   <Cell key={i} fill={entry.fill} />
                 ))}

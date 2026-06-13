@@ -5,8 +5,10 @@ import { useChatStore } from '../../store/chatStore';
 import type { User } from '../../types';
 import { Search, Loader2 } from 'lucide-react';
 import UserAvatar from '../common/UserAvatar';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function UserSearch() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +68,7 @@ export default function UserSearch() {
           onChange={handleInput}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
-          placeholder="Поиск..."
+          placeholder={t('common.search')}
           className="w-full pl-9 pr-4 py-1.5 bg-tg-input-bg border border-tg-border focus:border-tg-primary rounded-full text-tg-text placeholder:text-tg-text-secondary text-[14px] leading-tight focus:outline-none transition-all duration-200"
         />
       </div>
@@ -76,7 +78,7 @@ export default function UserSearch() {
           {loading && results.length === 0 && (
             <div className="px-4 py-3 text-sm text-tg-text-secondary text-center flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-tg-primary" />
-              <span>Поиск...</span>
+              <span>{t('admin.users.searching')}</span>
             </div>
           )}
           {results.map(user => (
@@ -97,4 +99,3 @@ export default function UserSearch() {
     </div>
   );
 }
-

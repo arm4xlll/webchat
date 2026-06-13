@@ -4,6 +4,7 @@ import { uploadFile } from '../../api/conversations';
 import type { Attachment, Message } from '../../types';
 import type { StickerItem } from '../../types/sticker';
 import StickerPicker from './StickerPicker';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   conversationId: string;
@@ -24,10 +25,16 @@ function formatRecordTime(s: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+function formatSize(bytes: number, lang: string): string {
+  if (lang === 'ru') {
+    if (bytes < 1024) return `${bytes} Б`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+  } else {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
 }
 
 function getFileIcon(file: File) {
@@ -51,6 +58,7 @@ export default function MessageInput({
   externalFile, onExternalFileConsumed,
   onSendSticker,
 }: Props) {
+  const { t, language } = useTranslation();
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -116,7 +124,7 @@ export default function MessageInput({
 
   const attachFile = (picked: File) => {
     if (picked.size > MAX_MB * 1024 * 1024) {
-      setUploadError(`Файл слишком большой (макс. ${MAX_MB} МБ)`);
+      setUploadError(t('chat.fileTooLarge', { max: MAX_MB }));
       return;
     }
     setUploadError('');
@@ -144,7 +152,7 @@ export default function MessageInput({
 
   const startRecording = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      setUploadError('Браузер не поддерживает запись (нужен HTTPS или localhost)');
+      setUploadError(t('chat.browserRecordingNotSupported'));
       return;
     }
     try {
@@ -165,14 +173,14 @@ export default function MessageInput({
     } catch (err: unknown) {
       const name = (err as { name?: string })?.name;
       setUploadError(
-        name === 'NotAllowedError' ? 'Доступ к микрофону запрещён — разрешите в настройках браузера'
-          : name === 'NotFoundError' ? 'Микрофон не найден'
-            : 'Не удалось получить доступ к микрофону'
+        name === 'NotAllowedError' ? t('chat.micAccessDenied')
+          : name === 'NotFoundError' ? t('chat.micNotFound')
+            : t('chat.micAccessError')
       );
     }
   };
 
-  const cancelRecording = () => {
+  const cancelRecordingLocal = () => {
     const mr = mediaRecorderRef.current;
     if (mr) { mr.ondataavailable = null; mr.onstop = null; mr.stream.getTracks().forEach(t => t.stop()); mr.stop(); mediaRecorderRef.current = null; }
     stopRecordTimer(); recordChunksRef.current = []; setRecording(false); setRecordSeconds(0);
@@ -194,10 +202,10 @@ export default function MessageInput({
       recordChunksRef.current = [];
       const attachment = await uploadFile(audioFile);
       onSend('', attachment);
-    } catch { setUploadError('Ошибка отправки голосового'); }
+    } catch { setUploadError(t('chat.sendVoiceError')); }
     finally { setUploading(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordSeconds, onSend]);
+  }, [recordSeconds, onSend, t]);
 
   // ── Text send ─────────────────────────────────────────────────────────────
 
@@ -224,11 +232,11 @@ export default function MessageInput({
       else { const saved = localStorage.getItem(`draft:${conversationId}`) ?? ''; setText(saved); }
     } catch (e) {
       console.error('Upload failed', e);
-      setUploadError('Ошибка загрузки файла');
+      setUploadError(t('chat.uploadFileError'));
     } finally { setUploading(false); }
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     isTypingRef.current = false; onTyping(false);
-  }, [text, file, onSend, onTyping, conversationId, editingMessage]);
+  }, [text, file, onSend, onTyping, conversationId, editingMessage, t]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -267,7 +275,7 @@ export default function MessageInput({
           <div className="w-0.5 h-7 rounded-full bg-tg-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="text-[12px] font-semibold text-tg-primary leading-none mb-0.5">{replyingTo.senderName}</div>
-            <div className="text-[12px] text-tg-text-secondary truncate">{replyingTo.content || '[медиафайл]'}</div>
+            <div className="text-[12px] text-tg-text-secondary truncate">{replyingTo.content || t('chat.mediaFile')}</div>
           </div>
           <button onClick={onCancelReply} className="p-1.5 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0">
             <X className="w-3.5 h-3.5" />
@@ -281,7 +289,7 @@ export default function MessageInput({
           <Pencil className="w-4 h-4 text-tg-primary shrink-0" />
           <div className="w-0.5 h-7 rounded-full bg-tg-primary shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="text-[12px] font-semibold text-tg-primary leading-none mb-0.5">Редактирование</div>
+            <div className="text-[12px] font-semibold text-tg-primary leading-none mb-0.5">{t('chat.editingLabel')}</div>
             <div className="text-[12px] text-tg-text-secondary truncate">{editingMessage.content}</div>
           </div>
           <button onClick={handleCancelEdit} className="p-1.5 text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0">
@@ -312,7 +320,7 @@ export default function MessageInput({
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[13.5px] font-medium text-tg-text truncate">{file.name}</div>
-            <div className="text-[12px] text-tg-text-secondary mt-0.5">{formatSize(file.size)}</div>
+            <div className="text-[12px] text-tg-text-secondary mt-0.5">{formatSize(file.size, language)}</div>
           </div>
         </div>
       )}
@@ -325,9 +333,9 @@ export default function MessageInput({
       {recording ? (
         <div className="px-3 py-2.5 flex items-center gap-2.5 select-none">
           <button
-            onClick={cancelRecording}
+            onClick={cancelRecordingLocal}
             className="w-9 h-9 rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            title="Отменить запись"
+            title={t('chat.cancelRecording')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -335,7 +343,7 @@ export default function MessageInput({
           <div className="flex-1 flex items-center gap-3 bg-tg-input-bg rounded-2xl px-4 py-2.5 border border-rose-500/30">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
             <span className="text-[14px] font-semibold text-tg-text tabular-nums">{formatRecordTime(recordSeconds)}</span>
-            <span className="text-[12.5px] text-tg-text-secondary">Запись...</span>
+            <span className="text-[12.5px] text-tg-text-secondary">{t('chat.recording')}</span>
             <div className="flex items-end gap-[3px] ml-auto">
               {Array.from({ length: 14 }).map((_, i) => (
                 <div
@@ -373,7 +381,7 @@ export default function MessageInput({
               <div className="flex items-center px-1.5 pb-[7px] gap-0.5 shrink-0">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  title="Прикрепить файл (или Ctrl+V)"
+                  title={t('chat.attachFileTooltip')}
                   className="p-1.5 text-tg-text-secondary hover:text-tg-primary rounded-full transition-colors cursor-pointer"
                 >
                   <Paperclip className="w-[18px] h-[18px]" />
@@ -381,7 +389,7 @@ export default function MessageInput({
                 {onSendSticker && (
                   <button
                     onClick={() => setStickerPickerOpen(o => !o)}
-                    title="Стикеры"
+                    title={t('chat.stickersTooltip')}
                     className={`p-1.5 rounded-full transition-colors cursor-pointer ${
                       stickerPickerOpen
                         ? 'text-tg-primary'
@@ -401,7 +409,7 @@ export default function MessageInput({
               value={text}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              placeholder={editingMessage ? 'Редактировать сообщение...' : 'Сообщение...'}
+              placeholder={editingMessage ? t('chat.editMessagePlaceholder') : t('chat.messagePlaceholder')}
               rows={1}
               className="flex-1 bg-transparent py-[9px] pr-2 text-tg-text placeholder:text-tg-text-secondary text-[14.5px] resize-none outline-none max-h-32 overflow-y-auto leading-[1.45] min-w-0"
             />
@@ -411,7 +419,7 @@ export default function MessageInput({
           {showMic ? (
             <button
               onClick={startRecording}
-              title="Голосовое сообщение"
+              title={t('chat.voiceMessageTooltip')}
               className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-tg-input-bg border border-tg-border text-tg-text-secondary hover:text-tg-primary hover:border-tg-primary/50 transition-all cursor-pointer"
             >
               <Mic className="w-[18px] h-[18px]" />
@@ -420,7 +428,7 @@ export default function MessageInput({
             <button
               onClick={handleSend}
               disabled={!canSend}
-              title={editingMessage ? 'Сохранить (Enter)' : 'Отправить (Enter)'}
+              title={editingMessage ? t('chat.saveTooltip') : t('chat.sendTooltip')}
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm ${
                 canSend
                   ? 'bg-tg-primary text-white hover:opacity-90 cursor-pointer'

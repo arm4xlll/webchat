@@ -6,15 +6,17 @@ import { MessageSquare, User, Lock, Loader2, AlertCircle, Mic, Paperclip, Smile 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '../hooks/useTranslation';
 
 const FEATURES = [
-  { icon: <MessageSquare className="w-4 h-4" />, text: 'Мгновенные сообщения в реальном времени' },
-  { icon: <Mic className="w-4 h-4" />, text: 'Голосовые сообщения и медиафайлы' },
-  { icon: <Smile className="w-4 h-4" />, text: 'Стикеры, реакции и пересылка' },
-  { icon: <Paperclip className="w-4 h-4" />, text: 'Отправка файлов любого формата' },
+  { icon: <MessageSquare className="w-4 h-4" />, key: 'auth.features.messages' },
+  { icon: <Mic className="w-4 h-4" />, key: 'auth.features.voice' },
+  { icon: <Smile className="w-4 h-4" />, key: 'auth.features.stickers' },
+  { icon: <Paperclip className="w-4 h-4" />, key: 'auth.features.files' },
 ];
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
   const [username, setUsername] = useState('');
@@ -32,7 +34,7 @@ export default function LoginPage() {
       navigate('/');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
-      setError(e.response?.data?.detail ?? 'Неверный логин или пароль');
+      setError(e.response?.data?.detail ?? t('auth.invalidCredentials'));
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">WebChat</h1>
           <p className="text-muted-foreground text-sm leading-relaxed mb-8">
-            Общайтесь с людьми быстро, удобно и безопасно
+            {t('auth.branding')}
           </p>
           <div className="w-full space-y-3.5">
             {FEATURES.map((f, i) => (
@@ -56,7 +58,7 @@ export default function LoginPage() {
                 <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0 text-primary">
                   {f.icon}
                 </div>
-                <span>{f.text}</span>
+                <span>{t(f.key)}</span>
               </div>
             ))}
           </div>
@@ -75,13 +77,13 @@ export default function LoginPage() {
 
         <div className="w-full max-w-[360px]">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-foreground tracking-tight">Вход</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Введите данные своего аккаунта</p>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('auth.loginTitle')}</h2>
+            <p className="text-muted-foreground mt-1 text-sm">{t('auth.loginSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="username">Юзернейм</Label>
+              <Label htmlFor="username">{t('auth.usernameLabel')}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -98,7 +100,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">{t('auth.passwordLabel')}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -106,7 +108,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   required
                   autoComplete="current-password"
                   className="pl-9"
@@ -125,16 +127,16 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Входим...
+                  {t('auth.loggingIn')}
                 </>
-              ) : 'Войти'}
+              ) : t('auth.loginBtn')}
             </Button>
           </form>
 
           <p className="mt-5 text-center text-sm text-muted-foreground">
-            Нет аккаунта?{' '}
+            {t('auth.noAccount')}{' '}
             <Link to="/register" className="text-primary hover:underline font-semibold transition-colors">
-              Зарегистрироваться
+              {t('auth.registerLink')}
             </Link>
           </p>
         </div>

@@ -3,6 +3,7 @@ import { X, Plus, Loader2, Upload, ChevronDown } from 'lucide-react';
 import { createStickerPack } from '../../api/stickers';
 import { useStickerStore } from '../../store/stickerStore';
 import { isStickerVideoType } from '../../types/sticker';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   onClose: () => void;
@@ -27,6 +28,7 @@ function autoSlug(title: string): string {
 }
 
 export default function CreatePackModal({ onClose }: Props) {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { invalidate, loadUserPacks } = useStickerStore();
 
@@ -45,7 +47,7 @@ export default function CreatePackModal({ onClose }: Props) {
     const arr = Array.from(files);
     const valid = arr.filter(f => ALLOWED.includes(f.type));
     if (valid.length < arr.length) {
-      setError('Некоторые файлы пропущены — допустимы PNG, WEBP, JPEG, GIF, MP4, MOV, WEBM');
+      setError(t('stickers.filesSkipped'));
     }
     const drafts: StickerDraft[] = valid.map(f => ({
       file: f,
@@ -69,13 +71,12 @@ export default function CreatePackModal({ onClose }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!title.trim()) { setError('Введите название пака'); return; }
-    if (stickers.length === 0) { setError('Добавьте хотя бы один стикер'); return; }
+    if (!title.trim()) { setError(t('stickers.nameRequired')); return; }
+    if (stickers.length === 0) { setError(t('stickers.stickersRequired')); return; }
 
-    // Если slug не задан вручную — генерируем автоматически
     const effectiveSlug = slug.trim() || autoSlug(title.trim());
     if (!/^[a-z0-9_-]{3,64}$/.test(effectiveSlug)) {
-      setError('Slug: 3-64 символа, только строчные буквы, цифры, _ и -');
+      setError(t('stickers.slugInvalid'));
       return;
     }
 
@@ -97,7 +98,7 @@ export default function CreatePackModal({ onClose }: Props) {
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
-      setError(msg ?? 'Ошибка при создании пака');
+      setError(msg ?? t('stickers.createPackError'));
     } finally {
       setSubmitting(false);
     }
@@ -113,7 +114,7 @@ export default function CreatePackModal({ onClose }: Props) {
       <div className="relative bg-tg-sidebar-bg border border-tg-border rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
-          <h2 className="text-[17px] font-semibold text-tg-text">Новый стикерпак</h2>
+          <h2 className="text-[17px] font-semibold text-tg-text">{t('stickers.newPackTitle')}</h2>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-tg-hover text-tg-text-secondary cursor-pointer">
             <X className="w-4.5 h-4.5" />
           </button>
@@ -124,12 +125,12 @@ export default function CreatePackModal({ onClose }: Props) {
           {/* Title */}
           <div>
             <label className="text-xs font-semibold text-tg-text-secondary uppercase tracking-wide block mb-1.5">
-              Название
+              {t('stickers.packName')}
             </label>
             <input
               value={title}
               onChange={e => handleTitleChange(e.target.value)}
-              placeholder="Мои стикеры"
+              placeholder={t('stickers.packNamePlaceholder')}
               maxLength={128}
               className="w-full bg-tg-input-bg border border-tg-border rounded-xl px-3.5 py-2 text-[15px] text-tg-text placeholder:text-tg-text-secondary outline-none focus:border-tg-primary transition-colors"
             />
@@ -143,7 +144,7 @@ export default function CreatePackModal({ onClose }: Props) {
               className="flex items-center gap-1 text-xs text-tg-text-secondary hover:text-tg-text transition-colors cursor-pointer select-none"
             >
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${slugExpanded ? 'rotate-180' : ''}`} />
-              Дополнительно (slug)
+              {t('stickers.packSlug')}
             </button>
             {slugExpanded && (
               <div className="mt-2">
@@ -155,7 +156,7 @@ export default function CreatePackModal({ onClose }: Props) {
                   className="w-full bg-tg-input-bg border border-tg-border rounded-xl px-3.5 py-2 text-[15px] text-tg-text placeholder:text-tg-text-secondary outline-none focus:border-tg-primary transition-colors font-mono"
                 />
                 <p className="text-[11px] text-tg-text-secondary mt-1">
-                  Уникальный адрес пака — только строчные буквы, цифры, _ и -
+                  {t('stickers.packSlugHint')}
                 </p>
               </div>
             )}
@@ -164,7 +165,7 @@ export default function CreatePackModal({ onClose }: Props) {
           {/* Drop zone */}
           <div>
             <label className="text-xs font-semibold text-tg-text-secondary uppercase tracking-wide block mb-1.5">
-              Стикеры
+              {t('stickers.packStickers')}
             </label>
             <button
               type="button"
@@ -174,8 +175,8 @@ export default function CreatePackModal({ onClose }: Props) {
               className="w-full border-2 border-dashed border-tg-border rounded-xl py-5 flex flex-col items-center gap-2 text-tg-text-secondary hover:border-tg-primary hover:text-tg-primary transition-colors cursor-pointer"
             >
               <Upload className="w-6 h-6" />
-              <span className="text-sm">Перетащите файлы или нажмите</span>
-              <span className="text-xs opacity-70">PNG, WEBP, JPEG, GIF, MP4, MOV, WEBM</span>
+              <span className="text-sm">{t('stickers.dragOrClick')}</span>
+              <span className="text-xs opacity-70">{t('stickers.dragOrClickFormats')}</span>
             </button>
             <input
               ref={fileInputRef}
@@ -235,7 +236,7 @@ export default function CreatePackModal({ onClose }: Props) {
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-tg-border shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm text-tg-text-secondary hover:text-tg-text transition-colors cursor-pointer">
-            Отмена
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -246,7 +247,7 @@ export default function CreatePackModal({ onClose }: Props) {
                 : 'bg-tg-input-bg text-tg-text-secondary cursor-not-allowed opacity-50'}`}
           >
             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Создать пак
+            {t('stickers.createPackBtn')}
           </button>
         </div>
       </div>

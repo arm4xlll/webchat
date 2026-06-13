@@ -8,14 +8,16 @@ import type { Session } from '../../../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '../../../hooks/useTranslation';
 
-function parseUA(ua: string | null): { device: 'desktop' | 'phone' | 'tablet'; label: string } {
-  if (!ua) return { device: 'desktop', label: 'Неизвестное устройство' };
+function parseUA(ua: string | null, t: any): { device: 'desktop' | 'phone' | 'tablet'; label: string } {
+  if (!ua) return { device: 'desktop', label: t('settings.sessions.unknownDevice') };
   const isPhone = /Android.*Mobile|iPhone|iPod|Windows Phone/i.test(ua);
   const isTablet = !isPhone && /iPad|Android/i.test(ua);
   const device = isPhone ? 'phone' : isTablet ? 'tablet' : 'desktop';
-  let browser = 'Браузер';
+  let browser = t('settings.sessions.browser');
   if (/Edg\//.test(ua)) browser = 'Edge';
   else if (/OPR\/|Opera/.test(ua)) browser = 'Opera';
   else if (/Firefox\//.test(ua)) browser = 'Firefox';
@@ -37,19 +39,19 @@ function DeviceIcon({ device, className }: { device: 'desktop' | 'phone' | 'tabl
   return <Monitor className={className} />;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('ru-RU', {
+function formatDate(iso: string, lang: string): string {
+  return new Date(iso).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: any): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60) return 'только что';
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
-  return `${Math.floor(diff / 86400)} дн назад`;
+  if (diff < 60) return t('settings.sessions.timeJustNow');
+  if (diff < 3600) return t('settings.sessions.timeMinAgo', { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t('settings.sessions.timeHourAgo', { count: Math.floor(diff / 3600) });
+  return t('settings.sessions.timeDayAgo', { count: Math.floor(diff / 86400) });
 }
 
 interface CardProps {
@@ -60,7 +62,8 @@ interface CardProps {
 }
 
 function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProps) {
-  const { device, label: deviceLabel } = parseUA(session.userAgent);
+  const { t, language } = useTranslation();
+  const { device, label: deviceLabel } = parseUA(session.userAgent, t);
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState(session.label ?? '');
   const [revoking, setRevoking] = useState(false);
@@ -80,7 +83,7 @@ function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProp
   };
 
   const handleRevoke = async () => {
-    if (!window.confirm(`Завершить сессию "${displayName}"?`)) return;
+    if (!window.confirm(t('settings.sessions.terminateConfirm', { name: displayName }))) return;
     setRevoking(true);
     try { await onRevoke(session.id); } finally { setRevoking(false); }
   };
@@ -101,6 +104,7 @@ function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProp
         <div className="flex-1 min-w-0">
           {editMode ? (
             <div className="flex items-center gap-2 mb-1">
+              <Label className="sr-only">{t('settings.sessions.renamePlaceholder')}</Label>
               <Input
                 autoFocus
                 value={editValue}
@@ -124,10 +128,10 @@ function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProp
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-[14px] text-foreground truncate">{displayName}</span>
               {session.current && (
-                <Badge variant="default" className="text-[10px] py-0 h-4">ЭТА СЕССИЯ</Badge>
+                <Badge variant="default" className="text-[10px] py-0 h-4">{t('settings.sessions.thisSession')}</Badge>
               )}
               {session.primary && (
-                <span title="Основная сессия">
+                <span title={t('settings.sessions.primarySession')}>
                   <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
                 </span>
               )}
@@ -140,8 +144,8 @@ function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProp
               {session.ipAddress && (
                 <p className="text-xs text-muted-foreground/70 mt-0.5">IP: {session.ipAddress}</p>
               )}
-              <p className="text-[11px] text-muted-foreground mt-1.5">Вход: {formatDate(session.createdAt)}</p>
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5">Активен: {timeAgo(session.lastActiveAt)}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">{t('settings.sessions.started', { time: formatDate(session.createdAt, language) })}</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5">{t('settings.sessions.active', { time: timeAgo(session.lastActiveAt, t) })}</p>
             </>
           )}
         </div>
@@ -151,7 +155,7 @@ function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProp
             <Button
               size="icon" variant="ghost"
               onClick={() => { setEditMode(true); setEditValue(session.label ?? ''); }}
-              title="Переименовать"
+              title={t('settings.sessions.renameTooltip')}
               className="h-8 w-8"
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -161,13 +165,13 @@ function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProp
                 size="icon" variant="ghost"
                 onClick={handleRevoke}
                 disabled={revoking}
-                title="Завершить сессию"
+                title={t('settings.sessions.terminateTooltip')}
                 className="h-8 w-8 text-red-400/70 hover:text-red-400 hover:bg-red-400/10"
               >
                 {revoking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               </Button>
             ) : !session.current && (
-              <span title="Нельзя завершить основную сессию" className="m-1.5">
+              <span title={t('settings.sessions.primaryRevokeBlocked')} className="m-1.5">
                 <ShieldOff className="w-3.5 h-3.5 text-muted-foreground/40" />
               </span>
             )}
@@ -179,6 +183,7 @@ function SessionCard({ session, currentIsPrimary, onRevoke, onRename }: CardProp
 }
 
 export default function SessionsTab() {
+  const { t, plural } = useTranslation();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -191,7 +196,7 @@ export default function SessionsTab() {
     try {
       setSessions(await getSessions());
     } catch {
-      setError('Не удалось загрузить список сессий');
+      setError(t('settings.sessions.loadError'));
     } finally {
       setLoading(false);
     }
@@ -214,15 +219,18 @@ export default function SessionsTab() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Активные сессии
+            {t('settings.sessionsSection')}
           </h3>
           {!loading && sessions.length > 0 && (
             <p className="text-xs text-muted-foreground/70 mt-0.5">
-              {sessions.length} {sessions.length === 1 ? 'сессия' : sessions.length < 5 ? 'сессии' : 'сессий'}
+              {sessions.length} {plural(sessions.length, {
+                ru: ['сессия', 'сессии', 'сессий'],
+                en: ['session', 'sessions']
+              })}
             </p>
           )}
         </div>
-        <Button size="icon" variant="ghost" onClick={load} disabled={loading} title="Обновить" className="h-8 w-8">
+        <Button size="icon" variant="ghost" onClick={load} disabled={loading} title={t('settings.sessions.refresh')} className="h-8 w-8">
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
       </div>
@@ -237,7 +245,7 @@ export default function SessionsTab() {
           <span>{error}</span>
         </div>
       ) : sessions.length === 0 ? (
-        <p className="text-muted-foreground text-sm text-center py-8">Нет активных сессий</p>
+        <p className="text-muted-foreground text-sm text-center py-8">{t('settings.sessions.noSessions')}</p>
       ) : (
         <div className="space-y-2">
           {sessions.map(session => (
@@ -253,9 +261,9 @@ export default function SessionsTab() {
       )}
 
       <div className="rounded-xl bg-secondary border border-border p-3 text-xs text-muted-foreground space-y-1">
-        <p className="font-medium text-foreground">Об управлении сессиями</p>
-        <p>Первая сессия (основная) защищена от удаления другими сессиями.</p>
-        <p>Завершить текущую сессию можно только через кнопку «Выйти».</p>
+        <p className="font-medium text-foreground">{t('settings.sessions.infoTitle')}</p>
+        <p>{t('settings.sessions.infoLine1')}</p>
+        <p>{t('settings.sessions.infoLine2')}</p>
       </div>
     </div>
   );

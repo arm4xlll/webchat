@@ -4,43 +4,45 @@ import {
 import { Users, MessageSquare, Activity } from 'lucide-react';
 import MetricCard from './MetricCard';
 import type { AdminMetricsSnapshot } from '../../types/admin';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   latest: AdminMetricsSnapshot | null;
   history: AdminMetricsSnapshot[];
 }
 
-function msgData(history: AdminMetricsSnapshot[]) {
+function msgData(history: AdminMetricsSnapshot[], lang: string) {
   return history.map(s => ({
-    t: new Date(s.timestamp).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }),
+    t: new Date(s.timestamp).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }),
     mps: +s.business.messagesPerSecond.toFixed(3),
   }));
 }
 
 export default function BusinessMetricsPanel({ latest, history }: Props) {
+  const { t, language } = useTranslation();
   const b = latest?.business;
-  const data = msgData(history);
+  const data = msgData(history, language);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <MetricCard
-          label="Всего пользователей"
+          label={t('admin.business.totalUsers')}
           value={b?.totalUsers ?? '—'}
           accent="purple"
           icon={<Users className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="DAU (24ч)"
+          label={t('admin.business.dau')}
           value={b?.dailyActiveUsers ?? '—'}
-          sub="уникальных сессий"
+          sub={t('admin.business.uniqueSessions')}
           accent="blue"
           icon={<Activity className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="Сообщений сегодня"
+          label={t('admin.business.messagesToday')}
           value={b?.messagesToday ?? '—'}
-          sub={b ? `${b.messagesPerSecond.toFixed(3)} м/с` : ''}
+          sub={b ? `${b.messagesPerSecond.toFixed(3)} ${t('admin.business.mps')}` : ''}
           accent="green"
           icon={<MessageSquare className="w-3.5 h-3.5" />}
         />
@@ -48,7 +50,7 @@ export default function BusinessMetricsPanel({ latest, history }: Props) {
 
       {data.length > 1 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">Сообщений в секунду</p>
+          <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">{t('admin.business.mpsFull')}</p>
           <ResponsiveContainer width="100%" height={130}>
             <AreaChart data={data}>
               <defs>
@@ -63,7 +65,7 @@ export default function BusinessMetricsPanel({ latest, history }: Props) {
               <Tooltip
                 contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
               />
-              <Area type="monotone" dataKey="mps" name="мс/с" stroke="#a78bfa" fill="url(#gmsg)" strokeWidth={1.5} dot={false} />
+              <Area type="monotone" dataKey="mps" name={t('admin.business.mps')} stroke="#a78bfa" fill="url(#gmsg)" strokeWidth={1.5} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

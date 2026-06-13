@@ -2,8 +2,10 @@ import { Phone, PhoneOff } from 'lucide-react';
 import UserAvatar from '../common/UserAvatar';
 import { useCallStore } from '../../store/callStore';
 import { answerCall } from '../../api/calls';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function IncomingCallModal() {
+  const { t } = useTranslation();
   const status = useCallStore(s => s.status);
   const conversationId = useCallStore(s => s.conversationId);
   const callerName = useCallStore(s => s.callerName);
@@ -40,21 +42,21 @@ export default function IncomingCallModal() {
 
         <div className="text-center">
           <div className="font-semibold text-lg text-tg-text">{callerName}</div>
-          <div className="text-sm text-tg-text-secondary mt-0.5">Входящий звонок...</div>
+          <div className="text-sm text-tg-text-secondary mt-0.5">{t('calls.incoming')}</div>
         </div>
 
         <div className="flex gap-8 mt-2">
           <button
             onClick={handleDecline}
             className="w-14 h-14 rounded-full bg-rose-500 hover:bg-rose-400 flex items-center justify-center transition-colors cursor-pointer"
-            title="Отклонить"
+            title={t('calls.decline')}
           >
             <PhoneOff className="w-6 h-6 text-white" />
           </button>
           <button
             onClick={handleAccept}
             className="w-14 h-14 rounded-full bg-green-500 hover:bg-green-400 flex items-center justify-center transition-colors cursor-pointer"
-            title="Принять"
+            title={t('calls.accept')}
           >
             <Phone className="w-6 h-6 text-white" />
           </button>

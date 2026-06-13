@@ -4,29 +4,31 @@ import {
 import { Cpu, HardDrive, Wifi, Clock } from 'lucide-react';
 import MetricCard from './MetricCard';
 import type { AdminMetricsSnapshot } from '../../types/admin';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   latest: AdminMetricsSnapshot | null;
   history: AdminMetricsSnapshot[];
 }
 
-function fmt(seconds: number) {
+function fmt(seconds: number, hLabel: string, mLabel: string) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  return `${h}ч ${m}м`;
+  return `${h}${hLabel} ${m}${mLabel}`;
 }
 
-function chartData(history: AdminMetricsSnapshot[]) {
+function chartData(history: AdminMetricsSnapshot[], language: string) {
   return history.map(s => ({
-    t: new Date(s.timestamp).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }),
+    t: new Date(s.timestamp).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }),
     cpu: +s.system.cpuProcessPercent.toFixed(1),
     ram: Math.round((s.system.heapUsedMb / s.system.heapMaxMb) * 100),
   }));
 }
 
 export default function SystemHealthPanel({ latest, history }: Props) {
+  const { t, language } = useTranslation();
   const s = latest?.system;
-  const data = chartData(history);
+  const data = chartData(history, language);
 
   const heapPct = s ? Math.round((s.heapUsedMb / s.heapMaxMb) * 100) : 0;
   const ramPct  = s ? Math.round(((s.totalPhysicalMemoryMb - s.freePhysicalMemoryMb) / s.totalPhysicalMemoryMb) * 100) : 0;
@@ -36,30 +38,30 @@ export default function SystemHealthPanel({ latest, history }: Props) {
       {/* Metric cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard
-          label="CPU процесса"
+          label={t('admin.system.cpuProcess')}
           value={s ? `${s.cpuProcessPercent.toFixed(1)}%` : '—'}
-          sub={`Система: ${s ? s.cpuSystemPercent.toFixed(1) : '—'}%`}
+          sub={t('admin.system.cpuSystem', { pct: s ? s.cpuSystemPercent.toFixed(1) : '—' })}
           accent={s && s.cpuProcessPercent > 70 ? 'red' : 'green'}
           icon={<Cpu className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="Heap JVM"
+          label={t('admin.system.heapPct')}
           value={s ? `${heapPct}%` : '—'}
-          sub={s ? `${s.heapUsedMb} / ${s.heapMaxMb} МБ` : ''}
+          sub={s ? t('admin.system.heapUsedMax', { used: s.heapUsedMb, max: s.heapMaxMb }) : ''}
           accent={heapPct > 80 ? 'red' : heapPct > 60 ? 'yellow' : 'blue'}
           icon={<HardDrive className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="RAM системы"
+          label={t('admin.system.ramSystem')}
           value={s ? `${ramPct}%` : '—'}
-          sub={s ? `Свободно: ${s.freePhysicalMemoryMb} МБ` : ''}
+          sub={s ? t('admin.system.ramFree', { mb: s.freePhysicalMemoryMb }) : ''}
           accent={ramPct > 85 ? 'red' : 'purple'}
           icon={<HardDrive className="w-3.5 h-3.5" />}
         />
         <MetricCard
-          label="SSE сессии"
+          label={t('admin.system.sseSessions')}
           value={s?.activeSseConnections ?? '—'}
-          sub={s ? `Потоков: ${s.threadCount}` : ''}
+          sub={s ? t('admin.system.threads', { count: s.threadCount }) : ''}
           accent="blue"
           icon={<Wifi className="w-3.5 h-3.5" />}
         />
@@ -68,13 +70,13 @@ export default function SystemHealthPanel({ latest, history }: Props) {
       {/* Uptime */}
       <div className="flex items-center gap-2 text-xs text-gray-500">
         <Clock className="w-3 h-3" />
-        <span>Uptime: {s ? fmt(s.uptimeSeconds) : '—'}</span>
+        <span>{t('admin.system.uptime', { time: s ? fmt(s.uptimeSeconds, t('admin.system.hoursLabel'), t('admin.system.minutesLabel')) : '—' })}</span>
       </div>
 
       {/* Chart */}
       {data.length > 1 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">CPU % и Heap % по времени</p>
+          <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider">{t('admin.system.chartTitle')}</p>
           <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={data}>
               <defs>

@@ -3,8 +3,10 @@ import { Shield, ShieldOff, Search, Crown } from 'lucide-react';
 import { listAdmins, searchUsers, grantAdmin, revokeAdmin } from '../../api/admin';
 import type { AdminUser } from '../../types/admin';
 import UserAvatar from '../common/UserAvatar';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function AdminUsersPanel() {
+  const { t } = useTranslation();
   const [admins, setAdmins]       = useState<AdminUser[]>([]);
   const [query, setQuery]         = useState('');
   const [results, setResults]     = useState<AdminUser[]>([]);
@@ -59,7 +61,7 @@ export default function AdminUsersPanel() {
         <button
           onClick={() => handleRevoke(user.id)}
           className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-          title="Снять права"
+          title={t('admin.users.revokeTitle')}
         >
           <ShieldOff className="w-4 h-4" />
         </button>
@@ -67,7 +69,7 @@ export default function AdminUsersPanel() {
         <button
           onClick={() => handleGrant(user.id)}
           className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
-          title="Выдать права"
+          title={t('admin.users.grantTitle')}
         >
           <Shield className="w-4 h-4" />
         </button>
@@ -83,11 +85,11 @@ export default function AdminUsersPanel() {
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider flex items-center gap-2">
           <Shield className="w-3.5 h-3.5 text-emerald-400" />
-          Текущие администраторы
+          {t('admin.users.currentAdmins')}
         </p>
         <div className="space-y-0.5">
           {admins.length === 0
-            ? <p className="text-sm text-gray-500 py-4 text-center">Нет администраторов</p>
+            ? <p className="text-sm text-gray-500 py-4 text-center">{t('admin.users.noAdmins')}</p>
             : admins.map(u => renderUser(u, true))}
         </div>
       </div>
@@ -96,21 +98,21 @@ export default function AdminUsersPanel() {
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wider flex items-center gap-2">
           <Search className="w-3.5 h-3.5" />
-          Поиск пользователей
+          {t('admin.users.searchUsers')}
         </p>
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Имя или @username..."
+            placeholder={t('admin.users.searchPlaceholder')}
             className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-tg-primary transition-colors"
           />
         </div>
         <div className="space-y-0.5">
-          {searching && <p className="text-xs text-gray-500 text-center py-2">Поиск...</p>}
+          {searching && <p className="text-xs text-gray-500 text-center py-2">{t('admin.users.searching')}</p>}
           {!searching && results.length === 0 && query.trim() && (
-            <p className="text-xs text-gray-500 text-center py-2">Не найдено</p>
+            <p className="text-xs text-gray-500 text-center py-2">{t('admin.users.notFound')}</p>
           )}
           {results.map(u => renderUser(u, false))}
         </div>

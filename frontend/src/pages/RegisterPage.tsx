@@ -6,15 +6,17 @@ import { MessageSquare, User, Lock, Loader2, AlertCircle, Mic, Paperclip, Smile 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '../hooks/useTranslation';
 
 const FEATURES = [
-  { icon: <MessageSquare className="w-4 h-4" />, text: 'Мгновенные сообщения в реальном времени' },
-  { icon: <Mic className="w-4 h-4" />, text: 'Голосовые сообщения и медиафайлы' },
-  { icon: <Smile className="w-4 h-4" />, text: 'Стикеры, реакции и пересылка' },
-  { icon: <Paperclip className="w-4 h-4" />, text: 'Отправка файлов любого формата' },
+  { icon: <MessageSquare className="w-4 h-4" />, key: 'auth.features.messages' },
+  { icon: <Mic className="w-4 h-4" />, key: 'auth.features.voice' },
+  { icon: <Smile className="w-4 h-4" />, key: 'auth.features.stickers' },
+  { icon: <Paperclip className="w-4 h-4" />, key: 'auth.features.files' },
 ];
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
   const [name, setName] = useState('');
@@ -33,7 +35,7 @@ export default function RegisterPage() {
       navigate('/');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
-      setError(e.response?.data?.detail ?? 'Ошибка регистрации');
+      setError(e.response?.data?.detail ?? t('auth.registerError'));
     } finally {
       setLoading(false);
     }
@@ -49,7 +51,7 @@ export default function RegisterPage() {
           </div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">WebChat</h1>
           <p className="text-muted-foreground text-sm leading-relaxed mb-8">
-            Общайтесь с людьми быстро, удобно и безопасно
+            {t('auth.branding')}
           </p>
           <div className="w-full space-y-3.5">
             {FEATURES.map((f, i) => (
@@ -57,7 +59,7 @@ export default function RegisterPage() {
                 <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0 text-primary">
                   {f.icon}
                 </div>
-                <span>{f.text}</span>
+                <span>{t(f.key)}</span>
               </div>
             ))}
           </div>
@@ -76,13 +78,13 @@ export default function RegisterPage() {
 
         <div className="w-full max-w-[360px]">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-foreground tracking-tight">Регистрация</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Создайте аккаунт, это займёт секунду</p>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('auth.registerTitle')}</h2>
+            <p className="text-muted-foreground mt-1 text-sm">{t('auth.registerSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="name">Имя</Label>
+              <Label htmlFor="name">{t('auth.nameLabel')}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -90,7 +92,7 @@ export default function RegisterPage() {
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="Имя Фамилия"
+                  placeholder={t('auth.namePlaceholder')}
                   required
                   minLength={2}
                   autoComplete="name"
@@ -100,7 +102,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="username">Юзернейм</Label>
+              <Label htmlFor="username">{t('auth.usernameLabel')}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -112,16 +114,16 @@ export default function RegisterPage() {
                   required
                   minLength={3}
                   pattern="^[a-zA-Z0-9_]+$"
-                  title="Только латиница, цифры и _"
+                  title={t('auth.usernamePatternTitle')}
                   autoComplete="username"
                   className="pl-9"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Только латинские буквы, цифры и _ (без пробелов)</p>
+              <p className="text-xs text-muted-foreground">{t('auth.usernamePatternHint')}</p>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">{t('auth.passwordLabel')}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -129,7 +131,7 @@ export default function RegisterPage() {
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Минимум 6 символов"
+                  placeholder={t('auth.passwordMinLength')}
                   required
                   minLength={6}
                   autoComplete="new-password"
@@ -149,16 +151,16 @@ export default function RegisterPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Создаём...
+                  {t('auth.registering')}
                 </>
-              ) : 'Создать аккаунт'}
+              ) : t('auth.registerBtn')}
             </Button>
           </form>
 
           <p className="mt-5 text-center text-sm text-muted-foreground">
-            Уже есть аккаунт?{' '}
+            {t('auth.hasAccount')}{' '}
             <Link to="/login" className="text-primary hover:underline font-semibold transition-colors">
-              Войти
+              {t('auth.loginLink')}
             </Link>
           </p>
         </div>

@@ -5,14 +5,12 @@ import { useStickerStore } from '../../store/stickerStore';
 import { useAuthStore } from '../../store/authStore';
 import type { StickerPack, StickerItem } from '../../types/sticker';
 import { isStickerVideoType } from '../../types/sticker';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
-  /** fileUrl стикера из чата — по нему находим пак */
   fileUrl?: string;
-  /** или сразу slug пака (из пикера) */
   slug?: string;
   onClose: () => void;
-  /** если передан — клик на стикер его отправляет */
   onSend?: (sticker: StickerItem) => void;
 }
 
@@ -27,6 +25,7 @@ const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif',
                  'video/mp4', 'video/quicktime', 'video/webm'];
 
 export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }: Props) {
+  const { t, plural } = useTranslation();
   const backdropRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,8 +53,6 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
     setError('');
 
     const load = async () => {
-      // Ensure user's pack list is fresh so alreadyInCollection is accurate.
-      // invalidate() may have been called on SSE reconnect, so this will refetch.
       loadUserPacks().catch(() => {});
 
       try {
@@ -65,13 +62,13 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
         } else if (slug) {
           loaded = await getPackBySlug(slug);
         } else {
-          throw new Error('fileUrl или slug обязателен');
+          throw new Error('fileUrl or slug is required');
         }
         if (!cancelled) {
           setPack(loaded);
         }
       } catch {
-        if (!cancelled) setError('Не удалось загрузить стикерпак');
+        if (!cancelled) setError(t('stickers.loadPackError'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -79,7 +76,7 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
 
     load();
     return () => { cancelled = true; };
-  }, [fileUrl, slug, loadUserPacks]);
+  }, [fileUrl, slug, loadUserPacks, t]);
 
   // Escape closes (add mode first)
   useEffect(() => {
@@ -111,13 +108,11 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
     }
   };
 
-  // ── Add stickers mode ──────────────────────────────────────────────────────
-
   const addFiles = useCallback((files: FileList | File[]) => {
     const arr = Array.from(files);
     const valid = arr.filter(f => ALLOWED.includes(f.type));
     if (valid.length < arr.length) {
-      setUploadError('Некоторые файлы пропущены — допустимы PNG, WEBP, JPEG, GIF, MP4, MOV, WEBM');
+      setUploadError(t('stickers.filesSkipped'));
     } else {
       setUploadError('');
     }
@@ -128,7 +123,7 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
       emojis: '',
     }));
     setDrafts(prev => [...prev, ...newDrafts]);
-  }, []);
+  }, [t]);
 
   const removeDraft = (idx: number) => {
     setDrafts(prev => {
@@ -151,12 +146,11 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
       setPack(updated);
       setDrafts([]);
       setAddMode(false);
-      // Сбрасываем кэш стикеров этого пака в сторе
       invalidatePackCache(pack.slug);
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
-      setUploadError(msg ?? 'Ошибка при загрузке стикеров');
+      setUploadError(msg ?? t('stickers.addStickersError'));
     } finally {
       setUploading(false);
     }
@@ -181,11 +175,14 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
             ) : (
               <>
                 <h2 className="text-[17px] font-semibold text-tg-text leading-tight truncate">
-                  {addMode ? 'Добавить стикеры' : (pack?.title ?? '—')}
+                  {addMode ? t('stickers.addStickersTitle') : (pack?.title ?? '—')}
                 </h2>
                 {!addMode && pack && (
                   <p className="text-[13px] text-tg-text-secondary mt-0.5">
-                    @{pack.slug} · {pack.stickers.length} стикер{plural(pack.stickers.length)}
+                    @{pack.slug} · {pack.stickers.length} {plural(pack.stickers.length, {
+                      ru: ['стикер', 'стикера', 'стикеров'],
+                      en: ['sticker', 'stickers']
+                    })}
                   </p>
                 )}
               </>
@@ -220,8 +217,8 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
                 className="w-full border-2 border-dashed border-tg-border rounded-xl py-5 flex flex-col items-center gap-2 text-tg-text-secondary hover:border-tg-primary hover:text-tg-primary transition-colors cursor-pointer"
               >
                 <Upload className="w-6 h-6" />
-                <span className="text-sm">Перетащите файлы или нажмите</span>
-                <span className="text-xs opacity-70">PNG, WEBP, JPEG, GIF, MP4, MOV, WEBM</span>
+                <span className="text-sm">{t('stickers.dragOrClick')}</span>
+                <span className="text-xs opacity-70">{t('stickers.dragOrClickFormats')}</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -293,7 +290,7 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
                   onClick={() => { setAddMode(false); setDrafts([]); setUploadError(''); }}
                   className="flex-1 py-2.5 rounded-xl text-sm font-medium text-tg-text-secondary border border-tg-border hover:bg-tg-hover transition-colors cursor-pointer"
                 >
-                  Отмена
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleUpload}
@@ -304,7 +301,7 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
                       : 'bg-tg-input-bg text-tg-text-secondary cursor-not-allowed opacity-50'}`}
                 >
                   {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Добавить
+                  {t('stickers.addStickersBtn')}
                 </button>
               </div>
             ) : (
@@ -315,7 +312,7 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
                     className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-tg-border text-tg-text hover:bg-tg-hover transition-colors cursor-pointer flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Добавить стикеры
+                    {t('stickers.addStickersTitle')}
                   </button>
                 )}
                 {!alreadyInCollection ? (
@@ -327,12 +324,12 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
                     {subscribing
                       ? <Loader2 className="w-4 h-4 animate-spin" />
                       : <Plus className="w-4 h-4" />}
-                    Добавить себе
+                    {t('stickers.addToCollection')}
                   </button>
                 ) : !isOwn ? (
                   <div className="flex-1 py-2.5 rounded-xl text-sm font-medium text-tg-text-secondary border border-tg-border flex items-center justify-center gap-2 select-none">
                     <Check className="w-4 h-4 text-tg-primary" />
-                    Уже в коллекции
+                    {t('stickers.alreadyInCollection')}
                   </div>
                 ) : null}
               </div>
@@ -342,12 +339,6 @@ export default function StickerPackViewModal({ fileUrl, slug, onClose, onSend }:
       </div>
     </div>
   );
-}
-
-function plural(n: number): string {
-  if (n % 10 === 1 && n % 100 !== 11) return '';
-  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'а';
-  return 'ов';
 }
 
 function StickerCell({ sticker, onClick }: { sticker: StickerItem; onClick?: (s: StickerItem) => void }) {

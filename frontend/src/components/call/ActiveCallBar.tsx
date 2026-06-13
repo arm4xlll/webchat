@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, PhoneOff, Loader2 } from 'lucide-react';
 import { useCallStore } from '../../store/callStore';
 import { useCall } from '../../hooks/useCall';
+import { useTranslation } from '../../hooks/useTranslation';
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -10,8 +11,8 @@ function formatDuration(seconds: number): string {
 }
 
 export default function ActiveCallBar() {
+  const { t } = useTranslation();
   const status = useCallStore(s => s.status);
-  const callerName = useCallStore(s => s.callerName);
   const { isMuted, toggleMute, remoteCount, handleEnd } = useCall();
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -41,10 +42,10 @@ export default function ActiveCallBar() {
         )}
         <span className="text-sm text-tg-text truncate">
           {isCalling
-            ? `Звонок${callerName ? '' : ''}...`
+            ? t('calls.calling')
             : remoteCount > 0
               ? formatDuration(elapsed)
-              : 'Ожидание собеседника...'}
+              : t('calls.waitingForPeer')}
         </span>
       </div>
 
@@ -52,7 +53,7 @@ export default function ActiveCallBar() {
         {status === 'active' && (
           <button
             onClick={toggleMute}
-            title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
+            title={isMuted ? t('calls.unmuteMic') : t('calls.muteMic')}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
               isMuted
                 ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
@@ -65,7 +66,7 @@ export default function ActiveCallBar() {
 
         <button
           onClick={handleEnd}
-          title="Завершить звонок"
+          title={t('calls.endCall')}
           className="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-400 flex items-center justify-center transition-colors cursor-pointer"
         >
           <PhoneOff className="w-4 h-4 text-white" />

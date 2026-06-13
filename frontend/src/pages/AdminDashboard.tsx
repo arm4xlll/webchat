@@ -11,15 +11,21 @@ import HttpMetricsPanel from '../components/admin/HttpMetricsPanel';
 import BusinessMetricsPanel from '../components/admin/BusinessMetricsPanel';
 import ErrorLogPanel from '../components/admin/ErrorLogPanel';
 import AdminUsersPanel from '../components/admin/AdminUsersPanel';
+import { useTranslation } from '../hooks/useTranslation';
 
 type Section = 'system' | 'http' | 'business' | 'errors' | 'users';
 
-const NAV: { id: Section; label: string; icon: React.ReactNode }[] = [
-  { id: 'system',   label: 'Система',     icon: <Server className="w-4 h-4" /> },
-  { id: 'http',     label: 'HTTP',        icon: <Activity className="w-4 h-4" /> },
-  { id: 'business', label: 'Аналитика',   icon: <BarChart2 className="w-4 h-4" /> },
-  { id: 'errors',   label: 'Ошибки',      icon: <AlertCircle className="w-4 h-4" /> },
-  { id: 'users',    label: 'Администраторы', icon: <Users className="w-4 h-4" /> },
+interface NavItem {
+  id: Section;
+  icon: React.ReactNode;
+}
+
+const NAV: NavItem[] = [
+  { id: 'system',   icon: <Server className="w-4 h-4" /> },
+  { id: 'http',     icon: <Activity className="w-4 h-4" /> },
+  { id: 'business', icon: <BarChart2 className="w-4 h-4" /> },
+  { id: 'errors',   icon: <AlertCircle className="w-4 h-4" /> },
+  { id: 'users',    icon: <Users className="w-4 h-4" /> },
 ];
 
 const RANGE_MS: Record<TimeRange, number> = {
@@ -29,6 +35,7 @@ const RANGE_MS: Record<TimeRange, number> = {
 };
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { latest, history, connected } = useAdminMetricsSSE();
   const [section, setSection] = useState<Section>('system');
@@ -44,15 +51,15 @@ export default function AdminDashboard() {
         <button
           onClick={() => navigate('/')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-sm font-medium"
-          title="Вернуться к чатам"
+          title={t('admin.backTooltip')}
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Назад</span>
+          <span className="hidden sm:inline">{t('admin.back')}</span>
         </button>
 
         <div className="flex items-center gap-2 border-l border-white/10 pl-3">
           <Server className="w-4 h-4 text-tg-primary shrink-0" />
-          <span className="font-bold text-white tracking-tight text-sm">Панель администратора</span>
+          <span className="font-bold text-white tracking-tight text-sm">{t('admin.title')}</span>
         </div>
 
         <div className="ml-auto flex items-center gap-3">
@@ -60,8 +67,8 @@ export default function AdminDashboard() {
             connected ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'
           }`}>
             {connected
-              ? <><Wifi className="w-3 h-3" /><span>Live</span></>
-              : <><WifiOff className="w-3 h-3" /><span>Переподключение...</span></>
+              ? <><Wifi className="w-3 h-3" /><span>{t('admin.live')}</span></>
+              : <><WifiOff className="w-3 h-3" /><span>{t('admin.reconnecting')}</span></>
             }
           </div>
 
@@ -72,7 +79,7 @@ export default function AdminDashboard() {
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         <nav className="w-52 shrink-0 border-r border-white/10 bg-gray-900 py-3 px-2">
-          <p className="px-3 pb-2 pt-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Разделы</p>
+          <p className="px-3 pb-2 pt-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('admin.sections.label')}</p>
           {NAV.map(item => (
             <button
               key={item.id}
@@ -86,7 +93,7 @@ export default function AdminDashboard() {
               <span className={section === item.id ? 'text-tg-primary shrink-0' : 'text-gray-500 shrink-0'}>
                 {item.icon}
               </span>
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium">{t(`admin.sections.${item.id}`)}</span>
             </button>
           ))}
         </nav>
@@ -98,7 +105,7 @@ export default function AdminDashboard() {
               {NAV.find(n => n.id === section)?.icon}
             </span>
             <h2 className="text-lg font-bold text-white">
-              {NAV.find(n => n.id === section)?.label}
+              {t(`admin.sections.${section}`)}
             </h2>
           </div>
 

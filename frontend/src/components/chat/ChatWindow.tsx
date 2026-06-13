@@ -14,11 +14,12 @@ import { removePin } from '../../api/pins';
 import StickerPackViewModal from './StickerPackViewModal';
 import { formatLastSeen } from '../../utils/time';
 import { useNow } from '../../hooks/useNow';
+import { useTranslation } from '../../hooks/useTranslation';
 
 const PAGE_SIZE = 50;
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+function formatTime(iso: string, lang: string) {
+  return new Date(iso).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
 }
 
 interface Props {
@@ -45,20 +46,17 @@ export default function ChatWindow({
   conversation, onSend, onEditMessage, onDeleteMessage,
   onTyping, onRead, onReact, onSaveMessage, onBack, onCall,
 }: Props) {
+  const { t, language } = useTranslation();
   const user = useAuthStore(s => s.user);
   const setMessages = useChatStore(s => s.setMessages);
   const prependMessages = useChatStore(s => s.prependMessages);
   const messages = useChatStore(s => s.messages);
-  // Get the raw list from the store (stable reference when unchanged),
-  // then filter outside the selector — .filter() always returns a new array,
-  // so putting it inside the selector causes infinite re-renders (React #185).
   const allTypingUsers = useChatStore(s => s.typingUsers[conversation.id] ?? EMPTY_TYPING);
   const typingUsers = allTypingUsers.filter(u => u.userId !== user?.id);
   const presenceStatus = useChatStore(s => s.presenceStatus);
   const isSaved = conversation.type === 'saved';
   const other = user ? (isSaved ? user : getOtherMember(conversation, user.id)) : null;
   const otherPresence = (other && !isSaved) ? presenceStatus[other.id] : undefined;
-  // Ticks every 30s so the "был(а) N минут назад" label stays current.
   const now = useNow(30_000);
 
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -251,13 +249,9 @@ export default function ChatWindow({
     setShowDropdown(false);
     setHighlightedMsgId(null);
 
-    // Guard on a dedicated "history loaded" flag, NOT on messages[id] being
-    // defined: a single message arriving via SSE pre-seeds messages[id] with one
-    // item, which used to make us skip loading the full history until reload.
     if (useChatStore.getState().historyLoaded[conversation.id]) return;
     const controller = new AbortController();
     getMessages(conversation.id, 0, PAGE_SIZE, controller.signal).then(msgs => {
-      // Merge with messages already in store (may have arrived via WS while fetch was in-flight)
       const inStore = useChatStore.getState().messages[conversation.id] ?? [];
       if (inStore.length === 0) {
         setMessages(conversation.id, msgs);
@@ -270,13 +264,11 @@ export default function ChatWindow({
           );
           setMessages(conversation.id, merged);
         }
-        // else store already has everything (all came via WS) — keep as is
       }
       useChatStore.getState().markHistoryLoaded(conversation.id);
       if (msgs.length < PAGE_SIZE) setHasMore(false);
     }).catch(() => {/* cancelled or failed — silent */});
     return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
 
   return (
@@ -296,7 +288,7 @@ export default function ChatWindow({
         {onBack && (
           <button
             onClick={onBack}
-            className="md:hidden w-10 h-10 flex items-center justify-center text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
+            className="w-10 h-10 flex items-center justify-center text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover rounded-full transition-colors cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -326,7 +318,7 @@ export default function ChatWindow({
           {/* Text block */}
           <div className="flex flex-col justify-center min-w-0">
             <span className="font-semibold text-[15.5px] text-tg-text leading-snug truncate">
-              {isSaved ? 'Избранное' : (other?.name ?? 'Чат')}
+              {isSaved ? t('common.savedMessages') : (other?.name ?? t('chat.chatDefault'))}
             </span>
 
             {/* Status row */}
@@ -344,23 +336,24 @@ export default function ChatWindow({
                       ))}
                     </span>
                     <span className="text-[12.5px] text-tg-primary truncate">
-                      {typingUsers.map(u => u.username).join(', ')}&nbsp;
-                      {typingUsers.length === 1 ? 'печатает...' : 'печатают...'}
+                      {typingUsers.length === 1
+                        ? t('chat.typingOne', { username: typingUsers[0].username })
+                        : `${typingUsers.map(u => u.username).join(', ')} ${t('chat.typingMany')}`}
                     </span>
                     <style>{`@keyframes typingDot{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:1}}`}</style>
                   </>
                 ) : otherPresence?.online ? (
-                  <span className="text-[12.5px] font-medium text-green-400">в сети</span>
+                  <span className="text-[12.5px] font-medium text-green-400">{t('chat.online')}</span>
                 ) : otherPresence?.lastSeenAt ? (
                   <span className="text-[12.5px] text-tg-text-secondary truncate">
-                    был(а) {formatLastSeen(otherPresence.lastSeenAt, now)}
+                    {formatLastSeen(otherPresence.lastSeenAt, now)}
                   </span>
                 ) : (
-                  <span className="text-[12.5px] text-tg-text-secondary">не в сети</span>
+                  <span className="text-[12.5px] text-tg-text-secondary">{t('chat.offline')}</span>
                 )
               )}
               {isSaved && (
-                <span className="text-[12.5px] text-tg-text-secondary">Сохранённые сообщения</span>
+                <span className="text-[12.5px] text-tg-text-secondary">{t('chat.savedMessagesHint')}</span>
               )}
             </span>
           </div>
@@ -370,7 +363,7 @@ export default function ChatWindow({
         {onCall && (
           <button
             onClick={onCall}
-            title="Голосовой звонок"
+            title={t('chat.voiceCall')}
             className="w-10 h-10 flex items-center justify-center rounded-full text-tg-text-secondary hover:text-tg-text hover:bg-tg-hover transition-all cursor-pointer shrink-0"
           >
             <Phone className="w-[18px] h-[18px]" />
@@ -380,7 +373,7 @@ export default function ChatWindow({
         {/* Search button */}
         <button
           onClick={searchOpen ? closeSearch : openSearch}
-          title="Поиск по сообщениям"
+          title={t('chat.searchMessages')}
           className={`w-10 h-10 flex items-center justify-center rounded-full transition-all cursor-pointer shrink-0 ${
             searchOpen
               ? 'text-tg-primary bg-tg-primary/15'
@@ -422,7 +415,7 @@ export default function ChatWindow({
                 if (e.key === 'ArrowUp') { e.preventDefault(); goPrev(); }
               }}
               onFocus={() => matchIds.length > 0 && setShowDropdown(true)}
-              placeholder="Поиск по сообщениям..."
+              placeholder={t('chat.searchMessagesPlaceholder')}
               className="flex-1 bg-transparent text-tg-text placeholder:text-tg-text-secondary text-[14px] outline-none"
             />
             {searchQuery && (
@@ -448,7 +441,7 @@ export default function ChatWindow({
           {showDropdown && searchQuery.trim() && (
             <div className="absolute left-0 right-0 top-full bg-tg-sidebar-bg border-b border-tg-border shadow-xl max-h-72 overflow-y-auto">
               {searchResults.length === 0 ? (
-                <div className="px-4 py-3 text-[13px] text-tg-text-secondary">Ничего не найдено</div>
+                <div className="px-4 py-3 text-[13px] text-tg-text-secondary">{t('chat.nothingFound')}</div>
               ) : searchResults.map((msg, idx) => {
                 return (
                   <button
@@ -462,7 +455,7 @@ export default function ChatWindow({
                         <Highlighted text={msg.content} query={searchQuery} />
                       </div>
                     </div>
-                    <div className="text-[11px] text-tg-text-secondary shrink-0 mt-0.5">{formatTime(msg.createdAt)}</div>
+                    <div className="text-[11px] text-tg-text-secondary shrink-0 mt-0.5">{formatTime(msg.createdAt, language)}</div>
                   </button>
                 );
               })}
@@ -516,8 +509,8 @@ export default function ChatWindow({
           <div className="absolute inset-0 bg-tg-primary/10 backdrop-blur-[2px] border-2 border-dashed border-tg-primary rounded-none" />
           <div className="relative z-10 flex flex-col items-center gap-3 px-8 py-6 rounded-2xl bg-tg-sidebar-bg border border-tg-border shadow-2xl">
             <Upload className="w-10 h-10 text-tg-primary" />
-            <span className="text-[16px] font-semibold text-tg-text">Отпустите для прикрепления</span>
-            <span className="text-[13px] text-tg-text-secondary">Файл будет добавлен к сообщению</span>
+            <span className="text-[16px] font-semibold text-tg-text">{t('chat.dropToAttachTitle')}</span>
+            <span className="text-[13px] text-tg-text-secondary">{t('chat.dropToAttachDesc')}</span>
           </div>
         </div>
       )}

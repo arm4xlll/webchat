@@ -5,6 +5,7 @@ import { useStickerStore } from '../../store/stickerStore';
 import type { StickerItem, StickerPack } from '../../types/sticker';
 import { isStickerVideoType } from '../../types/sticker';
 import CreatePackModal from './CreatePackModal';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   onSend: (sticker: StickerItem) => void;
@@ -14,6 +15,7 @@ interface Props {
 const RECENT_TAB = '__recent__';
 
 export default function StickerPicker({ onSend, onClose }: Props) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
 
   const { packs, recentStickers, loadedSlugs, packsLoaded, loadUserPacks, loadPackStickers, trackUsed } =
@@ -97,7 +99,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
 
   const hasRecent = recentStickers.length > 0;
   const currentPackName =
-    activeTab === RECENT_TAB ? 'Недавние' : (activePack?.title ?? activeTab);
+    activeTab === RECENT_TAB ? t('stickers.recent') : (activePack?.title ?? activeTab);
 
   return (
     <>
@@ -108,7 +110,6 @@ export default function StickerPicker({ onSend, onClose }: Props) {
         onClose={() => {
           const slug = packViewSlug;
           setPackViewSlug(null);
-          // Перезагружаем стикеры пака — создатель мог добавить новые
           useStickerStore.getState().invalidatePackCache(slug);
           useStickerStore.getState().loadPackStickers(slug);
         }}
@@ -125,14 +126,13 @@ export default function StickerPicker({ onSend, onClose }: Props) {
           <TabButton
             active={activeTab === RECENT_TAB}
             onClick={() => selectTab(RECENT_TAB)}
-            title="Недавние"
+            title={t('stickers.recent')}
           >
             <Clock className="w-4.5 h-4.5" />
           </TabButton>
         )}
 
         {packs.map(pack => {
-          // Если стикеры уже загружены — показываем первый как иконку вкладки
           const firstSticker = loadedSlugs[pack.slug]?.[0];
           return (
             <TabButton
@@ -171,8 +171,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
           </div>
         )}
 
-        {/* Кнопка создания нового пака */}
-        <TabButton active={false} onClick={() => setCreateOpen(true)} title="Создать стикерпак">
+        <TabButton active={false} onClick={() => setCreateOpen(true)} title={t('stickers.createPack')}>
           <Plus className="w-4.5 h-4.5" />
         </TabButton>
       </div>
@@ -185,7 +184,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
         {activeTab !== RECENT_TAB && activePack && (
           <button
             onClick={() => setPackViewSlug(activePack.slug)}
-            title="Управление паком"
+            title={t('stickers.managePack')}
             className="p-1 rounded-lg hover:bg-tg-hover text-tg-text-secondary hover:text-tg-text transition-colors cursor-pointer"
           >
             <Settings className="w-3.5 h-3.5" />
@@ -201,7 +200,7 @@ export default function StickerPicker({ onSend, onClose }: Props) {
           </div>
         ) : displayedStickers.length === 0 ? (
           <div className="flex items-center justify-center h-full text-sm text-tg-text-secondary select-none">
-            {activeTab === RECENT_TAB ? 'Вы ещё не отправляли стикеры' : 'Нет стикеров'}
+            {activeTab === RECENT_TAB ? t('stickers.noRecent') : t('stickers.noStickers')}
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-0.5">

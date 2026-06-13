@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import { THEMES, useThemeStore, type AppTheme, type FontSize } from '../../../store/themeStore';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 // ── Mini chat preview ──────────────────────────────────────────────────────
 
@@ -58,25 +59,35 @@ function ThemePreview({ theme }: { theme: AppTheme }) {
   );
 }
 
-// ── Font size selector ─────────────────────────────────────────────────────
-
-const FONT_OPTIONS: { value: FontSize; label: string; desc: string }[] = [
-  { value: 'small', label: 'Мелкий', desc: 'Компактно' },
-  { value: 'medium', label: 'Средний', desc: 'По умолчанию' },
-  { value: 'large', label: 'Крупный', desc: 'Комфортно' },
-];
-
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function ThemeTab() {
+  const { t, language } = useTranslation();
   const { themeId, fontSize, setTheme, setFontSize } = useThemeStore();
+
+  const fontOptions: { value: FontSize; label: string; desc: string }[] = [
+    { value: 'small', label: t('settings.theme.sizes.small'), desc: t('settings.theme.sizes.smallDesc') },
+    { value: 'medium', label: t('settings.theme.sizes.medium'), desc: t('settings.theme.sizes.mediumDesc') },
+    { value: 'large', label: t('settings.theme.sizes.large'), desc: t('settings.theme.sizes.largeDesc') },
+  ];
+
+  const getThemeName = (theme: AppTheme) => {
+    if (language === 'en') {
+      if (theme.id === 'pink') return 'Pink Light';
+      if (theme.id === 'pink-dark') return 'Pink Dark';
+      if (theme.id === 'midnight') return 'Midnight';
+      if (theme.id === 'ocean') return 'Ocean';
+      if (theme.id === 'forest') return 'Forest';
+    }
+    return theme.name;
+  };
 
   return (
     <div className="space-y-6">
       {/* Theme grid */}
       <div>
         <h3 className="text-xs font-semibold text-tg-text-secondary uppercase tracking-wider mb-3">
-          Цветовая схема
+          {t('settings.theme.scheme')}
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {THEMES.map(theme => {
@@ -100,7 +111,7 @@ export default function ThemeTab() {
                     className="text-xs font-semibold"
                     style={{ color: theme.colors.text }}
                   >
-                    {theme.name}
+                    {getThemeName(theme)}
                   </span>
                   {isActive && (
                     <Check
@@ -123,10 +134,10 @@ export default function ThemeTab() {
       {/* Font size */}
       <div>
         <h3 className="text-xs font-semibold text-tg-text-secondary uppercase tracking-wider mb-3">
-          Размер текста в чате
+          {t('settings.theme.fontSize')}
         </h3>
         <div className="flex gap-2">
-          {FONT_OPTIONS.map(opt => {
+          {fontOptions.map(opt => {
             const isActive = opt.value === fontSize;
             return (
               <button
@@ -154,7 +165,7 @@ export default function ThemeTab() {
 
       {/* Preview label */}
       <p className="text-xs text-tg-text-secondary text-center">
-        Изменения применяются мгновенно — можно листать темы и сразу видеть результат
+        {t('settings.theme.hint')}
       </p>
     </div>
   );

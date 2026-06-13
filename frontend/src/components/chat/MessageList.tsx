@@ -1,31 +1,40 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Pencil, Trash2, CornerUpLeft, CheckCheck, Smile, FileText, FileArchive, File as FileIcon, Bookmark, Copy, Pin, PinOff, ChevronDown } from 'lucide-react';
-import { isStickerMessage, isStickerVideoType } from '../../types/sticker';
-import { useChatStore } from '../../store/chatStore';
-import { useAuthStore } from '../../store/authStore';
+import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
+import {
+  FileText, FileArchive, File as FileIcon,
+  Check, CheckCheck, Smile, CornerUpLeft, Copy, Pin, PinOff, Bookmark, Pencil, Trash2, ChevronDown,
+} from 'lucide-react';
 import type { Message } from '../../types';
-import MessageStatus from './MessageStatus';
-import MediaViewer from './MediaViewer';
-import VoiceMessage from './VoiceMessage';
+import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import EmojiPicker from './EmojiPicker';
+import MediaViewer from './MediaViewer';
+import VoiceMessage from './VoiceMessage';
+import { isStickerMessage, isStickerVideoType } from '../../types/sticker';
 import { addPin, removePin } from '../../api/pins';
 import LinkPreviewCard from './LinkPreviewCard';
 import { extractFirstUrl } from '../../api/linkPreview';
+import { useTranslation } from '../../hooks/useTranslation';
 
-function formatReadTime(iso: string): string {
+function formatReadTime(iso: string, lang: string): string {
   const d = new Date(iso);
   const now = new Date();
-  const time = d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+  const time = d.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
   if (d.toDateString() === now.toDateString()) return time;
-  return d.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) + ' ' + time;
+  return d.toLocaleDateString(lang, { day: 'numeric', month: 'short' }) + ' ' + time;
 }
 
-function formatSize(bytes?: number): string {
+function formatSize(bytes?: number, lang: string = 'ru'): string {
   if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+  if (lang === 'ru') {
+    if (bytes < 1024) return `${bytes} Б`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+  } else {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
 }
 
 interface Props {
@@ -47,29 +56,27 @@ interface Props {
 const EMPTY_MESSAGES: never[] = [];
 const EMPTY_PINS: never[] = [];
 
-/** Stable identity that survives the optimistic pending→sent swap, so React
- *  keeps the same DOM node (no remount → no flicker / re-animation). */
 function keyOf(msg: Message): string {
   return msg.clientId ?? msg.id;
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+function formatTime(iso: string, lang: string) {
+  return new Date(iso).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDividerDate(iso: string) {
+function formatDividerDate(iso: string, lang: string, t: any) {
   const d = new Date(iso);
   const now = new Date();
   const yesterday = new Date();
   yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === now.toDateString()) return 'Сегодня';
-  if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
+  if (d.toDateString() === now.toDateString()) return t('chat.today');
+  if (d.toDateString() === yesterday.toDateString()) return t('chat.yesterday');
 
   const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' };
   if (d.getFullYear() !== now.getFullYear()) {
     options.year = 'numeric';
   }
-  return d.toLocaleDateString('ru', options);
+  return d.toLocaleDateString(lang, options);
 }
 
 function isImage(type?: string) { return !!type?.startsWith('image/'); }
@@ -169,34 +176,19 @@ export default function MessageList({
   conversationId, onReply, onEdit, onDelete, onRead, onReact, onSaveMessage, onStickerClick,
   searchQuery = '', highlightedMsgId, hasMore, loadingMore, onLoadMore,
 }: Props) {
+  const { t, language } = useTranslation();
   const user = useAuthStore(s => s.user);
   const messages = useChatStore(s => s.messages[conversationId] ?? EMPTY_MESSAGES);
   const pins = useChatStore(s => s.pins[conversationId]) ?? EMPTY_PINS;
 
-  // ── column-reverse layout ──────────────────────────────────────────────────
-  // The container uses flex-direction: column-reverse so that:
-  //   • scrollTop = 0 is always the visual BOTTOM (newest messages)
-  //   • New messages appear at the bottom without any JS scroll manipulation
-  //   • Browser naturally keeps position when user scrolled up and new msg arrives
-  //
-  // DOM order inside the container:
-  //   bottomRef (first = visual bottom)
-  //   → messages rendered NEWEST → OLDEST (reversed array, so first DOM = visual bottom)
-  //   → loadingMore spinner
-  //   → topSentinelRef (last = visual top, triggers infinite scroll)
-  //
-  // Because the array is reversed before rendering, neighbor indices are also
-  // swapped: reversedMessages[i-1] is NEWER, reversedMessages[i+1] is OLDER.
   const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
-  // Saved before loading older messages so we can restore scroll position after.
   const scrollHeightBeforeRef = useRef(0);
   const scrollTopBeforeRef = useRef(0);
-  // Track keys to detect what changed in the messages array.
   const prevConvIdRef = useRef<string | null>(null);
   const prevNewestKeyRef = useRef<string | null>(null);
   const prevOldestKeyRef = useRef<string | null>(null);
@@ -228,7 +220,6 @@ export default function MessageList({
     return () => clearTimeout(t);
   }, [highlightedMsgId]);
 
-  // With column-reverse, scrollTop = 0 means we're at the visual bottom.
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -246,21 +237,11 @@ export default function MessageList({
     setShowScrollDown(false);
   }, []);
 
-  // ── Scroll management ──────────────────────────────────────────────────────
-  // With column-reverse we only need JS scroll for:
-  //   1. Conversation switch → snap to bottom (scrollTop = 0)
-  //   2. Own message sent → ensure at bottom
-  //   3. Received message while at bottom → browser keeps us at 0 naturally,
-  //      but we call scheduleRead and ensure state flags are correct
-  //   4. Older messages loaded (prepend) → restore position manually because
-  //      overflow-anchor is disabled (overflowAnchor: 'none' on container)
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container || messages.length === 0) return;
 
-    // Key of the newest message (reversedMessages[0])
     const newestKey = keyOf(reversedMessages[0]);
-    // Key of the oldest message (reversedMessages[last])
     const oldestKey = keyOf(reversedMessages[reversedMessages.length - 1]);
 
     if (prevConvIdRef.current !== conversationId) {
@@ -270,7 +251,6 @@ export default function MessageList({
       isAtBottomRef.current  = true;
       setNewMessagesCount(0);
       setShowScrollDown(false);
-      // column-reverse: 0 = visual bottom. No flash, no RAF — fires before paint.
       container.scrollTop = 0;
       scheduleRead();
       return;
@@ -280,8 +260,6 @@ export default function MessageList({
     const isNewMsg      = !isOlderLoaded && newestKey !== prevNewestKeyRef.current && prevNewestKeyRef.current !== null;
 
     if (isOlderLoaded) {
-      // Restore scroll position after loading older messages.
-      // overflow-anchor is disabled so we compensate manually.
       const delta = container.scrollHeight - scrollHeightBeforeRef.current;
       container.scrollTop = scrollTopBeforeRef.current + delta;
     } else if (isNewMsg) {
@@ -305,7 +283,6 @@ export default function MessageList({
     if (readTimerRef.current) clearTimeout(readTimerRef.current);
   }, [conversationId]);
 
-  // Mobile keyboard: restore bottom when keyboard hides.
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -325,8 +302,6 @@ export default function MessageList({
     return () => vv.removeEventListener('resize', handler);
   }, []);
 
-  // Infinite scroll sentinel — at visual TOP (last DOM child in column-reverse).
-  // As user scrolls up, sentinel approaches the container's top edge and fires.
   useEffect(() => {
     const sentinel = topSentinelRef.current;
     const container = containerRef.current;
@@ -346,7 +321,6 @@ export default function MessageList({
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
 
-  // Read receipt fires when bottomRef (visual BOTTOM) is visible.
   useEffect(() => {
     const el = bottomRef.current;
     if (!el) return;
@@ -355,7 +329,6 @@ export default function MessageList({
     }, { threshold: 0.1 });
     observer.observe(el);
     return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
   const openContextMenu = useCallback((x: number, y: number, msg: Message) => {
@@ -385,7 +358,6 @@ export default function MessageList({
   const myUserId = user?.id;
   const lastReadTimeStr = useChatStore(s => s.lastReadAt[conversationId]?.[myUserId ?? '']);
 
-  // firstUnreadIdx in original (oldest→newest) order.
   const firstUnreadIdx = useMemo(() => {
     if (!lastReadTimeStr || !myUserId) return -1;
     const lastReadTime = new Date(lastReadTimeStr).getTime();
@@ -396,9 +368,6 @@ export default function MessageList({
     );
   }, [messages, lastReadTimeStr, myUserId]);
 
-  // Index of the same boundary in the REVERSED array.
-  // The unread divider is rendered AFTER this item in JSX, which with column-reverse
-  // means it appears ABOVE the item visually (between last-read and first-unread).
   const reversedUnreadIdx = useMemo(
     () => firstUnreadIdx === -1 ? -1 : messages.length - 1 - firstUnreadIdx,
     [firstUnreadIdx, messages.length]
@@ -411,7 +380,7 @@ export default function MessageList({
     if (!msg.deleted) {
       items.push({
         icon: <Smile className="w-4 h-4" />,
-        label: 'Реакция',
+        label: t('chat.reaction'),
         onClick: () => {
           const pos = ctxPosRef.current;
           setContextMenu(null);
@@ -420,12 +389,12 @@ export default function MessageList({
       });
       items.push({
         icon: <CornerUpLeft className="w-4 h-4" />,
-        label: 'Ответить',
+        label: t('chat.reply'),
         onClick: () => onReply(msg),
       });
       items.push({
         icon: <Copy className="w-4 h-4" />,
-        label: 'Копировать текст',
+        label: t('chat.copyText'),
         onClick: () => { navigator.clipboard.writeText(msg.content); },
       });
 
@@ -435,7 +404,7 @@ export default function MessageList({
         if (canUnpin) {
           items.push({
             icon: <PinOff className="w-4 h-4" />,
-            label: 'Открепить',
+            label: t('chat.unpin'),
             onClick: () => {
               removePin(conversationId, existingPin.id)
                 .then(() => useChatStore.getState().removePin(conversationId, existingPin.id))
@@ -446,7 +415,7 @@ export default function MessageList({
       } else {
         items.push({
           icon: <Pin className="w-4 h-4" />,
-          label: 'Закрепить для себя',
+          label: t('chat.pinForMyself'),
           onClick: () => {
             addPin(conversationId, msg.id, false)
               .then(pin => useChatStore.getState().addPin(pin))
@@ -455,7 +424,7 @@ export default function MessageList({
         });
         items.push({
           icon: <Pin className="w-4 h-4" />,
-          label: 'Закрепить для всех',
+          label: t('chat.pinForEveryone'),
           onClick: () => {
             addPin(conversationId, msg.id, true)
               .then(pin => useChatStore.getState().addPin(pin))
@@ -468,7 +437,7 @@ export default function MessageList({
     if (onSaveMessage && !msg.deleted) {
       items.push({
         icon: <Bookmark className="w-4 h-4" />,
-        label: 'В избранное',
+        label: t('chat.toSavedMessages'),
         onClick: () => onSaveMessage(msg),
       });
     }
@@ -476,25 +445,25 @@ export default function MessageList({
     if (isOwn && !msg.deleted) {
       items.push({
         icon: <Pencil className="w-4 h-4" />,
-        label: 'Редактировать',
+        label: t('chat.edit'),
         onClick: () => onEdit(msg),
       });
       items.push({
         icon: <Trash2 className="w-4 h-4" />,
-        label: 'Удалить у себя',
+        label: t('chat.deleteForMyself'),
         onClick: () => onDelete(msg, false),
         danger: true,
       });
       items.push({
         icon: <Trash2 className="w-4 h-4" />,
-        label: 'Удалить у всех',
+        label: t('chat.deleteForEveryone'),
         onClick: () => onDelete(msg, true),
         danger: true,
       });
       if (msg.readAt) {
         items.push({
           icon: <CheckCheck className="w-4 h-4" />,
-          label: `Прочитано в ${formatReadTime(msg.readAt)}`,
+          label: t('chat.readAtTime', { time: formatReadTime(msg.readAt, language) }),
           onClick: () => {},
           info: true,
         });
@@ -502,16 +471,10 @@ export default function MessageList({
     }
 
     return items;
-  }, [user?.id, onReply, onEdit, onDelete, onSaveMessage, conversationId, pins]);
+  }, [user?.id, onReply, onEdit, onDelete, onSaveMessage, conversationId, pins, t, language]);
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0">
-      {/*
-        flex-col-reverse: items stack bottom→top. First DOM child = visual bottom.
-        overflow-anchor: none: we restore scroll position manually after loading
-        older messages, so we don't want the browser to also compensate.
-        scrollTop = 0 ↔ visual bottom (newest messages).
-      */}
       <div
         ref={containerRef}
         className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 flex flex-col-reverse bg-transparent"
@@ -521,21 +484,12 @@ export default function MessageList({
         {/* ── Visual BOTTOM anchor (first DOM child) ── */}
         <div ref={bottomRef} className="h-4 shrink-0" />
 
-        {/* ── Messages — newest first in DOM, oldest last ─────────────────────
-            With column-reverse the DOM order is inverted visually:
-              DOM [newest, …, oldest]  →  visual [oldest(top) … newest(bottom)]
-            Neighbor semantics (mirrored from a regular list):
-              reversedMessages[i-1] = NEWER  (visual below)
-              reversedMessages[i+1] = OLDER  (visual above)
-        ── */}
         {reversedMessages.map((msg, i) => {
           const newerMsg = reversedMessages[i - 1]; // newer, visual below
           const olderMsg = reversedMessages[i + 1]; // older, visual above
 
           const isOwn    = msg.senderId === user?.id;
-          // isFirst = topmost in sender group (oldest in group, no older same-sender)
           const isFirst  = !olderMsg || olderMsg.senderId !== msg.senderId;
-          // isLast = bottommost in sender group (newest in group, no newer same-sender)
           const isLast   = !newerMsg || newerMsg.senderId !== msg.senderId;
 
           const isSticker  = !msg.deleted && isStickerMessage(msg.fileUrl, msg.fileName);
@@ -547,9 +501,6 @@ export default function MessageList({
           const hasReactions = Object.keys(reactions).length > 0;
           const firstUrl   = !msg.deleted ? extractFirstUrl(msg.content) : null;
 
-          // Date divider: show when olderMsg is from a different day (or doesn't exist).
-          // Rendered AFTER message in JSX → appears ABOVE it visually (column-reverse).
-          // The divider label is the date of the current message's day.
           const showDateDivider = !olderMsg ||
             new Date(olderMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
 
@@ -566,13 +517,15 @@ export default function MessageList({
           const timeNode = (
             <>
               {msg.editedAt && !msg.deleted && (
-                <span className={`text-[10px] italic ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>изм.</span>
+                <span className={`text-[10px] italic ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
+                  {language === 'ru' ? 'изм.' : 'edited'}
+                </span>
               )}
               <span
                 className={`text-[11px] ${hasMedia ? '' : !isOwn ? 'text-tg-text-secondary' : ''}`}
                 style={hasMedia ? { color: 'rgba(255,255,255,0.9)' } : isOwn ? ownTextMuted : undefined}
               >
-                {formatTime(msg.createdAt)}
+                {formatTime(msg.createdAt, language)}
               </span>
               {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} failed={msg.failed} />}
             </>
@@ -594,7 +547,7 @@ export default function MessageList({
                     {msg.deleted ? (
                       <div className={`relative px-4 py-2 text-[14px] italic shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`}>
                         <div className="flex flex-wrap items-end gap-2">
-                          <span className={!isOwn ? 'text-tg-text-secondary' : ''} style={isOwn ? ownTextMuted : undefined}>Сообщение удалено</span>
+                          <span className={!isOwn ? 'text-tg-text-secondary' : ''} style={isOwn ? ownTextMuted : undefined}>{t('chat.messageDeleted')}</span>
                           <span className={`flex items-center gap-1 text-[11px] select-none mt-1 ml-auto ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>{timeNode}</span>
                         </div>
                       </div>
@@ -602,7 +555,7 @@ export default function MessageList({
                       <div className={`shadow-sm ${bubbleShape} ${isOwn ? 'bg-tg-msg-out' : 'bg-tg-msg-in'}`} style={isOwn ? ownText : undefined}>
                         <VoiceMessage fileUrl={msg.fileUrl!} seed={msg.id} isOwn={isOwn} />
                         <div className="px-3 pb-1.5 flex justify-end items-center gap-1 text-[11px] select-none -mt-1" style={isOwn ? ownTextMuted : undefined}>
-                          <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt)}</span>
+                          <span className={!isOwn ? 'text-tg-text-secondary' : ''}>{formatTime(msg.createdAt, language)}</span>
                           {isOwn && <MessageStatus readAt={msg.readAt} pending={msg.pending} failed={msg.failed} />}
                         </div>
                       </div>
@@ -610,7 +563,7 @@ export default function MessageList({
                       <div
                         className="relative inline-block group select-none cursor-pointer"
                         onClick={() => onStickerClick?.(msg.fileUrl!, msg.fileType ?? '')}
-                        title="Посмотреть стикерпак"
+                        title={t('stickers.viewStickerPack')}
                       >
                         {isStickerVideoType(msg.fileType ?? '') ? (
                           <video
@@ -642,10 +595,10 @@ export default function MessageList({
                         {docIcon(msg.fileType, msg.fileName)}
                         <div className="flex-1 min-w-0">
                           <div className="text-[13px] font-medium truncate leading-tight" style={isOwn ? ownText : undefined}>
-                            {msg.fileName ?? 'Файл'}
+                            {msg.fileName ?? t('chat.file')}
                           </div>
                           <div className="text-[11px] mt-0.5" style={isOwn ? ownTextMuted : { color: 'var(--color-tg-text-secondary)' }}>
-                            {formatSize(msg.fileSize)}
+                            {formatSize(msg.fileSize, language)}
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0 self-end pb-0.5">
@@ -662,7 +615,7 @@ export default function MessageList({
                           <div className="px-3 py-1.5 mx-1.5 mt-1.5 rounded-lg bg-black/15 border-l-2 border-tg-primary text-[13px] select-none">
                             <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
                             <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
-                              {msg.replyToContent ?? 'Сообщение удалено'}
+                              {msg.replyToContent ?? t('chat.messageDeleted')}
                             </div>
                           </div>
                         ) : undefined}
@@ -676,7 +629,7 @@ export default function MessageList({
                           <div className="mb-1 rounded-lg bg-black/15 border-l-2 border-tg-primary px-2.5 py-1 text-[13px] select-none">
                             <div className="font-semibold text-tg-primary truncate leading-tight">{msg.replyToSenderName}</div>
                             <div className={`truncate mt-0.5 text-xs ${!isOwn ? 'text-tg-text-secondary' : ''}`} style={isOwn ? ownTextMuted : undefined}>
-                              {msg.replyToContent ?? 'Сообщение удалено'}
+                              {msg.replyToContent ?? t('chat.messageDeleted')}
                             </div>
                           </div>
                         )}
@@ -721,26 +674,20 @@ export default function MessageList({
                 </div>
               </div>
 
-              {/* "Новые сообщения" divider — rendered AFTER message in JSX, so it
-                  appears ABOVE the first-unread message visually (column-reverse).
-                  Shows between the last read and the first unread message. */}
               {i === reversedUnreadIdx && (
                 <div className="flex items-center my-4 select-none shrink-0" data-new-messages-sentinel="true">
                   <div className="flex-1 h-px bg-rose-500/30" />
                   <span className="mx-4 text-xs font-semibold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20">
-                    Новые сообщения
+                    {t('chat.newMessages')}
                   </span>
                   <div className="flex-1 h-px bg-rose-500/30" />
                 </div>
               )}
 
-              {/* Date divider — rendered AFTER message in JSX, so it appears ABOVE
-                  the oldest message of that day visually (column-reverse).
-                  Shows when olderMsg is from a different day (or doesn't exist). */}
               {showDateDivider && (
                 <div className="flex justify-center my-3 select-none shrink-0">
                   <div className="bg-tg-input-bg/70 backdrop-blur-[2px] text-tg-text-secondary text-[12px] font-medium px-3 py-1 rounded-full border border-tg-border/30">
-                    {formatDividerDate(msg.createdAt)}
+                    {formatDividerDate(msg.createdAt, language, t)}
                   </div>
                 </div>
               )}
@@ -748,25 +695,20 @@ export default function MessageList({
           );
         })}
 
-        {/* Loading spinner — near visual TOP (before sentinel) */}
         {loadingMore && (
           <div className="flex justify-center py-3 shrink-0">
             <div className="w-5 h-5 border-2 border-tg-primary/30 border-t-tg-primary rounded-full animate-spin" />
           </div>
         )}
 
-        {/* Empty state */}
         {messages.length === 0 && !loadingMore && (
           <div className="flex-1 flex flex-col items-center justify-center py-8">
             <div className="bg-tg-input-bg text-tg-text-secondary text-[15px] px-4 py-1.5 rounded-full select-none">
-              Нет сообщений
+              {t('chat.emptyState')}
             </div>
           </div>
         )}
 
-        {/* ── Visual TOP sentinel (last DOM child) ─────────────────────────────
-            IntersectionObserver fires when this element approaches the container's
-            top edge as the user scrolls upward → triggers loading older messages. */}
         <div ref={topSentinelRef} className="shrink-0 h-px" />
       </div>
 
@@ -807,4 +749,11 @@ export default function MessageList({
       )}
     </div>
   );
+}
+
+function MessageStatus({ readAt, pending, failed }: { readAt?: string; pending?: boolean; failed?: boolean }) {
+  if (failed) return <span className="text-rose-400 font-bold shrink-0">!</span>;
+  if (pending) return <span className="w-3.5 h-3.5 rounded-full border border-current border-t-transparent animate-spin shrink-0" />;
+  if (readAt) return <CheckCheck className="w-3.5 h-3.5 shrink-0" />;
+  return <Check className="w-3.5 h-3.5 shrink-0" />;
 }
